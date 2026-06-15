@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # 1. The Babylon.js Game Client
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      # Tell the frontend where to find the WebSocket server
+      - VITE_SERVER_URL=ws://localhost:3000 
+    depends_on:
+      - backend
+
+  # 2. The Multiplayer Node.js Server
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    # Run server with nodemon or node --watch for live reloading
+    command: npm run dev

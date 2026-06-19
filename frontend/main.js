@@ -1,6 +1,10 @@
+// app.js (or index.js, whatever your main file is named)
 import * as BABYLON from "@babylonjs/core";
-// CRITICAL: This import is required to parse .glb and .gltf files
 import "@babylonjs/loaders/glTF";
+
+// ---> IMPORT YOUR NEW FILES HERE <---
+import { createPlayer } from "./player.js";
+import { createNPC } from "./npc.js";
 
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
@@ -8,33 +12,37 @@ const engine = new BABYLON.Engine(canvas, true);
 const createScene = async () => {
     const scene = new BABYLON.Scene(engine);
 
-    // 1. Enable Global Gravity and Collisions
-    scene.gravity = new BABYLON.Vector3(0, -0.15, 0); // Downward force
+    // World Setup
+    scene.gravity = new BABYLON.Vector3(0, -0.15, 0); 
     scene.collisionsEnabled = true;
 
-    // 2. Setup Lighting
     const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), scene);
     light.intensity = 1.0;
 
-    // 3. Create the Invisible Player Physics Collider
-    // We keep the capsule for physics, but make it INVISIBLE so we only see the Blender boy
-    const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.5, height: 2 }, scene);
-    player.position = new BABYLON.Vector3(-100, 5, 0); // Your custom spawn point
-    player.checkCollisions = true;
-    player.ellipsoid = new BABYLON.Vector3(0.5, 1, 0.5);
-    player.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
-    player.isVisible = false; // <-- CRITICAL: This hides the capsule
-
-    // 4. Setup the Third-Person Camera
-    const camera = new BABYLON.ArcRotateCamera("thirdPersonCamera", Math.PI / 2, Math.PI / 3, 6, player.position, scene);
+    // Temporary target for camera before player loads
+    const camera = new BABYLON.ArcRotateCamera("thirdPersonCamera", Math.PI / 2, Math.PI / 3, 6, BABYLON.Vector3.Zero(), scene);
     camera.attachControl(canvas, true);
-    camera.lockedTarget = player;
+    
     camera.lowerRadiusLimit = 2;
     camera.upperRadiusLimit = 15;
     camera.lowerBetaLimit = 0.1;
     camera.upperBetaLimit = (Math.PI / 2) * 0.95;
 
-    // 5. Setup Keyboard Movement Inputs
+    // ==========================================
+    // CAMERA ZOOM TRACKER
+    // ==========================================
+    let targetZoom = 6; // Default starting zoom
+
+    scene.onPrePointerObservable.add((info) => {
+        if (info.type === BABYLON.PointerEventTypes.POINTERWHEEL) {
+            // Adjust the target zoom based on the scroll wheel
+            targetZoom += (info.event.deltaY > 0 ? 0.5 : -0.5);
+            // Clamp it so they can't zoom too far in or out
+            targetZoom = Math.max(camera.lowerRadiusLimit, Math.min(camera.upperRadiusLimit, targetZoom));
+        }
+    });
+
+    // Input Setup
     const inputMap = {};
     scene.actionManager = new BABYLON.ActionManager(scene);
     scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
@@ -44,124 +52,112 @@ const createScene = async () => {
         inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type === "keydown";
     }));
 
-    // 6. Animation Variables & Smooth Transition Logic
-    let characterMesh = null;
-    let idleAnim = null;
-    let walkAnim = null;
-    let runAnim = null;
-    let currentAnim = null;
-
-    const transitionTo = (newAnim) => {
-        if (!newAnim || currentAnim === newAnim) return;
-        currentAnim.stop(); // Stop the old animation
-        newAnim.start(true, 1.0, newAnim.from, newAnim.to, false); // Start the new one looping
-        currentAnim = newAnim;
+    // ==========================================
+    // POINTER LOCK (Hide Cursor)
+    // ==========================================
+    scene.onPointerDown = (evt) => {
+        // evt.button === 0 means "Left Mouse Click"
+        if (evt.button === 0) {
+            engine.enterPointerlock();
+        }
     };
 
-    // 7. Import the Blender Character & Animations
+    // Import the Campus Map
     try {
-        const charResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "AuBoyAnimations.glb", scene);
-
-        // ADD THIS LINE: Stop all overlapping animations from auto-playing!
-        scene.animationGroups.forEach(anim => anim.stop());
-
-        characterMesh = charResult.meshes[0];
-        characterMesh.parent = player;
-        characterMesh.position = new BABYLON.Vector3(0, 0, 0);
-        characterMesh.rotation = new BABYLON.Vector3(0, Math.PI, 0);
-
-        idleAnim = scene.getAnimationGroupByName("bidle");
-        walkAnim = scene.getAnimationGroupByName("bwalk");
-        runAnim = scene.getAnimationGroupByName("brun");
-
-        if (idleAnim) {
-            idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
-            currentAnim = idleAnim;
-        }
-    } catch (error) {
-        console.error("Error loading the character:", error);
-    }
-
-    // 8. Import the Campus GLB Mesh
-    try {
-        const rootUrl = "./";
-        const fileName = "LPC_au_campus_v0.6.1.glb"; // Your updated campus file
-
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", rootUrl, fileName, scene);
-
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "au_campus_v0.6.glb", scene);
         result.meshes.forEach((mesh) => {
-            mesh.checkCollisions = true;
+            if (mesh.isVisible && mesh.name !== "__root__") {
+                mesh.checkCollisions = true;
+            }
         });
-
-        console.log("Mesh loaded successfully and collisions are active!");
     } catch (error) {
-        console.error("Error loading the GLB file:", error);
+        console.error("Map error:", error);
     }
 
-    // Player movement speed
-    const walkSpeed = 0.15;
-    const runSpeed = 0.3;
-
-    // 9. Movement, Physics, and Animation Loop
+    // ==========================================
+    // INITIALIZE YOUR ENTITIES HERE
+    // ==========================================
+    
+    // 1. Spawn the Player
+    const player = await createPlayer(scene, camera, inputMap);
+    
+    // ==========================================
+    // PRO CAMERA COLLISION (Raycast)
+    // ==========================================
     scene.onBeforeRenderObservable.add(() => {
-        let velocity = BABYLON.Vector3.Zero();
-        let isMoving = false;
-        let isRunning = inputMap["shift"]; // Hold Shift to run
+        if (player) {
+            // 1. Shoot a laser from the player's head towards the camera
+            let headPosition = player.position.clone();
+            headPosition.y += 1.5; // Lift the laser up to shoulder/head level
+            
+            let direction = camera.position.subtract(headPosition).normalize();
+            let ray = new BABYLON.Ray(headPosition, direction, targetZoom);
 
-        let speed = isRunning ? runSpeed : walkSpeed;
+            // 2. Check if the laser hits any walls on the map
+            let hit = scene.pickWithRay(ray, (mesh) => {
+                // Ignore the player, NPCs, and invisible triggers. Only hit solid map walls!
+                return mesh.checkCollisions && mesh.isVisible && mesh.name !== "player" && !mesh.name.includes("_collider");
+            });
 
-        let forward = camera.getDirection(BABYLON.Vector3.Forward());
-        forward.y = 0;
-        forward.normalize();
-
-        let right = camera.getDirection(BABYLON.Vector3.Right());
-        right.y = 0;
-        right.normalize();
-
-        if (inputMap["w"]) { velocity.addInPlace(forward.scale(speed)); isMoving = true; }
-        if (inputMap["s"]) { velocity.addInPlace(forward.scale(-speed)); isMoving = true; }
-        if (inputMap["a"]) { velocity.addInPlace(right.scale(-speed)); isMoving = true; }
-        if (inputMap["d"]) { velocity.addInPlace(right.scale(speed)); isMoving = true; }
-
-        velocity.y = scene.gravity.y;
-        player.moveWithCollisions(velocity);
-
-        // Turn the character mesh to face the direction you are walking
-        if (characterMesh && isMoving) {
-            let targetAngle = Math.atan2(velocity.x, velocity.z);
-            characterMesh.rotation.y = targetAngle;
-        }
-
-        // Switch animations based on movement state
-        if (characterMesh) {
-            if (!isMoving) {
-                transitionTo(idleAnim);
-            } else if (isMoving && !isRunning) {
-                transitionTo(walkAnim);
-            } else if (isMoving && isRunning) {
-                transitionTo(runAnim);
+            if (hit.hit) {
+                // Wall detected! Snap the camera tightly in front of the wall
+                camera.radius = hit.distance - 0.2; 
+            } else {
+                // No wall! Smoothly glide the camera back out to the player's desired zoom
+                camera.radius = BABYLON.Scalar.Lerp(camera.radius, targetZoom, 0.1);
             }
         }
     });
 
+    // 2. Define the route for NPC 1 (Campus Tour Guide)
+    const routeOne = [
+        new BABYLON.Vector3(-60.15, 1.53, 50.57),
+        new BABYLON.Vector3(-64.33, 1.53, -61.37),
+        new BABYLON.Vector3(-67.37, 1.53, 4.34)
+    ];
+    // Spawn NPC 1
+    createNPC(scene, "TourGuide", new BABYLON.Vector3(-66.45, 1.53, 16.32), routeOne);
+
+    // 3. Define the route for NPC 2 (Lost Student)
+    const routeTwo = [
+        new BABYLON.Vector3(-67.41, 1.53, 1.48),
+        new BABYLON.Vector3(-50.60, 1.53, -47.27),
+        new BABYLON.Vector3(-68.89, 1.53, 63.22)
+    ];
+    // Spawn NPC 2 in a totally different location!
+    createNPC(scene, "LostStudent", new BABYLON.Vector3(-66.58, 1.53, -6.79), routeTwo);
+
+    // ==========================================
+    // WAYPOINT HELPER: Click to get coordinates
+    // ==========================================
+    // scene.onPointerDown = function (evt, pickResult) {
+    //     // Only log if we actually clicked on a mesh (like the ground)
+    //     if (pickResult.hit) {
+    //         let p = pickResult.pickedPoint;
+            
+    //         // Format it exactly how the NPC array needs it
+    //         console.log(`new BABYLON.Vector3(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)}),`);
+            
+    //         // Optional: Spawn a tiny red sphere so you can visually see where you clicked!
+    //         let marker = BABYLON.MeshBuilder.CreateSphere("marker", { diameter: 0.5 }, scene);
+    //         marker.position = p;
+    //         let mat = new BABYLON.StandardMaterial("redMat", scene);
+    //         mat.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
+    //         marker.material = mat;
+    //     }
+    // };
+
     return scene;
 };
 
-// 10. Initialize the Scene and Start the Game Loop
+// Start Game Loop
 createScene().then((scene) => {
     engine.hideLoadingUI();
-
     const fpsElement = document.getElementById("fpsCounter");
-
     engine.runRenderLoop(() => {
         scene.render();
-
-        if (fpsElement) {
-            fpsElement.innerHTML = engine.getFps().toFixed(0) + " FPS";
-        }
+        if (fpsElement) fpsElement.innerHTML = engine.getFps().toFixed(0) + " FPS";
     });
 });
 
-window.addEventListener("resize", () => {
-    engine.resize();
-});
+window.addEventListener("resize", () => engine.resize());

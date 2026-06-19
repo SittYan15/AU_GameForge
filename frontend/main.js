@@ -1,6 +1,6 @@
 import * as BABYLON from "@babylonjs/core";
 // CRITICAL: This import is required to parse .glb and .gltf files
-import "@babylonjs/loaders/glTF"; 
+import "@babylonjs/loaders/glTF";
 
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
@@ -16,62 +16,152 @@ const createScene = async () => {
     const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), scene);
     light.intensity = 1.0;
 
-    // 3. Setup the Player Camera (First-Person Movement)
-    // Spawn the camera at X:0, Y:5, Z:0 (starting slightly in the air avoids falling through the floor)
-    const camera = new BABYLON.UniversalCamera("playerCamera", new BABYLON.Vector3(0, 5, 0), scene);
+    // 3. Create the Invisible Player Physics Collider
+    // We keep the capsule for physics, but make it INVISIBLE so we only see the Blender boy
+    const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.5, height: 2 }, scene);
+    player.position = new BABYLON.Vector3(-100, 5, 0); // Your custom spawn point
+    player.checkCollisions = true;
+    player.ellipsoid = new BABYLON.Vector3(0.5, 1, 0.5);
+    player.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
+    player.isVisible = false; // <-- CRITICAL: This hides the capsule
+
+    // 4. Setup the Third-Person Camera
+    const camera = new BABYLON.ArcRotateCamera("thirdPersonCamera", Math.PI / 2, Math.PI / 3, 6, player.position, scene);
     camera.attachControl(canvas, true);
+    camera.lockedTarget = player;
+    camera.lowerRadiusLimit = 2;
+    camera.upperRadiusLimit = 15;
+    camera.lowerBetaLimit = 0.1;
+    camera.upperBetaLimit = (Math.PI / 2) * 0.95;
 
-    // Apply physics rules to the camera
-    camera.applyGravity = true;
-    camera.checkCollisions = true;
+    // 5. Setup Keyboard Movement Inputs
+    const inputMap = {};
+    scene.actionManager = new BABYLON.ActionManager(scene);
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type === "keydown";
+    }));
+    scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+        inputMap[evt.sourceEvent.key.toLowerCase()] = evt.sourceEvent.type === "keydown";
+    }));
 
-    // Define the player's physical size (Width, Height, Depth)
-    camera.ellipsoid = new BABYLON.Vector3(1, 1, 1);
-    
-    // Movement settings
-    camera.speed = 0.3; // Walking speed
-    camera.angularSensibility = 4000; // Mouse look sensitivity
+    // 6. Animation Variables & Smooth Transition Logic
+    let characterMesh = null;
+    let idleAnim = null;
+    let walkAnim = null;
+    let runAnim = null;
+    let currentAnim = null;
 
-    // Map WASD keys for movement (Babylon defaults to Arrow Keys)
-    camera.keysUp.push(87);    // W
-    camera.keysDown.push(83);  // S
-    camera.keysLeft.push(65);  // A
-    camera.keysRight.push(68); // D
+    const transitionTo = (newAnim) => {
+        if (!newAnim || currentAnim === newAnim) return;
+        currentAnim.stop(); // Stop the old animation
+        newAnim.start(true, 1.0, newAnim.from, newAnim.to, false); // Start the new one looping
+        currentAnim = newAnim;
+    };
 
-    // 4. Import the GLB Mesh
+    // 7. Import the Blender Character & Animations
     try {
-        // If your file is in the "public" folder of your Vite project, use "./"
-        // If it is on Cloudflare R2, replace "./" with "https://your-r2-url.com/"
-        const rootUrl = "./"; 
-        const fileName = "MAV_au_campus_v0.4.1.glb";
+        const charResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "AuBoyAnimations.glb", scene);
+
+        // ADD THIS LINE: Stop all overlapping animations from auto-playing!
+        scene.animationGroups.forEach(anim => anim.stop());
+
+        characterMesh = charResult.meshes[0];
+        characterMesh.parent = player;
+        characterMesh.position = new BABYLON.Vector3(0, 0, 0);
+        characterMesh.rotation = new BABYLON.Vector3(0, Math.PI, 0);
+
+        idleAnim = scene.getAnimationGroupByName("bidle");
+        walkAnim = scene.getAnimationGroupByName("bwalk");
+        runAnim = scene.getAnimationGroupByName("brun");
+
+        if (idleAnim) {
+            idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
+            currentAnim = idleAnim;
+        }
+    } catch (error) {
+        console.error("Error loading the character:", error);
+    }
+
+    // 8. Import the Campus GLB Mesh
+    try {
+        const rootUrl = "./";
+        const fileName = "LPC_au_campus_v0.6.1.glb"; // Your updated campus file
 
         const result = await BABYLON.SceneLoader.ImportMeshAsync("", rootUrl, fileName, scene);
 
-        // Loop through all pieces of the 3D model and make them solid
         result.meshes.forEach((mesh) => {
             mesh.checkCollisions = true;
         });
 
         console.log("Mesh loaded successfully and collisions are active!");
-
     } catch (error) {
         console.error("Error loading the GLB file:", error);
     }
 
+    // Player movement speed
+    const walkSpeed = 0.15;
+    const runSpeed = 0.3;
+
+    // 9. Movement, Physics, and Animation Loop
+    scene.onBeforeRenderObservable.add(() => {
+        let velocity = BABYLON.Vector3.Zero();
+        let isMoving = false;
+        let isRunning = inputMap["shift"]; // Hold Shift to run
+
+        let speed = isRunning ? runSpeed : walkSpeed;
+
+        let forward = camera.getDirection(BABYLON.Vector3.Forward());
+        forward.y = 0;
+        forward.normalize();
+
+        let right = camera.getDirection(BABYLON.Vector3.Right());
+        right.y = 0;
+        right.normalize();
+
+        if (inputMap["w"]) { velocity.addInPlace(forward.scale(speed)); isMoving = true; }
+        if (inputMap["s"]) { velocity.addInPlace(forward.scale(-speed)); isMoving = true; }
+        if (inputMap["a"]) { velocity.addInPlace(right.scale(-speed)); isMoving = true; }
+        if (inputMap["d"]) { velocity.addInPlace(right.scale(speed)); isMoving = true; }
+
+        velocity.y = scene.gravity.y;
+        player.moveWithCollisions(velocity);
+
+        // Turn the character mesh to face the direction you are walking
+        if (characterMesh && isMoving) {
+            let targetAngle = Math.atan2(velocity.x, velocity.z);
+            characterMesh.rotation.y = targetAngle;
+        }
+
+        // Switch animations based on movement state
+        if (characterMesh) {
+            if (!isMoving) {
+                transitionTo(idleAnim);
+            } else if (isMoving && !isRunning) {
+                transitionTo(walkAnim);
+            } else if (isMoving && isRunning) {
+                transitionTo(runAnim);
+            }
+        }
+    });
+
     return scene;
 };
 
-// 5. Initialize the Scene and Start the Game Loop
+// 10. Initialize the Scene and Start the Game Loop
 createScene().then((scene) => {
-    // Hide the default HTML loading text once the scene is ready
-    engine.hideLoadingUI(); 
+    engine.hideLoadingUI();
+
+    const fpsElement = document.getElementById("fpsCounter");
 
     engine.runRenderLoop(() => {
         scene.render();
+
+        if (fpsElement) {
+            fpsElement.innerHTML = engine.getFps().toFixed(0) + " FPS";
+        }
     });
 });
 
-// 6. Handle Window Resizing
 window.addEventListener("resize", () => {
     engine.resize();
 });

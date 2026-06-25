@@ -2,14 +2,24 @@
 import * as BABYLON from "@babylonjs/core";
 
 export const createPlayer = async (scene, camera, inputMap) => {
-    const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.5, height: 2 }, scene);
-    player.position = new BABYLON.Vector3(-100, 10, 0); 
+    const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.3, height: 2 }, scene);
+    player.position = new BABYLON.Vector3(-100, 10, 0);
     player.checkCollisions = true;
-    player.ellipsoid = new BABYLON.Vector3(0.5, 1, 0.5);
-    player.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
-    player.isVisible = false; 
+    player.ellipsoid = new BABYLON.Vector3(0.3, 1, 0.3);
+    player.ellipsoidOffset = new BABYLON.Vector3(0, 0, 0);
+    player.stepOffset = 0.5; // This helps the player "step" over tiny floor inaccuracies
+    
+    // ==========================================
+    // DEBUG: SHOW COLLIDER
+    // ==========================================
+    player.isVisible = false; // Change this from false to true!
 
-    // Lock the camera to the new player
+    const wireMat = new BABYLON.StandardMaterial("wireMat", scene);
+    wireMat.wireframe = true;
+    wireMat.emissiveColor = new BABYLON.Color3(1, 0, 0); // Bright Red
+    player.material = wireMat;
+    // ==========================================
+
     camera.lockedTarget = player;
 
     let characterMesh = null;
@@ -17,16 +27,14 @@ export const createPlayer = async (scene, camera, inputMap) => {
 
     const transitionTo = (newAnim) => {
         if (!newAnim || currentAnim === newAnim) return;
-        if (currentAnim) currentAnim.stop(); 
-        newAnim.start(true, 1.0, newAnim.from, newAnim.to, false); 
+        if (currentAnim) currentAnim.stop();
+        newAnim.start(true, 1.0, newAnim.from, newAnim.to, false);
         currentAnim = newAnim;
     };
 
-    // Import character...
-    const charResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "AuBoyAnimations.0.2.glb", scene);
-    scene.animationGroups.forEach(anim => anim.stop());
+    const charResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "BoyAnimV2.4.glb", scene);
+    charResult.animationGroups.forEach(anim => anim.stop());
 
-    // Fix transparency
     charResult.meshes.forEach((mesh) => {
         if (mesh.material) {
             mesh.material.transparencyMode = BABYLON.PBRMaterial.PBRMATERIAL_OPAQUE;
@@ -35,28 +43,35 @@ export const createPlayer = async (scene, camera, inputMap) => {
     });
 
     characterMesh = charResult.meshes[0];
-    characterMesh.parent = player; 
+    characterMesh.parent = player;
     characterMesh.position = new BABYLON.Vector3(0, 0, 0);
     characterMesh.rotation = new BABYLON.Vector3(0, Math.PI, 0);
-    characterMesh.scaling = new BABYLON.Vector3(1.8, 1.8, 1.8); 
+    characterMesh.scaling = new BABYLON.Vector3(1.8, 1.8, 1.8);
 
-    idleAnim = scene.getAnimationGroupByName("bidle");
-    walkAnim = scene.getAnimationGroupByName("bwalk");
-    runAnim = scene.getAnimationGroupByName("brun");
+    // ---> EXPOSE MESH: So main.js can hide the body in First-Person Mode
+    player.characterMesh = characterMesh;
+
+    idleAnim = charResult.animationGroups.find(a => a.name.includes("idle"));
+    walkAnim = charResult.animationGroups.find(a => a.name.includes("walk"));
+    runAnim = charResult.animationGroups.find(a => a.name.includes("run"));
 
     if (idleAnim) {
         idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
         currentAnim = idleAnim;
     }
 
-    const walkSpeed = 0.12; 
-    const runSpeed = 0.28; 
+    const walkSpeed = 0.10;
+    const runSpeed = 0.20;
 
-    // Player Movement Loop
+    // ---> JUMP VARIABLES
+    let verticalVelocity = 0;
+    const jumpForce = 0.3; // How high you jump
+    const gravity = scene.gravity.y; // Grabs the -0.15 from main.js
+
     scene.onBeforeRenderObservable.add(() => {
         let velocity = BABYLON.Vector3.Zero();
         let isMoving = false;
-        let isRunning = inputMap["shift"]; 
+        let isRunning = inputMap["shift"];
 
         let deltaTime = scene.getAnimationRatio();
         let speed = (isRunning ? runSpeed : walkSpeed) * deltaTime;
@@ -74,18 +89,48 @@ export const createPlayer = async (scene, camera, inputMap) => {
         if (inputMap["a"]) { velocity.addInPlace(right.scale(-speed)); isMoving = true; }
         if (inputMap["d"]) { velocity.addInPlace(right.scale(speed)); isMoving = true; }
 
-        velocity.y = scene.gravity.y * deltaTime;
+        // ==========================================
+        // JUMP AND GRAVITY PHYSICS
+        // ==========================================
+        // 1. Shoot a tiny ray down from the capsule's center to check the ground
+        let ray = new BABYLON.Ray(player.position, new BABYLON.Vector3(0, -1, 0), 1.5);
+        let hit = scene.pickWithRay(ray, (mesh) => mesh.checkCollisions && mesh.name !== "player");
+
+        if (hit.hit) {
+            // We are touching the ground
+            verticalVelocity = -0.15; // Tiny downward force to stick to ramps
+
+            // If Spacebar is pressed, apply jump force!
+            if (inputMap[" "]) {
+                verticalVelocity = jumpForce;
+            }
+        } else {
+            // We are in the air, slowly pull down with gravity
+            verticalVelocity += gravity * deltaTime;
+        }
+
+        // Apply the vertical math to our actual movement velocity
+        velocity.y = verticalVelocity;
         player.moveWithCollisions(velocity);
 
         if (characterMesh && isMoving) {
             let targetAngle = Math.atan2(velocity.x, velocity.z);
-            characterMesh.rotation.y = targetAngle; 
+            characterMesh.rotation.y = targetAngle;
         }
 
-        if (characterMesh) {
+        // Only play ground animations if we are actually touching the ground
+        if (characterMesh && hit.hit) {
             if (!isMoving) transitionTo(idleAnim);
             else if (isMoving && !isRunning) transitionTo(walkAnim);
             else if (isMoving && isRunning) transitionTo(runAnim);
+        }
+
+        // ==========================================
+        // BOUNDARY CHECK & TELEPORT
+        // ==========================================
+        if (player.position.y <= -500) {
+            // Instantly move the player back to the original spawn coordinates
+            player.position = new BABYLON.Vector3(-100, 30, 0); 
         }
     });
 

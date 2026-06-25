@@ -4,11 +4,11 @@ import * as BABYLON from "@babylonjs/core";
 // ---> THE FIX: Add parameters for name, start position, and waypoints
 export const createNPC = async (scene, npcName, startPosition, waypoints) => {
     // Use the custom name for the collider
-    const npc = BABYLON.MeshBuilder.CreateCapsule(npcName + "_collider", { radius: 0.5, height: 2 }, scene);
+    const npc = BABYLON.MeshBuilder.CreateCapsule(npcName + "_collider", { radius: 0.3, height: 2 }, scene);
     npc.position = startPosition; // Use the custom start position
     npc.checkCollisions = true;
-    npc.ellipsoid = new BABYLON.Vector3(0.5, 1, 0.5);
-    npc.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);
+    npc.ellipsoid = new BABYLON.Vector3(0.3, 1, 0.3);
+    npc.ellipsoidOffset = new BABYLON.Vector3(0, 0, 0);
     npc.isVisible = false;
 
     let npcMesh = null;
@@ -23,13 +23,13 @@ export const createNPC = async (scene, npcName, startPosition, waypoints) => {
         npcCurrentAnim = newAnim;
     };
 
-    const npcResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "AuBoyAnimations.0.2.glb", scene);
+    const npcResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "BoyAnimV2.4.glb", scene);
     npcResult.animationGroups.forEach(anim => anim.stop());
 
     // Because we are loading multiple NPCs, Babylon might rename "bwalk" to "bwalk 1".
     // .includes() safely finds the correct animation for THIS specific NPC.
-    npcIdleAnim = npcResult.animationGroups.find(a => a.name.includes("bidle"));
-    npcWalkAnim = npcResult.animationGroups.find(a => a.name.includes("bwalk"));
+    npcIdleAnim = npcResult.animationGroups.find(a => a.name.includes("idle"));
+    npcWalkAnim = npcResult.animationGroups.find(a => a.name.includes("walk"));
 
     npcResult.meshes.forEach((mesh) => {
         if (mesh.material) {

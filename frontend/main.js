@@ -15,7 +15,7 @@ const engine = new BABYLON.Engine(canvas, true);
 // ==========================================
 class CustomLoadingScreen {
     constructor() {
-        this.loadingUIText = "Loading AU Campus..."; 
+        this.loadingUIText = "Loading AU Campus...";
         this.loadingUIBackgroundColor = "#111111"; // Dark background
     }
 
@@ -81,14 +81,14 @@ class CustomLoadingScreen {
             // Stop the simulation and snap the bar to 100%
             clearInterval(this.loadingInterval);
             this.progressBar.style.width = "100%";
-            
+
             // Wait a fraction of a second so the user sees it hit 100%, then fade out
             setTimeout(() => {
                 this.loadingDiv.style.opacity = "0";
                 setTimeout(() => {
                     this.loadingDiv.remove();
                 }, 500); // Matches the CSS transition time
-            }, 300); 
+            }, 300);
         }
     }
 }
@@ -102,6 +102,8 @@ const createScene = async () => {
 
     // Cloudflare R2 Public URL
     const r2BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+    // Local relative path for testing
+    const localBaseUrl = "./au_campus";
 
     // World Setup
     scene.gravity = new BABYLON.Vector3(0, -0.05, 0);
@@ -150,7 +152,7 @@ const createScene = async () => {
     // CAMERA ZOOM TRACKER
     // ==========================================
     let targetZoom = 6; // Default starting zoom
-    let isFirstPerson = false; // Add this!
+    let isFirstPerson = true; // Add this!
 
     scene.onPrePointerObservable.add((info) => {
         if (info.type === BABYLON.PointerEventTypes.POINTERWHEEL && !isFirstPerson) { // Only allow zooming in third-person mode
@@ -182,29 +184,172 @@ const createScene = async () => {
 
             if (isFirstPerson) {
                 // Switch to FPS
-                camera.lockedTarget = headNode; 
+                camera.lockedTarget = headNode;
                 camera.lowerRadiusLimit = 0.01;
                 camera.upperRadiusLimit = 0.01;
                 camera.radius = 0.01;
-                
+
                 // UNLOCK THE ANGLE: Allow full sky-viewing in First-Person
-                camera.upperBetaLimit = Math.PI - 0.1; 
-                
+                camera.upperBetaLimit = Math.PI - 0.1;
+
                 if (player.characterMesh) player.characterMesh.setEnabled(false);
             } else {
                 // Switch back to TPS
-                camera.lockedTarget = player; 
+                camera.lockedTarget = player;
                 camera.lowerRadiusLimit = 2;
                 camera.upperRadiusLimit = 15;
-                camera.radius = targetZoom; 
-                
+                camera.radius = targetZoom;
+
                 // RE-LOCK THE ANGLE: Stop the camera from hitting the floor in Third-Person
-                camera.upperBetaLimit = (Math.PI / 2) + 0.2; 
-                
+                camera.upperBetaLimit = (Math.PI / 2) + 0.2;
+
                 if (player.characterMesh) player.characterMesh.setEnabled(true);
             }
         }
     }));
+
+    // ==========================================
+    // MOBILE DETECTION & VIRTUAL CONTROLLER
+    // ==========================================
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || navigator.maxTouchPoints > 0;
+
+    if (isMobile) {
+        const mobileUI = document.getElementById("mobileController");
+        if (mobileUI) mobileUI.style.display = "block";
+
+        const bindTouchButton = (elementId, key) => {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            el.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                inputMap[key] = true;
+
+                if (key === "v" && player) {
+                    isFirstPerson = !isFirstPerson;
+                    toggleCameraMode();
+                }
+            }, { passive: false });
+
+            el.addEventListener("touchend", (e) => {
+                e.preventDefault();
+                inputMap[key] = false;
+            }, { passive: false });
+        };
+
+        // Bind standard action buttons
+        bindTouchButton("btn-jump", " ");
+        bindTouchButton("btn-cam", "v");
+
+        // ---> NEW: JOYSTICK LOGIC <---
+        const joystickZone = document.getElementById("joystick-zone");
+        const joystickKnob = document.getElementById("joystick-knob");
+
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickActive = false;
+        const maxRadius = 40; // Max pixels the knob can move from the center
+
+        if (joystickZone && joystickKnob) {
+            // Touch Start: Grab the center coordinates of the joystick base
+            // Touch Start: Grab the center coordinates of the joystick base
+            joystickZone.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                joystickActive = true;
+                const rect = joystickZone.getBoundingClientRect();
+                joystickCenter = {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+                // FIXED: Use targetTouches to only track the finger on the joystick
+                handleJoystickMove(e.targetTouches[0]);
+            }, { passive: false });
+
+            // Touch Move: Calculate distance from center and map to W/A/S/D
+            joystickZone.addEventListener("touchmove", (e) => {
+                if (!joystickActive) return;
+                e.preventDefault();
+                // FIXED: Use targetTouches to only track the finger on the joystick
+                if (e.targetTouches.length > 0) {
+                    handleJoystickMove(e.targetTouches[0]);
+                }
+            }, { passive: false });
+
+            // Touch End: Snap back to center and stop movement
+            const resetJoystick = (e) => {
+                if (!joystickActive) return;
+                if (e) e.preventDefault();
+                joystickActive = false;
+
+                // Reset UI
+                joystickKnob.style.transform = `translate(-50%, -50%)`;
+
+                // Reset Inputs
+                inputMap["w"] = false;
+                inputMap["a"] = false;
+                inputMap["s"] = false;
+                inputMap["d"] = false;
+            };
+
+            joystickZone.addEventListener("touchend", resetJoystick, { passive: false });
+            joystickZone.addEventListener("touchcancel", resetJoystick, { passive: false });
+
+            // Helper function to process the math
+            function handleJoystickMove(touch) {
+                let dx = touch.clientX - joystickCenter.x;
+                let dy = touch.clientY - joystickCenter.y;
+
+                // Calculate actual distance from center
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Clamp the visual knob so it doesn't leave the base
+                if (distance > maxRadius) {
+                    dx = (dx / distance) * maxRadius;
+                    dy = (dy / distance) * maxRadius;
+                }
+
+                // Move the knob physically on screen
+                joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+                // Translate position into W/A/S/D inputs
+                // We use a deadzone threshold of 15 pixels so tiny twitches don't move the player
+                const threshold = 15;
+                inputMap["w"] = dy < -threshold; // Pushing Up
+                inputMap["s"] = dy > threshold;  // Pushing Down
+                inputMap["a"] = dx < -threshold; // Pushing Left
+                inputMap["d"] = dx > threshold;  // Pushing Right
+            }
+        }
+
+        // Full Screen Logic
+        const fullscreenBtn = document.getElementById("btn-fullscreen");
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                toggleFullScreen();
+            }, { passive: false });
+        }
+    }
+
+    // ---> NEW: FULL SCREEN HELPER FUNCTION <---
+    function toggleFullScreen() {
+        const doc = window.document;
+        const docEl = doc.documentElement;
+
+        // Support for different browser prefixes
+        const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+        const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+        // Check if we are already in fullscreen
+        if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+            if (requestFullScreen) {
+                requestFullScreen.call(docEl);
+            }
+        } else {
+            if (cancelFullScreen) {
+                cancelFullScreen.call(doc);
+            }
+        }
+    }
 
     // ==========================================
     // POINTER LOCK (Hide Cursor)
@@ -218,7 +363,8 @@ const createScene = async () => {
 
     // Import the Campus Map
     try {
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.7.3.glb", scene);
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.8.1.glb", scene);
+        // const result = await BABYLON.SceneLoader.ImportMeshAsync("", localBaseUrl, "au_campus_v0.8.1.glb", scene);
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;
@@ -239,6 +385,16 @@ const createScene = async () => {
     const headNode = new BABYLON.TransformNode("headNode", scene);
     headNode.parent = player;
     headNode.position = new BABYLON.Vector3(0, 0.8, 0.2); // Up at eye level, slightly forward
+
+    // ---> FORCE FIRST PERSON MODE ON LOAD <---
+    if (isFirstPerson) {
+        camera.lockedTarget = headNode;
+        camera.lowerRadiusLimit = 0.01;
+        camera.upperRadiusLimit = 0.01;
+        camera.radius = 0.01;
+        camera.upperBetaLimit = Math.PI - 0.1;
+        if (player.characterMesh) player.characterMesh.setEnabled(false);
+    }
 
     // ==========================================
     // PRO CAMERA COLLISION (Raycast)

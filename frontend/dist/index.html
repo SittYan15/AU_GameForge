@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AU Gameforge Multiplayer</title>
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #2c2c2c;
+            /* Prevent double-tap zooming on mobile */
+            touch-action: none;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* MOBILE CONTROLLER STYLES */
+        #mobileController {
+            display: none;
+            /* Hidden by default */
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            z-index: 100;
+            pointer-events: none;
+            /* Let touches pass through the container */
+        }
+
+        .m-btn {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            pointer-events: auto;
+            /* Re-enable touches for buttons */
+        }
+
+        .m-btn:active {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* ADD THIS INSTEAD: */
+        #joystick-zone {
+            position: absolute;
+            left: 30px;
+            bottom: 10px;
+            width: 140px;
+            height: 140px;
+            pointer-events: auto;
+            /* Catch touches */
+            border-radius: 50%;
+        }
+
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        #joystick-knob {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            /* Intentionally no transition so it follows the finger instantly */
+        }
+
+        #action-buttons {
+            position: absolute;
+            right: 30px;
+            bottom: 0;
+            width: 150px;
+            height: 150px;
+        }
+
+        /* ==========================================
+           ORIENTATION OVERLAY STYLES
+           ========================================== */
+        #orientation-overlay {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111111;
+            color: white;
+            z-index: 99999;
+            /* Keep it on top of everything */
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        .game-container {
+            height: 100dvh;
+            /* Safely accounts for mobile address bars */
+            width: 100vw;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #chatToggle {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            z-index: 60;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(10, 10, 10, 0.85);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #chatPanel {
+            position: absolute;
+            left: 20px;
+            bottom: 72px;
+            width: min(360px, calc(100vw - 40px));
+            max-height: 320px;
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            background: rgba(10, 10, 10, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+        }
+
+        #chatPanel.open {
+            display: flex;
+        }
+
+        #chatMessages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .chatMessage {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 6px 8px;
+            border-radius: 6px;
+            word-break: break-word;
+        }
+
+        .chatMeta {
+            opacity: 0.75;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        #chatForm {
+            display: flex;
+            gap: 6px;
+            padding: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        #chatInput {
+            flex: 1;
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            outline: none;
+        }
+
+        #chatSend {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            background: #e53935;
+            color: white;
+            cursor: pointer;
+        }
+
+        .rotate-icon {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 20px;
+            animation: rotatePhone 2s ease-in-out infinite;
+        }
+
+        @keyframes rotatePhone {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            50% {
+                transform: rotate(-90deg);
+            }
+
+            100% {
+                transform: rotate(-90deg);
+            }
+        }
+
+        /* Show the overlay ONLY on mobile devices currently in portrait mode */
+        @media screen and (max-width: 900px) and (orientation: portrait) {
+            #orientation-overlay {
+                display: flex;
+            }
+
+            /* Hide the mobile controller while the overlay is showing */
+            #mobileController {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 900px) {
+            #chatToggle {
+                left: 10px;
+                bottom: 10px;
+            }
+
+            #chatPanel {
+                left: 10px;
+                right: 10px;
+                width: auto;
+                bottom: 58px;
+                max-height: 220px;
+            }
+        }
+    </style>
+
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <script type="module" crossorigin src="/assets/index-BnvHlnvH.js"></script>
+</head>
+
+<body>
+
+    <!-- ORIENTATION OVERLAY -->
+    <div id="orientation-overlay">
+        <!-- A simple SVG icon of a phone rotating -->
+        <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+        </svg>
+        <h2>Rotate your device</h2>
+        <p>This experience is best played in landscape mode.</p>
+    </div>
+
+    <button id="chatToggle" type="button" aria-label="Toggle chat">💬 Chat</button>
+
+    <div id="chatPanel">
+        <div id="chatMessages" aria-live="polite"></div>
+        <form id="chatForm">
+            <input id="chatInput" type="text" maxlength="160" placeholder="Type a message..." />
+            <button id="chatSend" type="submit">Send</button>
+        </form>
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="fpsCounter"
+        style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); color: lime; padding: 5px 10px; font-family: monospace; font-size: 16px; border-radius: 4px; z-index: 10;">
+        0 FPS
+    </div>
+
+    <!-- MOBILE CONTROLLER UI -->
+    <div id="mobileController">
+        <!-- Full Screen Button (Top Right) -->
+        <div id="btn-fullscreen" class="m-btn"
+            style="position: fixed; top: 15px; right: 15px; width: auto; padding: 0 15px; height: 40px; font-size: 14px; border-radius: 8px; z-index: 200;">
+            ⛶ Full Screen
+        </div>
+
+        <!-- Movement Joystick -->
+        <div id="joystick-zone">
+            <div id="joystick-base">
+                <div id="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="action-buttons">
+            <div id="btn-jump" class="m-btn" style="bottom: 10px; right: 10px; width: 80px; border-radius: 20px;">Jump
+            </div>
+            <div id="btn-cam" class="m-btn" style="top: 10px; right: 10px; width: 60px; font-size: 14px;">Cam</div>
+        </div>
+    </div>
+
+</body>
+
+</html>

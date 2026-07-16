@@ -10,6 +10,128 @@ import { createCar } from "./car.js";
 const canvas = document.getElementById("renderCanvas");
 const engine = new BABYLON.Engine(canvas, true);
 
+const chatState = {
+    socket: null,
+    messages: [],
+    name: localStorage.getItem("auGamePlayerName") || `Player${Math.floor(Math.random() * 1000)}`,
+    isOpen: false
+};
+
+const chatMessagesEl = document.getElementById("chatMessages");
+const chatInputEl = document.getElementById("chatInput");
+const chatFormEl = document.getElementById("chatForm");
+const chatPanelEl = document.getElementById("chatPanel");
+const chatToggleEl = document.getElementById("chatToggle");
+
+function renderChatMessages() {
+    if (!chatMessagesEl) return;
+
+    const visibleMessages = chatState.messages.slice(-50);
+    chatMessagesEl.innerHTML = "";
+
+    visibleMessages.forEach((message) => {
+        const row = document.createElement("div");
+        row.className = "chatMessage";
+
+        const meta = document.createElement("div");
+        meta.className = "chatMeta";
+        meta.textContent = `${message.sender} • ${new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+        const text = document.createElement("div");
+        text.textContent = message.text;
+
+        row.appendChild(meta);
+        row.appendChild(text);
+        chatMessagesEl.appendChild(row);
+    });
+
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
+
+function addChatMessage(message) {
+    chatState.messages.push(message);
+
+    if (chatState.messages.length > 50) {
+        chatState.messages.shift();
+    }
+
+    renderChatMessages();
+}
+
+function setChatOpen(open) {
+    chatState.isOpen = open;
+
+    if (chatPanelEl) {
+        chatPanelEl.classList.toggle("open", open);
+    }
+
+    if (chatToggleEl) {
+        chatToggleEl.textContent = open ? "✕ Close" : "💬 Chat";
+    }
+
+    if (open && chatInputEl) {
+        setTimeout(() => chatInputEl.focus(), 50);
+    }
+}
+
+function connectToChat() {
+    if (!chatMessagesEl || !chatInputEl || !chatFormEl) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const socketUrl = `${protocol}://${window.location.hostname}:3000`;
+
+    const socket = new WebSocket(socketUrl);
+    chatState.socket = socket;
+
+    socket.addEventListener("open", () => {
+        console.log("Connected to shared chat");
+    });
+
+    socket.addEventListener("message", (event) => {
+        try {
+            const payload = JSON.parse(event.data);
+
+            if (payload.type === "chatHistory") {
+                chatState.messages = (payload.messages || []).slice(-50);
+                renderChatMessages();
+            } else if (payload.type === "chatMessage") {
+                addChatMessage(payload.message);
+            }
+        } catch (error) {
+            console.error("Failed to parse chat payload:", error);
+        }
+    });
+
+    socket.addEventListener("close", () => {
+        console.warn("Chat connection closed");
+    });
+
+    socket.addEventListener("error", () => {
+        console.warn("Chat connection unavailable");
+    });
+
+    if (chatToggleEl) {
+        chatToggleEl.addEventListener("click", () => {
+            setChatOpen(!chatState.isOpen);
+        });
+    }
+
+    chatFormEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const text = chatInputEl.value.trim();
+        if (!text) return;
+
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "chatMessage", sender: chatState.name, text }));
+            chatInputEl.value = "";
+        }
+    });
+}
+
+setChatOpen(false);
+connectToChat();
+
 // ==========================================
 // CUSTOM LOADING SCREEN OVERLAY
 // ==========================================

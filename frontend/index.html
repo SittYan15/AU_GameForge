@@ -133,6 +133,92 @@
             overflow: hidden;
         }
 
+        #chatToggle {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            z-index: 60;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 999px;
+            background: rgba(10, 10, 10, 0.85);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #chatPanel {
+            position: absolute;
+            left: 20px;
+            bottom: 72px;
+            width: min(360px, calc(100vw - 40px));
+            max-height: 320px;
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            background: rgba(10, 10, 10, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+        }
+
+        #chatPanel.open {
+            display: flex;
+        }
+
+        #chatMessages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .chatMessage {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 6px 8px;
+            border-radius: 6px;
+            word-break: break-word;
+        }
+
+        .chatMeta {
+            opacity: 0.75;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+
+        #chatForm {
+            display: flex;
+            gap: 6px;
+            padding: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        #chatInput {
+            flex: 1;
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            outline: none;
+        }
+
+        #chatSend {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            background: #e53935;
+            color: white;
+            cursor: pointer;
+        }
+
         .rotate-icon {
             width: 60px;
             height: 60px;
@@ -165,6 +251,21 @@
                 display: none !important;
             }
         }
+
+        @media (max-width: 900px) {
+            #chatToggle {
+                left: 10px;
+                bottom: 10px;
+            }
+
+            #chatPanel {
+                left: 10px;
+                right: 10px;
+                width: auto;
+                bottom: 58px;
+                max-height: 220px;
+            }
+        }
     </style>
 
     <meta name="viewport"
@@ -183,6 +284,16 @@
         </svg>
         <h2>Rotate your device</h2>
         <p>This experience is best played in landscape mode.</p>
+    </div>
+
+    <button id="chatToggle" type="button" aria-label="Toggle chat">💬 Chat</button>
+
+    <div id="chatPanel">
+        <div id="chatMessages" aria-live="polite"></div>
+        <form id="chatForm">
+            <input id="chatInput" type="text" maxlength="160" placeholder="Type a message..." />
+            <button id="chatSend" type="submit">Send</button>
+        </form>
     </div>
 
     <canvas id="renderCanvas"></canvas>

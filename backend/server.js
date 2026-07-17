@@ -1,14 +1,29 @@
+import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 
 const PORT = process.env.PORT || 3000;
-const wss = new WebSocketServer({ port: PORT });
+
+// 1. Create a standard HTTP server to handle wake-up pings
+const server = createServer((req, res) => {
+    // When the uptime bot hits /ping, reply with "pong"
+    if (req.url === '/ping') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('pong');
+        return;
+    }
+    // Default fallback response
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Multiplayer server is alive!');
+});
+
+// 2. Attach your WebSocket server to this HTTP server
+const wss = new WebSocketServer({ server });
 const clients = new Set();
 const chatHistory = [];
 const MAX_CHAT_HISTORY = 50;
 
 function broadcast(payload) {
     const message = JSON.stringify(payload);
-
     for (const client of clients) {
         if (client.readyState === 1) {
             client.send(message);
@@ -60,4 +75,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-console.log('Multiplayer backend running on port 3000');
+// 3. Start the combined server
+server.listen(PORT, () => {
+    console.log(`Multiplayer backend running on port ${PORT}`);
+});

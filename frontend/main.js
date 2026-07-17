@@ -237,21 +237,9 @@ const createScene = async () => {
     // ==========================================
     // ADD HDRI SKYBOX AND LIGHTING
     // ==========================================
-    // 1. Load the HDRI/Environment texture
-    // (Babylon prefers highly optimized .env files over raw .hdr files)
-    const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./e_citrus_orchard_road_puresky_2k.env", scene);
-
-    // 2. Tell the scene to use this texture to light your 3D models accurately
+    const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./e_noon_puresky_2k.env", scene);
     scene.environmentTexture = envTexture;
-
-    // 3. Create the visible Skybox using the helper
-    const envHelper = scene.createDefaultEnvironment({
-        createSkybox: true,
-        skyboxSize: 1500,
-        skyboxTexture: envTexture,
-        createGround: false, // Ground is false because we have the map
-        skyboxColor: new BABYLON.Color3(1, 1, 1) // THE FIX: Pure white prevents the texture from being tinted
-    });
+    const skybox = scene.createDefaultSkybox(envTexture, true, 1500);
 
     // Temporary target for camera before player loads
     const camera = new BABYLON.ArcRotateCamera("thirdPersonCamera", Math.PI / 2, Math.PI / 3, 6, BABYLON.Vector3.Zero(), scene);

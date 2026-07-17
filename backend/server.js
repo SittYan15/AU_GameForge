@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws';
 
-const wss = new WebSocketServer({ port: 3000 });
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocketServer({ port: PORT });
 const clients = new Set();
 const chatHistory = [];
 const MAX_CHAT_HISTORY = 50;

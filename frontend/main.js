@@ -225,7 +225,7 @@ const createScene = async () => {
     // Cloudflare R2 Public URL
     const r2BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
     // Local relative path for testing
-    const localBaseUrl = "./au_campus";
+    const localBaseUrl = "./au_campus/";
 
     // World Setup
     scene.gravity = new BABYLON.Vector3(0, -0.05, 0);
@@ -473,8 +473,8 @@ const createScene = async () => {
 
     // Import the Campus Map
     try {
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.8.1.glb", scene);
-        // const result = await BABYLON.SceneLoader.ImportMeshAsync("", localBaseUrl, "au_campus_v0.8.1.glb", scene);
+        // const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.8.1.glb", scene);
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", localBaseUrl, "au_campus_v0.8.1.glb", scene);
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;

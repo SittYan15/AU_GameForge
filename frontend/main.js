@@ -78,7 +78,12 @@ function connectToChat() {
     if (!chatMessagesEl || !chatInputEl || !chatFormEl) return;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const socketUrl = `${protocol}://${window.location.hostname}:3000`;
+
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
+    const socketUrl = isLocalhost
+        ? "ws://localhost:3000"
+        : "wss://au-gameforge-backend.onrender.com";
 
     const socket = new WebSocket(socketUrl);
     chatState.socket = socket;

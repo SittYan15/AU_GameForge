@@ -1,5 +1,18 @@
 services:
-  # 1. The Babylon.js Game Client
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: trustvault
+      POSTGRES_PASSWORD: "1263"
+      POSTGRES_DB: au_gameforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Saves DB data so it survives restarts
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql
+
   frontend:
     build: ./frontend
     ports:
@@ -27,4 +40,9 @@ services:
     command: npm run dev
     environment:
       - CLIENT_ORIGIN=http://localhost:3000
-      - DATABASE_HOST=host.docker.internal
+      - DATABASE_HOST=db
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

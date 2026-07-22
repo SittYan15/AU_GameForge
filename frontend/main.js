@@ -806,8 +806,8 @@ const createScene = async (session) => {
 
     // Import the Campus Map
     try {
-        // const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.8.1.glb", scene);
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", localBaseUrl, "au_campus_v0.8.1.glb", scene);
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", r2BaseUrl, "au_campus_v0.8.1.glb", scene);
+        // const result = await BABYLON.SceneLoader.ImportMeshAsync("", localBaseUrl, "au_campus_v0.8.1.glb", scene);
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;

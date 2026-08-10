@@ -25,7 +25,7 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     camera.minZ = 0.05;
 
     try {
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", BaseUrl, "au_campus_exterior_v1.0.0.glb", scene);
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", BaseUrl, "au_campus_exterior_v1.0.1.glb", scene);
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;
@@ -82,6 +82,36 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     ];
 
     createCar(scene, "BlueCruiser", carRoute, player);
+
+    // ==========================================
+    // DEBUG: COORDINATE HELPER (Shift + Click)
+    // ==========================================
+    scene.onPointerObservable.add((pointerInfo) => {
+        // Check if the user clicked, held the Shift key, and actually hit a 3D mesh
+        if (
+            pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && 
+            pointerInfo.event.shiftKey && 
+            pointerInfo.pickInfo.hit
+        ) {
+            const point = pointerInfo.pickInfo.pickedPoint;
+            
+            // 1. Print the exact vector to the browser console for easy copy-pasting
+            console.log(`new BABYLON.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`);
+
+            // 2. Spawn a highly visible red sphere at the exact click location
+            const marker = BABYLON.MeshBuilder.CreateSphere("debugMarker", { diameter: 1 }, scene);
+            marker.position = point;
+            
+            const mat = new BABYLON.StandardMaterial("markerMat", scene);
+            mat.emissiveColor = new BABYLON.Color3(1, 0, 0); // Bright Red
+            mat.wireframe = true;
+            marker.material = mat;
+            
+            // Disable collisions on the marker so it doesn't block the player
+            marker.checkCollisions = false; 
+            marker.isPickable = false;
+        }
+    });
 
     return { scene, camera, player, headNode };
 }

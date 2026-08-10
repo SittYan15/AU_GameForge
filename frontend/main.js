@@ -16,9 +16,8 @@ import { createMultiplayer } from "./multiplayer.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-// Between the two BaseUrl definitions, you can choose which one to use based on your deployment. The first one is a remote URL, while the second one is a local path.
-const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-// const BaseUrl = "./au_campus/";
+// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;

@@ -2,6 +2,7 @@ services:
 
   db:
     image: postgres:15-alpine
+    platform: linux/amd64
     restart: always
     environment:
       POSTGRES_USER: trustvault
@@ -15,6 +16,7 @@ services:
 
   frontend:
     build: ./frontend
+    platform: linux/amd64
     ports:
       - "3000:5173"
     volumes:
@@ -29,6 +31,7 @@ services:
   # 2. The Multiplayer Node.js Server
   backend:
     build: ./backend
+    platform: linux/amd64
     env_file:
       - ./backend/.env
     ports:

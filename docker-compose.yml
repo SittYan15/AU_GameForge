@@ -2,7 +2,6 @@ services:
 
   db:
     image: postgres:15-alpine
-    platform: linux/amd64
     restart: always
     environment:
       POSTGRES_USER: trustvault
@@ -16,7 +15,6 @@ services:
 
   frontend:
     build: ./frontend
-    platform: linux/amd64
     ports:
       - "3000:5173"
     volumes:
@@ -31,7 +29,6 @@ services:
   # 2. The Multiplayer Node.js Server
   backend:
     build: ./backend
-    platform: linux/amd64
     env_file:
       - ./backend/.env
     ports:
@@ -42,7 +39,7 @@ services:
     # Run server with nodemon or node --watch for live reloading
     command: npm run dev
     environment:
-      - CLIENT_ORIGIN=http://localhost:3000
+      - CLIENT_ORIGIN=http://localhost:3000, http://10.120.122.129:3000
       - DATABASE_HOST=db
     depends_on:
       - db

@@ -112,64 +112,106 @@ export class InputController {
             bindTouchButton("btn-jump", " ");
             bindTouchButton("btn-cam", "v");
 
+            // --- PUBG STYLE DUAL-ZONE JOYSTICK ---
+
             const joystickZone = document.getElementById("joystick-zone");
             const joystickKnob = document.getElementById("joystick-knob");
 
             let joystickCenter = { x: 0, y: 0 };
             let joystickActive = false;
-            const maxRadius = 40; 
+            let activeTouchId = null; 
+            
+            // Define our two zones
+            const walkThreshold = 10; // Minimum distance to register a walk
+            const runThreshold = 45;  // Distance required to trigger running
+            const maxRadius = 60;     // Maximum visual distance the knob can be pulled
 
             if (joystickZone && joystickKnob) {
-                // FIXED: Convert to arrow function to keep 'this' scope intact
                 const handleJoystickMove = (touch) => {
                     let dx = touch.clientX - joystickCenter.x;
                     let dy = touch.clientY - joystickCenter.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
+                    // Cap the visual distance of the knob
+                    let visualDx = dx;
+                    let visualDy = dy;
                     if (distance > maxRadius) {
-                        dx = (dx / distance) * maxRadius;
-                        dy = (dy / distance) * maxRadius;
+                        visualDx = (dx / distance) * maxRadius;
+                        visualDy = (dy / distance) * maxRadius;
                     }
 
-                    joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                    // Move the knob visually
+                    joystickKnob.style.transform = `translate(calc(-50% + ${visualDx}px), calc(-50% + ${visualDy}px))`;
 
-                    const threshold = 15;
-                    this.inputMap["w"] = dy < -threshold; 
-                    this.inputMap["s"] = dy > threshold;  
-                    this.inputMap["a"] = dx < -threshold; 
-                    this.inputMap["d"] = dx > threshold;  
+                    // 1. Basic Directional Walking (Inner Zone)
+                    this.inputMap["w"] = dy < -walkThreshold; 
+                    this.inputMap["s"] = dy > walkThreshold;  
+                    this.inputMap["a"] = dx < -walkThreshold; 
+                    this.inputMap["d"] = dx > walkThreshold;  
+
+                    // 2. Sprinting (Outer Zone)
+                    this.inputMap["shift"] = distance > runThreshold; 
                 };
 
                 joystickZone.addEventListener("touchstart", (e) => {
                     e.preventDefault();
+                    if (joystickActive) return;
+
                     joystickActive = true;
+                    const touch = e.changedTouches[0];
+                    activeTouchId = touch.identifier;
+
+                    // Calculate the fixed center of the joystick zone
                     const rect = joystickZone.getBoundingClientRect();
                     joystickCenter = {
                         x: rect.left + rect.width / 2,
                         y: rect.top + rect.height / 2
                     };
-                    handleJoystickMove(e.targetTouches[0]);
+
+                    // Immediately calculate movement so the knob snaps to the finger
+                    handleJoystickMove(touch);
+
                 }, { passive: false });
 
                 joystickZone.addEventListener("touchmove", (e) => {
                     if (!joystickActive) return;
                     e.preventDefault();
-                    if (e.targetTouches.length > 0) {
-                        handleJoystickMove(e.targetTouches[0]);
+                    
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        if (e.changedTouches[i].identifier === activeTouchId) {
+                            handleJoystickMove(e.changedTouches[i]);
+                            break;
+                        }
                     }
                 }, { passive: false });
 
                 const resetJoystick = (e) => {
                     if (!joystickActive) return;
-                    if (e) e.preventDefault();
-                    joystickActive = false;
+                    
+                    if (e) {
+                        let touchEnded = false;
+                        for (let i = 0; i < e.changedTouches.length; i++) {
+                            if (e.changedTouches[i].identifier === activeTouchId) {
+                                touchEnded = true;
+                                break;
+                            }
+                        }
+                        if (!touchEnded) return;
+                        e.preventDefault();
+                    }
 
+                    joystickActive = false;
+                    activeTouchId = null;
+
+                    // Snap the knob back to the center
                     joystickKnob.style.transform = `translate(-50%, -50%)`;
 
+                    // Reset all inputs when thumb is lifted
                     this.inputMap["w"] = false;
                     this.inputMap["a"] = false;
                     this.inputMap["s"] = false;
                     this.inputMap["d"] = false;
+                    this.inputMap["shift"] = false; // Reset running
                 };
 
                 joystickZone.addEventListener("touchend", resetJoystick, { passive: false });

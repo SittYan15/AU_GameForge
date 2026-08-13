@@ -7,7 +7,7 @@ import {
     markNonGround
 } from "./grounding.js";
 
-export const createPlayer = async (scene, camera, inputMap, onAnimationChanged = () => {}) => {
+export const createPlayer = async (scene, camera, inputMap, onAnimationChanged = () => { }) => {
     const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.3, height: 2 }, scene);
     player.position = new BABYLON.Vector3(-100, 10, 0);
     player.checkCollisions = true;
@@ -15,7 +15,7 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
     player.ellipsoidOffset = new BABYLON.Vector3(0, 0, 0);
     player.stepOffset = 0.5; // This helps the player "step" over tiny floor inaccuracies
     markNonGround(player, "local-player");
-    
+
     // ==========================================
     // DEBUG: SHOW COLLIDER
     // ==========================================
@@ -92,13 +92,16 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
         animation: player.networkAnimation
     });
 
-    const walkSpeed = 0.10;
-    const runSpeed = 0.20;
+    const walkSpeed = 0.06;
+    const runSpeed = 0.16;
 
     // ---> JUMP VARIABLES
     let verticalVelocity = 0;
-    const jumpForce = 0.3; // How high you jump
-    const gravity = scene.gravity.y; // Grabs the -0.15 from main.js
+    const jumpForce = 0.25; // How high you jump
+    const gravity = scene.gravity.y + 0.025;
+
+    let lastJumpTime = 0;
+    const jumpCooldown = 600;
 
     scene.onBeforeRenderObservable.add(() => {
         let velocity = BABYLON.Vector3.Zero();
@@ -121,20 +124,22 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
         if (inputMap["a"]) { velocity.addInPlace(right.scale(-speed)); isMoving = true; }
         if (inputMap["d"]) { velocity.addInPlace(right.scale(speed)); isMoving = true; }
 
-        // ==========================================
-        // JUMP AND GRAVITY PHYSICS
-        // ==========================================
         // 1. Shoot a tiny ray down from the capsule's center to check the ground
         let ray = new BABYLON.Ray(player.position, new BABYLON.Vector3(0, -1, 0), 1.5);
         let hit = scene.pickWithRay(ray, (mesh) => mesh.checkCollisions && mesh.name !== "player");
 
         if (hit.hit) {
-            // We are touching the ground
-            verticalVelocity = -0.15; // Tiny downward force to stick to ramps
+            // Get the current time in milliseconds
+            let currentTime = performance.now();
 
-            // If Spacebar is pressed, apply jump force!
-            if (inputMap[" "]) {
+            if (verticalVelocity <= 0) {
+                verticalVelocity = -0.15; // Tiny downward force to stick to ramps[cite: 1]
+            }
+
+            // If Spacebar is pressed AND the cooldown has passed, apply jump force!
+            if (inputMap[" "] && (currentTime - lastJumpTime) > jumpCooldown) {
                 verticalVelocity = jumpForce;
+                lastJumpTime = currentTime;
             }
         } else {
             // We are in the air, slowly pull down with gravity
@@ -157,9 +162,6 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
             else if (isMoving && isRunning) transitionTo(runAnim);
         }
 
-        // ==========================================
-        // BOUNDARY CHECK & TELEPORT
-        // ==========================================
         if (player.position.y <= -500) {
             // Instantly move the player back to the original spawn coordinates
             player.setGroundedPosition(new BABYLON.Vector3(-100, 30, 0), "local-respawn");

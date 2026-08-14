@@ -27,7 +27,12 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
     player.material = wireMat;
     // ==========================================
 
-    camera.lockedTarget = player;
+    const cameraTarget = new BABYLON.TransformNode("cameraTarget", scene);
+    cameraTarget.parent = player;
+    cameraTarget.position = new BABYLON.Vector3(0, 0.7, 0); 
+    camera.lockedTarget = cameraTarget;
+
+    camera.angularSensibility = 1500;
 
     let characterMesh = null;
     let idleAnim, walkAnim, runAnim, currentAnim;

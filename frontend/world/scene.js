@@ -13,7 +13,7 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     scene.collisionsEnabled = true;
 
     const light = new BABYLON.HemisphericLight("ambientLight", new BABYLON.Vector3(0, 1, 0), scene);
-    light.intensity = 0.5;
+    light.intensity = 0.3;
 
     const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./e_noon_puresky_2k.env", scene);
     scene.environmentTexture = envTexture;
@@ -25,7 +25,7 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     camera.minZ = 0.05;
 
     try {
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", BaseUrl, "au_campus_exterior_v1.0.1.glb", scene);
+        const result = await BABYLON.SceneLoader.ImportMeshAsync("", BaseUrl, "au_campus_exterior_v1.0.2.glb", scene);
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;

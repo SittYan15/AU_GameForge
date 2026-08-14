@@ -57,10 +57,10 @@ export class InputController {
             this.camera.radius = 0.01;
             this.camera.upperBetaLimit = Math.PI - 0.1;
             if (this.player.characterMesh) this.player.characterMesh.setEnabled(false);
-        } else {
+        } else {  
             this.camera.lockedTarget = this.player;
-            this.camera.lowerRadiusLimit = 2;
-            this.camera.upperRadiusLimit = 15;
+            this.camera.lowerRadiusLimit = 4;
+            this.camera.upperRadiusLimit = 10;
             this.camera.radius = this.targetZoom;
             this.camera.upperBetaLimit = (Math.PI / 2) + 0.2;
             if (this.player.characterMesh) this.player.characterMesh.setEnabled(true);

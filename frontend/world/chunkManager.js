@@ -20,7 +20,7 @@ const buildingsConfig = [
         name: "CL_Plaza_Stair",
         filename: "I_CL_Plaza_Stair_v1.0.0.glb",
         center: new BABYLON.Vector3(15.63, 3.8, -20.39),
-        size: new BABYLON.Vector3(50, 5, 30),
+        size: new BABYLON.Vector3(60, 5, 30),
         renderMargin: 5,
         horizontalLoad: 15,
         horizontalDispose: 30,
@@ -82,6 +82,32 @@ const buildingsConfig = [
         status: "UNLOADED"
     },
     {
+        name: "CL_Building Library L2 Left",
+        filename: "I_CL_Library_L2_Left_v1.0.0.glb",
+        center: new BABYLON.Vector3(0, 20, 21.23),
+        size: new BABYLON.Vector3(70, 7.8, 45),
+        renderMargin: 5,
+        horizontalLoad: 15,
+        horizontalDispose: 50,
+        verticalLoad: 10,
+        verticalDispose: 30,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "CL_Building Library L2 Right",
+        filename: "I_CL_Library_L2_Right_v1.0.0.glb",
+        center: new BABYLON.Vector3(0, 20, -21.23),
+        size: new BABYLON.Vector3(70, 7.8, 45),
+        renderMargin: 5,
+        horizontalLoad: 15,
+        horizontalDispose: 50,
+        verticalLoad: 10,
+        verticalDispose: 30,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
         name: "CL_Building Library L3",
         filename: "I_CL_Library_L3_v1.0.0.glb",
         center: new BABYLON.Vector3(0, 23, 0),
@@ -89,6 +115,32 @@ const buildingsConfig = [
         renderMargin: 5,
         horizontalLoad: 15,
         horizontalDispose: 30,
+        verticalLoad: 10,
+        verticalDispose: 30,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "CL_Building Library L3",
+        filename: "I_CL_Library_L3_Park_v1.0.0.glb",
+        center: new BABYLON.Vector3(0, 23, 0),
+        size: new BABYLON.Vector3(70, 7.8, 70),
+        renderMargin: 5,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 10,
+        verticalDispose: 30,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "CL_Building Library L3 Right",
+        filename: "I_CL_Library_L3_Right_v1.0.0.glb",
+        center: new BABYLON.Vector3(0, 23, -21.23),
+        size: new BABYLON.Vector3(70, 7.8, 45),
+        renderMargin: 5,
+        horizontalLoad: 15,
+        horizontalDispose: 50,
         verticalLoad: 10,
         verticalDispose: 30,
         container: null,
@@ -327,7 +379,7 @@ const buildingsConfig = [
     {
         name: "SR_B_EndPoint",
         filename: "I_SR_EndP_v1.0.0.glb",
-        center: new BABYLON.Vector3(-83.4735, 10, -83.4735),
+        center: new BABYLON.Vector3(83.4735, 10, 83.4735),
         size: new BABYLON.Vector3(80, 35, 80),
         renderMargin: 0,
         horizontalLoad: 15,
@@ -369,7 +421,7 @@ function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin 
 
 export function initChunkManager(scene, player, BaseUrl) {
 
-    drawDebugZones(scene, buildingsConfig, "SG_B_EndPoint");
+    // drawDebugZones(scene, buildingsConfig, "SG_B_EndPoint");
 
     scene.onBeforeRenderObservable.add(() => {
         if (!player) return;

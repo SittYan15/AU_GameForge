@@ -4,8 +4,6 @@ import { createPlayer } from "../player.js";
 import { createNPC } from "../npc.js";
 import { createCar } from "../car.js";
 import { markWalkableGround } from "../grounding.js";
-import { createRlglSignal } from "./rlglSignal.js";
-import { createRlglArenaTimer } from "./rlglArenaTimer.js";
 
 export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, animationCallback) {
     const scene = new BABYLON.Scene(engine);
@@ -107,28 +105,6 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     wallMat.emissiveColor = new BABYLON.Color3(1, 0, 0);
     startingWall.material = wallMat;
     startingWall.checkCollisions = true;
-
-    const rlglArenaTimer =
-        createRlglArenaTimer(scene);
-
-    scene.metadata =
-        scene.metadata || {};
-
-    scene.metadata.rlglArenaTimer =
-        rlglArenaTimer;
-
-    // Physical Red Light / Green Light signal
-    const rlglSignal =
-        createRlglSignal(scene);
-
-    scene.metadata =
-        scene.metadata || {};
-
-    scene.metadata.rlglSignal =
-        rlglSignal;
-
-    scene.metadata.rlglArenaTimer =
-        rlglArenaTimer;
 
     let insideRlgl = false;
     let portalCooldownUntil = 0;

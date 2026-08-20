@@ -1,254 +1,702 @@
 import * as BABYLON from "@babylonjs/core";
-import * as GUI from "@babylonjs/gui";
+
+function makeMaterial(scene, name, diffuse, emissive = BABYLON.Color3.Black()) {
+    const material = new BABYLON.StandardMaterial(name, scene);
+    material.diffuseColor = diffuse;
+    material.emissiveColor = emissive;
+    material.specularColor = new BABYLON.Color3(0.15, 0.15, 0.15);
+    return material;
+}
+
+function createSevenSegmentDisplay(scene, parent) {
+    const root = new BABYLON.TransformNode(
+        "rlglCountdownDisplay",
+        scene
+    );
+
+    root.parent = parent;
+
+    // Put countdown in front of the traffic light.
+    root.position = new BABYLON.Vector3(
+        -5.8,
+        9.2,
+        -0.8
+    );
+
+    const material =
+        new BABYLON.StandardMaterial(
+            "rlglCountdownMaterial",
+            scene
+        );
+
+    material.disableLighting = true;
+
+    material.diffuseColor =
+        new BABYLON.Color3(
+            1,
+            0.45,
+            0.02
+        );
+
+    material.emissiveColor =
+        new BABYLON.Color3(
+            1,
+            0.25,
+            0
+        );
+
+    const OFF =
+        new BABYLON.Color3(
+            0.06,
+            0.02,
+            0
+        );
+
+    const ON =
+        new BABYLON.Color3(
+            1,
+            0.25,
+            0
+        );
+
+    /*
+          A
+        -----
+       |     |
+      F|     |B
+       |  G  |
+        -----
+       |     |
+      E|     |C
+       |     |
+        -----
+          D
+    */
+
+    const segmentDefinitions = {
+        A: {
+            position: [0, 2.4, 0],
+            scale: [2.2, 0.35, 0.3]
+        },
+
+        B: {
+            position: [2.0, 1.2, 0],
+            scale: [0.35, 1.3, 0.3]
+        },
+
+        C: {
+            position: [2.0, -1.2, 0],
+            scale: [0.35, 1.3, 0.3]
+        },
+
+        D: {
+            position: [0, -2.4, 0],
+            scale: [2.2, 0.35, 0.3]
+        },
+
+        E: {
+            position: [-2.0, -1.2, 0],
+            scale: [0.35, 1.3, 0.3]
+        },
+
+        F: {
+            position: [-2.0, 1.2, 0],
+            scale: [0.35, 1.3, 0.3]
+        },
+
+        G: {
+            position: [0, 0, 0],
+            scale: [2.2, 0.35, 0.3]
+        }
+    };
+
+    const segments = {};
+
+    Object.entries(
+        segmentDefinitions
+    ).forEach(
+        ([name, definition]) => {
+
+            const segment =
+                BABYLON.MeshBuilder
+                    .CreateBox(
+                        `rlglSegment_${name}`,
+                        {
+                            width: 1,
+                            height: 1,
+                            depth: 1
+                        },
+                        scene
+                    );
+
+            segment.parent = root;
+
+            segment.position =
+                new BABYLON.Vector3(
+                    ...definition.position
+                );
+
+            segment.scaling =
+                new BABYLON.Vector3(
+                    ...definition.scale
+                );
+
+            segment.material =
+                material;
+
+            segment.isPickable =
+                false;
+
+            segments[name] =
+                segment;
+        }
+    );
+
+    const digitMap = {
+        0: ["A", "B", "C", "D", "E", "F"],
+        1: ["B", "C"],
+        2: ["A", "B", "G", "E", "D"],
+        3: ["A", "B", "C", "D", "G"],
+        4: ["F", "G", "B", "C"],
+        5: ["A", "F", "G", "C", "D"],
+        6: ["A", "F", "E", "D", "C", "G"],
+        7: ["A", "B", "C"],
+        8: [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G"
+        ],
+        9: ["A", "B", "C", "D", "F", "G"]
+    };
+
+    function setNumber(number) {
+        const active =
+            digitMap[number] || [];
+
+        Object.entries(
+            segments
+        ).forEach(
+            ([name, segment]) => {
+
+                const enabled =
+                    active.includes(name);
+
+                segment.setEnabled(
+                    enabled
+                );
+            }
+        );
+
+        root.setEnabled(true);
+    }
+
+    function hide() {
+        root.setEnabled(false);
+    }
+
+    hide();
+
+    return {
+        root,
+        setNumber,
+        hide
+    };
+}
 
 export function createRlglSignal(scene) {
     const root = new BABYLON.TransformNode("rlglSignalRoot", scene);
 
-    // Put it at the front of the RLGL field.
-    // Adjust position if needed.
-    root.position = new BABYLON.Vector3(500, 12, 544);
-    root.rotation.y = Math.PI; // face players
+    // Current arena runs from about Z=498 -> Z=540.
+    // Put the physical signal just beyond the finish line.
+    root.position = new BABYLON.Vector3(500, 9.5, 547);
 
-    // -----------------------------------
-    // SUPPORT / POLE
-    // -----------------------------------
+    // Face the players standing toward lower Z.
+    root.rotation.y = 0;
+
+    // ------------------------------------------------------------
+    // POLE
+    // ------------------------------------------------------------
     const pole = BABYLON.MeshBuilder.CreateCylinder(
         "rlglSignalPole",
-        { height: 8, diameter: 0.4 },
+        {
+            height: 10,
+            diameter: 0.65,
+            tessellation: 20
+        },
         scene
     );
+
     pole.parent = root;
-    pole.position.y = -2;
+    pole.position.y = 5;
+    pole.isPickable = false;
+    pole.checkCollisions = false;
 
-    const poleMat = new BABYLON.StandardMaterial("rlglPoleMat", scene);
-    poleMat.diffuseColor = new BABYLON.Color3(0.25, 0.25, 0.25);
-    pole.material = poleMat;
+    const poleMaterial = makeMaterial(
+        scene,
+        "rlglSignalPoleMaterial",
+        new BABYLON.Color3(0.12, 0.12, 0.14)
+    );
 
-    // -----------------------------------
-    // SIGN BOARD
-    // -----------------------------------
-    const signBoard = BABYLON.MeshBuilder.CreatePlane(
-        "rlglSignBoard",
-        { width: 8, height: 3.2 },
+    pole.material = poleMaterial;
+
+    // ------------------------------------------------------------
+    // TRAFFIC-LIGHT HOUSING
+    // ------------------------------------------------------------
+    const housing = BABYLON.MeshBuilder.CreateBox(
+        "rlglSignalHousing",
+        {
+            width: 4.8,
+            height: 8.5,
+            depth: 1.7
+        },
         scene
     );
-    signBoard.parent = root;
-    signBoard.position.y = 2;
-    signBoard.isPickable = false;
 
-    const signMat = new BABYLON.StandardMaterial("rlglSignMat", scene);
-    signMat.diffuseColor = new BABYLON.Color3(0.08, 0.08, 0.08);
-    signMat.emissiveColor = new BABYLON.Color3(0.08, 0.08, 0.08);
-    signBoard.material = signMat;
+    housing.parent = root;
+    housing.position.y = 9.2;
+    housing.isPickable = false;
+    housing.checkCollisions = false;
 
-    const signTexture = GUI.AdvancedDynamicTexture.CreateForMesh(
-        signBoard,
-        1024,
-        512,
-        false
+    const housingMaterial = makeMaterial(
+        scene,
+        "rlglSignalHousingMaterial",
+        new BABYLON.Color3(0.025, 0.025, 0.03)
     );
 
-    const bg = new GUI.Rectangle();
-    bg.thickness = 8;
-    bg.cornerRadius = 24;
-    bg.color = "white";
-    bg.background = "#111111";
-    signTexture.addControl(bg);
+    housing.material = housingMaterial;
 
-    const titleText = new GUI.TextBlock();
-    titleText.text = "WAITING";
-    titleText.color = "white";
-    titleText.fontSize = 120;
-    titleText.fontStyle = "bold";
-    titleText.top = "-20px";
-    bg.addControl(titleText);
+    // ------------------------------------------------------------
+    // LIGHT BACKPLATES
+    // ------------------------------------------------------------
+    const redBackplate = BABYLON.MeshBuilder.CreateCylinder(
+        "rlglRedBackplate",
+        {
+            height: 0.45,
+            diameter: 3.25,
+            tessellation: 40
+        },
+        scene
+    );
 
-    const subText = new GUI.TextBlock();
-    subText.text = "Join the game";
-    subText.color = "#dddddd";
-    subText.fontSize = 48;
-    subText.top = "120px";
-    bg.addControl(subText);
+    redBackplate.parent = root;
+    redBackplate.position = new BABYLON.Vector3(0, 11.1, -0.9);
+    redBackplate.rotation.x = Math.PI / 2;
+    redBackplate.isPickable = false;
+    redBackplate.checkCollisions = false;
 
-    // -----------------------------------
-    // DOLL HEAD
-    // -----------------------------------
-    const headRoot = new BABYLON.TransformNode("rlglHeadRoot", scene);
-    headRoot.parent = root;
-    headRoot.position.y = 5;
+    const greenBackplate = BABYLON.MeshBuilder.CreateCylinder(
+        "rlglGreenBackplate",
+        {
+            height: 0.45,
+            diameter: 3.25,
+            tessellation: 40
+        },
+        scene
+    );
+
+    greenBackplate.parent = root;
+    greenBackplate.position = new BABYLON.Vector3(0, 7.35, -0.9);
+    greenBackplate.rotation.x = Math.PI / 2;
+    greenBackplate.isPickable = false;
+    greenBackplate.checkCollisions = false;
+
+    const backplateMaterial = makeMaterial(
+        scene,
+        "rlglBackplateMaterial",
+        new BABYLON.Color3(0.01, 0.01, 0.012)
+    );
+
+    redBackplate.material = backplateMaterial;
+    greenBackplate.material = backplateMaterial;
+
+    // ------------------------------------------------------------
+    // ACTUAL RED / GREEN BULB MESHES
+    // ------------------------------------------------------------
+    const redLamp = BABYLON.MeshBuilder.CreateSphere(
+        "rlglRedLamp",
+        {
+            diameter: 2.65,
+            segments: 28
+        },
+        scene
+    );
+
+    redLamp.parent = root;
+    redLamp.position = new BABYLON.Vector3(0, 11.1, -1.22);
+    redLamp.scaling.z = 0.42;
+    redLamp.isPickable = false;
+    redLamp.checkCollisions = false;
+
+    const greenLamp = BABYLON.MeshBuilder.CreateSphere(
+        "rlglGreenLamp",
+        {
+            diameter: 2.65,
+            segments: 28
+        },
+        scene
+    );
+
+    greenLamp.parent = root;
+    greenLamp.position = new BABYLON.Vector3(0, 7.35, -1.22);
+    greenLamp.scaling.z = 0.42;
+    greenLamp.isPickable = false;
+    greenLamp.checkCollisions = false;
+
+    const redMaterial = makeMaterial(
+        scene,
+        "rlglRedLampMaterial",
+        new BABYLON.Color3(0.15, 0.01, 0.01)
+    );
+
+    redMaterial.disableLighting = true;
+
+    const greenMaterial = makeMaterial(
+        scene,
+        "rlglGreenLampMaterial",
+        new BABYLON.Color3(0.01, 0.15, 0.02)
+    );
+
+    greenMaterial.disableLighting = true;
+
+    redLamp.material = redMaterial;
+    greenLamp.material = greenMaterial;
+
+    // ------------------------------------------------------------
+    // LIGHT SOURCES
+    // ------------------------------------------------------------
+    const redPointLight = new BABYLON.PointLight(
+        "rlglRedPointLight",
+        new BABYLON.Vector3(0, 11.1, -2.0),
+        scene
+    );
+
+    redPointLight.parent = root;
+    redPointLight.diffuse = new BABYLON.Color3(1, 0.02, 0.02);
+    redPointLight.range = 28;
+    redPointLight.intensity = 0;
+
+    const greenPointLight = new BABYLON.PointLight(
+        "rlglGreenPointLight",
+        new BABYLON.Vector3(0, 7.35, -2.0),
+        scene
+    );
+
+    greenPointLight.parent = root;
+    greenPointLight.diffuse = new BABYLON.Color3(0.05, 1, 0.12);
+    greenPointLight.range = 28;
+    greenPointLight.intensity = 0;
+
+    // ------------------------------------------------------------
+    // OPTIONAL DOLL / SCANNER HEAD
+    // ------------------------------------------------------------
+    const headPivot = new BABYLON.TransformNode(
+        "rlglSignalHeadPivot",
+        scene
+    );
+
+    headPivot.parent = root;
+    headPivot.position = new BABYLON.Vector3(0, 15.2, 0);
 
     const head = BABYLON.MeshBuilder.CreateSphere(
-        "rlglDollHead",
-        { diameter: 1.8 },
+        "rlglSignalHead",
+        {
+            diameter: 2.8,
+            segments: 24
+        },
         scene
     );
-    head.parent = headRoot;
 
-    const headMat = new BABYLON.StandardMaterial("rlglHeadMat", scene);
-    headMat.diffuseColor = new BABYLON.Color3(0.95, 0.85, 0.75);
-    head.material = headMat;
+    head.parent = headPivot;
+    head.isPickable = false;
+    head.checkCollisions = false;
 
-    // Eyes
+    const headMaterial = makeMaterial(
+        scene,
+        "rlglSignalHeadMaterial",
+        new BABYLON.Color3(0.78, 0.63, 0.52)
+    );
+
+    head.material = headMaterial;
+
     const leftEye = BABYLON.MeshBuilder.CreateSphere(
-        "rlglLeftEye",
-        { diameter: 0.22 },
+        "rlglSignalLeftEye",
+        {
+            diameter: 0.38,
+            segments: 16
+        },
         scene
     );
-    leftEye.parent = headRoot;
-    leftEye.position = new BABYLON.Vector3(-0.32, 0.12, -0.82);
+
+    leftEye.parent = headPivot;
+    leftEye.position = new BABYLON.Vector3(-0.48, 0.15, -1.28);
+    leftEye.isPickable = false;
 
     const rightEye = BABYLON.MeshBuilder.CreateSphere(
-        "rlglRightEye",
-        { diameter: 0.22 },
+        "rlglSignalRightEye",
+        {
+            diameter: 0.38,
+            segments: 16
+        },
         scene
     );
-    rightEye.parent = headRoot;
-    rightEye.position = new BABYLON.Vector3(0.32, 0.12, -0.82);
 
-    const eyeMat = new BABYLON.StandardMaterial("rlglEyeMat", scene);
-    eyeMat.disableLighting = true;
-    eyeMat.emissiveColor = new BABYLON.Color3(0.15, 0.15, 0.15);
-    eyeMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.05);
+    rightEye.parent = headPivot;
+    rightEye.position = new BABYLON.Vector3(0.48, 0.15, -1.28);
+    rightEye.isPickable = false;
 
-    leftEye.material = eyeMat;
-    rightEye.material = eyeMat;
-
-    const eyeLight = new BABYLON.PointLight(
-        "rlglEyeLight",
-        root.position.add(new BABYLON.Vector3(0, 5, -1)),
-        scene
+    const eyeMaterial = makeMaterial(
+        scene,
+        "rlglSignalEyeMaterial",
+        BABYLON.Color3.Black()
     );
-    eyeLight.intensity = 0;
-    eyeLight.range = 18;
 
-    function animateHeadFacingPlayers(facePlayers) {
-        const targetY = facePlayers ? Math.PI : 0;
+    eyeMaterial.disableLighting = true;
+    leftEye.material = eyeMaterial;
+    rightEye.material = eyeMaterial;
+
+    const countdownDisplay =
+        createSevenSegmentDisplay(
+            scene,
+            root
+        );
+
+
+    const instructionGreen =
+        BABYLON.MeshBuilder
+            .CreateSphere(
+                "rlglInstructionGreen",
+                {
+                    diameter: 1.2
+                },
+                scene
+            );
+
+    instructionGreen.parent = root;
+
+    instructionGreen.position =
+        new BABYLON.Vector3(
+            -6,
+            5,
+            -1
+        );
+
+    instructionGreen.material =
+        greenMaterial;
+
+    instructionGreen.isPickable =
+        false;
+
+
+    const instructionRed =
+        BABYLON.MeshBuilder
+            .CreateSphere(
+                "rlglInstructionRed",
+                {
+                    diameter: 1.2
+                },
+                scene
+            );
+
+    instructionRed.parent = root;
+
+    instructionRed.position =
+        new BABYLON.Vector3(
+            -6,
+            3,
+            -1
+        );
+
+    instructionRed.material =
+        redMaterial;
+
+    instructionRed.isPickable =
+        false;
+
+    // ------------------------------------------------------------
+    // STATE
+    // ------------------------------------------------------------
+    const RED_ON = new BABYLON.Color3(1, 0.015, 0.015);
+    const RED_OFF = new BABYLON.Color3(0.08, 0.002, 0.002);
+
+    const GREEN_ON = new BABYLON.Color3(0.02, 1, 0.08);
+    const GREEN_OFF = new BABYLON.Color3(0.002, 0.08, 0.008);
+
+    const IDLE_EYE = new BABYLON.Color3(0.18, 0.18, 0.2);
+
+    function animateHead(targetY) {
+        scene.stopAnimation(headPivot);
 
         BABYLON.Animation.CreateAndStartAnimation(
-            "rlglHeadTurn",
-            headRoot,
+            "rlglSignalHeadTurn",
+            headPivot,
             "rotation.y",
             30,
             18,
-            headRoot.rotation.y,
+            headPivot.rotation.y,
             targetY,
             BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
         );
     }
 
-    function setVisuals({
-        title,
-        subtitle,
-        bgColor,
-        borderColor,
-        emissiveColor,
-        eyeColor,
-        eyeIntensity,
-        facePlayers
-    }) {
-        titleText.text = title;
-        subText.text = subtitle;
+    function setIdle() {
+        redMaterial.emissiveColor.copyFrom(RED_OFF);
+        redMaterial.diffuseColor.copyFrom(RED_OFF);
 
-        bg.background = bgColor;
-        bg.color = borderColor;
+        greenMaterial.emissiveColor.copyFrom(GREEN_OFF);
+        greenMaterial.diffuseColor.copyFrom(GREEN_OFF);
 
-        signMat.emissiveColor = emissiveColor;
+        redPointLight.intensity = 0;
+        greenPointLight.intensity = 0;
 
-        eyeMat.emissiveColor = eyeColor;
-        eyeLight.diffuse = eyeColor;
-        eyeLight.intensity = eyeIntensity;
+        eyeMaterial.emissiveColor.copyFrom(IDLE_EYE);
 
-        animateHeadFacingPlayers(facePlayers);
+        animateHead(0);
     }
 
     function setWaiting() {
-        setVisuals({
-            title: "WAITING",
-            subtitle: "Get ready",
-            bgColor: "#1f2937",
-            borderColor: "white",
-            emissiveColor: new BABYLON.Color3(0.12, 0.12, 0.18),
-            eyeColor: new BABYLON.Color3(0.2, 0.2, 0.25),
-            eyeIntensity: 0.8,
-            facePlayers: false
-        });
+        countdownDisplay.hide();
+
+        redMaterial.emissiveColor.copyFrom(
+            RED_OFF
+        );
+
+        greenMaterial.emissiveColor.copyFrom(
+            GREEN_OFF
+        );
+
+        redPointLight.intensity = 0;
+        greenPointLight.intensity = 0;
+
+        // Yellow/amber eyes = waiting.
+        eyeMaterial.emissiveColor =
+            new BABYLON.Color3(
+                1,
+                0.55,
+                0.02
+            );
+
+        animateHead(0);
     }
 
     function setCountdown(count) {
-        setVisuals({
-            title: String(count),
-            subtitle: "Round starting",
-            bgColor: "#7c5a00",
-            borderColor: "#fff2b3",
-            emissiveColor: new BABYLON.Color3(0.25, 0.18, 0.03),
-            eyeColor: new BABYLON.Color3(0.9, 0.7, 0.1),
-            eyeIntensity: 2.5,
-            facePlayers: false
-        });
+        const safeCount =
+            Math.max(
+                0,
+                Math.ceil(
+                    Number(count) || 0
+                )
+            );
+
+        // Big physical countdown mesh.
+        if (safeCount <= 9) {
+            countdownDisplay.setNumber(
+                safeCount
+            );
+        } else {
+            countdownDisplay.hide();
+        }
+
+        // Amber-ish blinking warning.
+        const blink =
+            safeCount % 2 === 1;
+
+        redMaterial.emissiveColor.copyFrom(
+            blink
+                ? new BABYLON.Color3(
+                    0.35,
+                    0.08,
+                    0
+                )
+                : RED_OFF
+        );
+
+        greenMaterial.emissiveColor.copyFrom(
+            blink
+                ? new BABYLON.Color3(
+                    0.25,
+                    0.18,
+                    0
+                )
+                : GREEN_OFF
+        );
+
+        redPointLight.intensity =
+            blink ? 0.6 : 0;
+
+        greenPointLight.intensity =
+            blink ? 0.6 : 0;
     }
 
     function setGreenLight() {
-        setVisuals({
-            title: "GREEN LIGHT",
-            subtitle: "RUN!",
-            bgColor: "#0f5f2d",
-            borderColor: "#d8ffe6",
-            emissiveColor: new BABYLON.Color3(0.0, 0.45, 0.15),
-            eyeColor: new BABYLON.Color3(0.1, 1.0, 0.25),
-            eyeIntensity: 3.5,
-            facePlayers: false
-        });
+        countdownDisplay.hide();
+        redMaterial.emissiveColor.copyFrom(RED_OFF);
+        redMaterial.diffuseColor.copyFrom(RED_OFF);
+
+        greenMaterial.emissiveColor.copyFrom(GREEN_ON);
+        greenMaterial.diffuseColor.copyFrom(GREEN_ON.scale(0.65));
+
+        redPointLight.intensity = 0;
+        greenPointLight.intensity = 6;
+
+        eyeMaterial.emissiveColor.copyFrom(GREEN_ON);
+
+        // During green, doll looks away from the players.
+        animateHead(Math.PI);
     }
 
     function setRedLight() {
-        setVisuals({
-            title: "RED LIGHT",
-            subtitle: "STOP!",
-            bgColor: "#7a1414",
-            borderColor: "#ffd6d6",
-            emissiveColor: new BABYLON.Color3(0.45, 0.03, 0.03),
-            eyeColor: new BABYLON.Color3(1.0, 0.1, 0.1),
-            eyeIntensity: 4,
-            facePlayers: true
-        });
+        countdownDisplay.hide();
+        redMaterial.emissiveColor.copyFrom(RED_ON);
+        redMaterial.diffuseColor.copyFrom(RED_ON.scale(0.65));
+
+        greenMaterial.emissiveColor.copyFrom(GREEN_OFF);
+        greenMaterial.diffuseColor.copyFrom(GREEN_OFF);
+
+        redPointLight.intensity = 7;
+        greenPointLight.intensity = 0;
+
+        eyeMaterial.emissiveColor.copyFrom(RED_ON);
+
+        // During red, doll turns toward players.
+        animateHead(0);
     }
 
     function setFinished() {
-        setVisuals({
-            title: "ROUND OVER",
-            subtitle: "Wait for next round",
-            bgColor: "#2c2c2c",
-            borderColor: "#eeeeee",
-            emissiveColor: new BABYLON.Color3(0.18, 0.18, 0.18),
-            eyeColor: new BABYLON.Color3(0.3, 0.3, 0.3),
-            eyeIntensity: 1,
-            facePlayers: true
-        });
+        countdownDisplay.hide();
+        setIdle();
     }
 
-    setWaiting();
+    setIdle();
 
     return {
         root,
+        redLamp,
+        greenLamp,
+        setIdle,
         setWaiting,
         setCountdown,
         setGreenLight,
         setRedLight,
         setFinished,
+
         dispose() {
-            eyeLight.dispose();
-            signTexture.dispose();
-            signBoard.dispose();
-            pole.dispose();
-            leftEye.dispose();
-            rightEye.dispose();
-            head.dispose();
-            headMat.dispose();
-            eyeMat.dispose();
-            signMat.dispose();
-            poleMat.dispose();
-            headRoot.dispose();
+            redPointLight.dispose();
+            greenPointLight.dispose();
+
+            headPivot.dispose();
             root.dispose();
+
+            redMaterial.dispose();
+            greenMaterial.dispose();
+            poleMaterial.dispose();
+            housingMaterial.dispose();
+            backplateMaterial.dispose();
+            headMaterial.dispose();
+            eyeMaterial.dispose();
         }
     };
 }

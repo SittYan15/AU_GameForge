@@ -357,8 +357,6 @@ function isVector3(value) {
 export async function createMultiplayer(scene, localPlayer, session, handlers = {}) {
     const assetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync("./", "BoyAnimV2.4.glb", scene);
     const rlglEffects = createRlglEffects(scene);
-    const rlglSignal = scene.metadata?.rlglSignal ?? null;
-    const rlglArenaTimer = scene.metadata?.rlglArenaTimer ?? null;
 
     const rlglTestKeyHandler = async (event) => {
 
@@ -678,20 +676,15 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
     });
 
-    socket.on(
-        "rlgl:lobby_countdown",
-        (count) => {
+    socket.on("rlgl:lobby_countdown", (count) => {
+        rlglUi.textContent = `Round starts in ${count}...`;
 
-            rlglSignal?.setCountdown(count);
+        rlglUi.style.color = "#ffff00";
 
-            // Don't show countdown in the
-            // RED/GREEN screen message.
-            setRlglMessage("");
-
-            if (count <= 5) {
-                rlglEffects.countdown();
-            }
+        if (count <= 5) {
+            rlglEffects.countdown();
         }
+    }
     );
 
     socket.on("rlgl:phase", (phase) => {
@@ -704,8 +697,6 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
         if (phase === "LOBBY") {
             rlglRole = "waiting";
-            rlglSignal?.setWaiting();
-            rlglArenaTimer?.hide();
             rlglRoundEndsAt = null;
             lastTimerSecond = null;
             localPlayer.isEliminated = false;
@@ -721,8 +712,6 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
                 setRlglMessage("Spectating Round...", "#aaaaaa");
             }
         } else if (phase === "FINISHED") {
-            rlglSignal?.setFinished();
-            rlglArenaTimer?.hide();
             rlglRoundEndsAt = null;
             lastTimerSecond = null;
             localPlayer.isLocked = true;
@@ -737,92 +726,33 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
     });
 
-    socket.on(
-        "rlgl:round_started",
-        ({ endsAt } = {}) => {
+    socket.on("rlgl:round_started", ({ endsAt } = {}) => {
+        rlglRoundEndsAt = Number.isFinite(endsAt) ? endsAt : null;
+        lastTimerSecond = null;
+        if (rlglRoundEndsAt) rlglTimerUi.style.display = "block";
+    });
 
-            rlglRoundEndsAt =
-                Number.isFinite(endsAt)
-                    ? endsAt
-                    : null;
+    socket.on("rlgl:state", (isRedLight) => {
 
-            lastTimerSecond = null;
-
-            // Never use old 2D timer.
-            rlglTimerUi.style.display =
-                "none";
-
-            if (rlglRoundEndsAt) {
-
-                const secondsLeft =
-                    Math.max(
-                        0,
-                        Math.ceil(
-                            (
-                                rlglRoundEndsAt -
-                                Date.now()
-                            ) / 1000
-                        )
-                    );
-
-                rlglArenaTimer?.setTime(
-                    secondsLeft
-                );
-
-                rlglArenaTimer?.show();
-            }
+        if (isRedLight) {
+            rlglEffects.redLight();
+        } else {
+            rlglEffects.greenLight();
         }
-    );
 
-    socket.on(
-        "rlgl:state",
-        (isRedLight) => {
+        if (localPlayer.isEliminated || localPlayer.hasFinished) return;
 
-            if (isRedLight) {
-
-                // Existing audio / VFX
-                rlglEffects.redLight();
-
-                // Turn on physical RED mesh
-                rlglSignal?.setRedLight();
-
-            } else {
-
-                rlglEffects.greenLight();
-
-                // Turn on physical GREEN mesh
-                rlglSignal?.setGreenLight();
-            }
-
-            if (
-                localPlayer.isEliminated ||
-                localPlayer.hasFinished
-            ) {
-                return;
-            }
-
-            if (rlglRole !== "player") {
-
-                // Spectator is a personal state,
-                // so screen UI is okay here.
-                setRlglMessage(
-                    "Spectating Round...",
-                    "#aaaaaa"
-                );
-
-                return;
-            }
-
-            // Keep player controllable.
-            // Server detects illegal movement
-            // during Red Light.
-            localPlayer.isLocked = false;
-
-            // IMPORTANT:
-            // Do not display RED/GREEN on screen.
-            setRlglMessage("");
+        if (rlglRole !== "player") {
+            setRlglMessage("Spectating Round...", "#aaaaaa");
+            return;
         }
-    );
+
+        localPlayer.isLocked = false;
+        setRlglMessage(
+            isRedLight ? "🔴 RED LIGHT! STOP!" : "🟢 GREEN LIGHT! GO!",
+            isRedLight ? "#ff3333" : "#33ff33"
+        );
+    });
 
     socket.on(
         "rlgl:eliminated",
@@ -914,13 +844,9 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     );
 
     socket.on("rlgl:left", () => {
-        rlglArenaTimer?.hide();
         clientInRlgl = false;
         rlglRole = "none";
         rlglPhase = "IDLE";
-
-        rlglSignal?.setIdle();
-
         rlglRoundEndsAt = null;
         lastTimerSecond = null;
         localPlayer.isEliminated = false;
@@ -969,40 +895,12 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             remotePlayer.nameTag.setScale(Math.min(closeCameraScale, distanceScale));
         });
 
-        if (
-            clientInRlgl &&
-            rlglPhase === "ACTIVE" &&
-            rlglRoundEndsAt
-        ) {
-            const secondsLeft =
-                Math.max(
-                    0,
-                    Math.ceil(
-                        (
-                            rlglRoundEndsAt -
-                            Date.now()
-                        ) / 1000
-                    )
-                );
-
-            if (
-                secondsLeft !==
-                lastTimerSecond
-            ) {
-
-                // Update all four physical timers.
-                rlglArenaTimer?.setTime(
-                    secondsLeft
-                );
-
-                rlglArenaTimer?.show();
-
-                // Old HUD timer stays hidden.
-                rlglTimerUi.style.display =
-                    "none";
-
-                lastTimerSecond =
-                    secondsLeft;
+        if (clientInRlgl && rlglPhase === "ACTIVE" && rlglRoundEndsAt) {
+            const secondsLeft = Math.max(0, Math.ceil((rlglRoundEndsAt - Date.now()) / 1000));
+            if (secondsLeft !== lastTimerSecond) {
+                rlglTimerUi.textContent = `${secondsLeft}s remaining`;
+                rlglTimerUi.style.display = "block";
+                lastTimerSecond = secondsLeft;
             }
         }
 

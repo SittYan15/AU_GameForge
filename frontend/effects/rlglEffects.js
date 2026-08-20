@@ -3,25 +3,6 @@ import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/core/Audio/audioEngine";
 import "@babylonjs/core/Audio/audioSceneComponent";
 
-let audioUnlocked = false;
-
-const unlockAudio = () => {
-    if (audioUnlocked) return;
-
-    try {
-        BABYLON.Engine.audioEngine?.unlock();
-        audioUnlocked = true;
-
-        console.log("🔊 Babylon audio unlocked");
-    } catch (error) {
-        console.warn("Could not unlock audio:", error);
-    }
-};
-
-document.addEventListener("click", unlockAudio, {
-    once: true
-});
-
 document.addEventListener("click", () => {
     console.log(
         "Audio engine:",

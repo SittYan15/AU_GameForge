@@ -16,9 +16,8 @@ function createSevenSegmentDisplay(scene, parent) {
 
     root.parent = parent;
 
-    // Put countdown in front of the traffic light.
     root.position = new BABYLON.Vector3(
-        -5.8,
+        -6.2,
         9.2,
         -0.8
     );
@@ -45,112 +44,36 @@ function createSevenSegmentDisplay(scene, parent) {
             0
         );
 
-    const OFF =
-        new BABYLON.Color3(
-            0.06,
-            0.02,
-            0
-        );
-
-    const ON =
-        new BABYLON.Color3(
-            1,
-            0.25,
-            0
-        );
-
-    /*
-          A
-        -----
-       |     |
-      F|     |B
-       |  G  |
-        -----
-       |     |
-      E|     |C
-       |     |
-        -----
-          D
-    */
-
     const segmentDefinitions = {
         A: {
             position: [0, 2.4, 0],
-            scale: [2.2, 0.35, 0.3]
+            scale: [2.0, 0.32, 0.28]
         },
-
         B: {
-            position: [2.0, 1.2, 0],
-            scale: [0.35, 1.3, 0.3]
+            position: [1.8, 1.2, 0],
+            scale: [0.32, 1.25, 0.28]
         },
-
         C: {
-            position: [2.0, -1.2, 0],
-            scale: [0.35, 1.3, 0.3]
+            position: [1.8, -1.2, 0],
+            scale: [0.32, 1.25, 0.28]
         },
-
         D: {
             position: [0, -2.4, 0],
-            scale: [2.2, 0.35, 0.3]
+            scale: [2.0, 0.32, 0.28]
         },
-
         E: {
-            position: [-2.0, -1.2, 0],
-            scale: [0.35, 1.3, 0.3]
+            position: [-1.8, -1.2, 0],
+            scale: [0.32, 1.25, 0.28]
         },
-
         F: {
-            position: [-2.0, 1.2, 0],
-            scale: [0.35, 1.3, 0.3]
+            position: [-1.8, 1.2, 0],
+            scale: [0.32, 1.25, 0.28]
         },
-
         G: {
             position: [0, 0, 0],
-            scale: [2.2, 0.35, 0.3]
+            scale: [2.0, 0.32, 0.28]
         }
     };
-
-    const segments = {};
-
-    Object.entries(
-        segmentDefinitions
-    ).forEach(
-        ([name, definition]) => {
-
-            const segment =
-                BABYLON.MeshBuilder
-                    .CreateBox(
-                        `rlglSegment_${name}`,
-                        {
-                            width: 1,
-                            height: 1,
-                            depth: 1
-                        },
-                        scene
-                    );
-
-            segment.parent = root;
-
-            segment.position =
-                new BABYLON.Vector3(
-                    ...definition.position
-                );
-
-            segment.scaling =
-                new BABYLON.Vector3(
-                    ...definition.scale
-                );
-
-            segment.material =
-                material;
-
-            segment.isPickable =
-                false;
-
-            segments[name] =
-                segment;
-        }
-    );
 
     const digitMap = {
         0: ["A", "B", "C", "D", "E", "F"],
@@ -161,34 +84,109 @@ function createSevenSegmentDisplay(scene, parent) {
         5: ["A", "F", "G", "C", "D"],
         6: ["A", "F", "E", "D", "C", "G"],
         7: ["A", "B", "C"],
-        8: [
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-            "F",
-            "G"
-        ],
+        8: ["A", "B", "C", "D", "E", "F", "G"],
         9: ["A", "B", "C", "D", "F", "G"]
     };
 
-    function setNumber(number) {
-        const active =
-            digitMap[number] || [];
+    function createDigit(name, x) {
+        const digitRoot =
+            new BABYLON.TransformNode(
+                name,
+                scene
+            );
+
+        digitRoot.parent = root;
+        digitRoot.position.x = x;
+
+        const segments = {};
 
         Object.entries(
-            segments
+            segmentDefinitions
         ).forEach(
-            ([name, segment]) => {
+            ([segmentName, definition]) => {
+                const segment =
+                    BABYLON.MeshBuilder.CreateBox(
+                        `${name}_${segmentName}`,
+                        {
+                            width: 1,
+                            height: 1,
+                            depth: 1
+                        },
+                        scene
+                    );
 
-                const enabled =
-                    active.includes(name);
+                segment.parent = digitRoot;
 
-                segment.setEnabled(
-                    enabled
-                );
+                segment.position =
+                    new BABYLON.Vector3(
+                        ...definition.position
+                    );
+
+                segment.scaling =
+                    new BABYLON.Vector3(
+                        ...definition.scale
+                    );
+
+                segment.material =
+                    material;
+
+                segment.isPickable = false;
+                segment.checkCollisions = false;
+
+                segments[segmentName] =
+                    segment;
             }
+        );
+
+        return {
+            setNumber(number) {
+                const active =
+                    digitMap[number] || [];
+
+                Object.entries(segments)
+                    .forEach(
+                        ([segmentName, segment]) => {
+                            segment.setEnabled(
+                                active.includes(
+                                    segmentName
+                                )
+                            );
+                        }
+                    );
+            }
+        };
+    }
+
+    const tens =
+        createDigit(
+            "rlglCountdownTens",
+            -2.35
+        );
+
+    const ones =
+        createDigit(
+            "rlglCountdownOnes",
+            2.35
+        );
+
+    function setNumber(number) {
+        const safeNumber =
+            BABYLON.Scalar.Clamp(
+                Math.ceil(
+                    Number(number) || 0
+                ),
+                0,
+                99
+            );
+
+        tens.setNumber(
+            Math.floor(
+                safeNumber / 10
+            )
+        );
+
+        ones.setNumber(
+            safeNumber % 10
         );
 
         root.setEnabled(true);
@@ -212,10 +210,14 @@ export function createRlglSignal(scene) {
 
     // Current arena runs from about Z=498 -> Z=540.
     // Put the physical signal just beyond the finish line.
-    root.position = new BABYLON.Vector3(500, 9.5, 547);
+    root.position = new BABYLON.Vector3(
+        -734.2,
+        -0.27,
+        -116.79
+    );
 
     // Face the players standing toward lower Z.
-    root.rotation.y = 0;
+    root.rotation.y = -Math.PI / 2;
 
     // ------------------------------------------------------------
     // POLE
@@ -516,6 +518,11 @@ export function createRlglSignal(scene) {
     instructionRed.isPickable =
         false;
 
+    // These were the two small helper lights beside the traffic lamp.
+    // The main red/green traffic bulbs remain.
+    instructionGreen.dispose();
+    instructionRed.dispose();
+
     // ------------------------------------------------------------
     // STATE
     // ------------------------------------------------------------
@@ -543,6 +550,8 @@ export function createRlglSignal(scene) {
     }
 
     function setIdle() {
+        countdownDisplay.hide();
+
         redMaterial.emissiveColor.copyFrom(RED_OFF);
         redMaterial.diffuseColor.copyFrom(RED_OFF);
 
@@ -591,14 +600,18 @@ export function createRlglSignal(scene) {
                 )
             );
 
-        // Big physical countdown mesh.
-        if (safeCount <= 9) {
-            countdownDisplay.setNumber(
-                safeCount
-            );
-        } else {
-            countdownDisplay.hide();
-        }
+        // Big physical two-digit countdown mesh.
+        countdownDisplay.setNumber(
+            safeCount
+        );
+
+        redMaterial.diffuseColor.copyFrom(
+            RED_OFF
+        );
+
+        greenMaterial.diffuseColor.copyFrom(
+            GREEN_OFF
+        );
 
         // Amber-ish blinking warning.
         const blink =

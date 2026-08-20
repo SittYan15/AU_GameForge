@@ -171,6 +171,161 @@ rlglQuitBtn.style.zIndex = "1001";
 rlglQuitBtn.style.pointerEvents = "auto";
 document.body.appendChild(rlglQuitBtn);
 
+// ------------------------------------------------------------
+// RLGL responsive waiting-rules panel + quit-button layout
+// ------------------------------------------------------------
+rlglQuitBtn.id = "rlglQuitBtn";
+
+// Desktop / laptop: keep the button in the top-right corner,
+// away from the center of the game view.
+Object.assign(
+    rlglQuitBtn.style,
+    {
+        position: "fixed",
+        top: "16px",
+        right: "16px",
+        bottom: "auto",
+        left: "auto",
+        transform: "none",
+        padding: "10px 16px",
+        fontSize: "clamp(14px, 1.3vw, 18px)",
+        borderRadius: "10px",
+        border: "1px solid rgba(255,255,255,0.22)",
+        background: "rgba(18,20,24,0.90)",
+        color: "#ffffff",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.35)"
+    }
+);
+
+const rlglResponsiveStyle =
+    document.createElement("style");
+
+rlglResponsiveStyle.textContent = `
+    #rlglRulesPanel {
+        scrollbar-width: thin;
+    }
+
+    @media (max-width: 700px) {
+        #rlglQuitBtn {
+            top: auto !important;
+            right: 12px !important;
+            bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+            left: auto !important;
+            transform: none !important;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
+            max-width: 46vw !important;
+        }
+
+        #rlglRulesPanel {
+            left: 10px !important;
+            right: 10px !important;
+            bottom: calc(68px + env(safe-area-inset-bottom)) !important;
+            width: auto !important;
+            max-height: 38vh !important;
+            padding: 10px 12px !important;
+            font-size: 12px !important;
+        }
+
+        #rlglRulesPanel .rlgl-rules-title {
+            font-size: 15px !important;
+        }
+    }
+`;
+
+document.head.appendChild(
+    rlglResponsiveStyle
+);
+
+const rlglRulesPanel =
+    document.createElement("aside");
+
+rlglRulesPanel.id =
+    "rlglRulesPanel";
+
+rlglRulesPanel.setAttribute(
+    "aria-label",
+    "Red Light Green Light rules and tips"
+);
+
+Object.assign(
+    rlglRulesPanel.style,
+    {
+        position: "fixed",
+        left: "16px",
+        bottom: "18px",
+        zIndex: "1000",
+        width: "min(340px, calc(100vw - 32px))",
+        maxHeight: "46vh",
+        overflowY: "auto",
+        boxSizing: "border-box",
+        padding: "12px 14px",
+        border: "1px solid rgba(255,255,255,0.18)",
+        borderRadius: "12px",
+        background: "rgba(15,17,21,0.88)",
+        color: "#f5f7fa",
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "13px",
+        lineHeight: "1.4",
+        boxShadow: "0 6px 20px rgba(0,0,0,0.36)",
+        backdropFilter: "blur(8px)",
+        pointerEvents: "none",
+        display: "none"
+    }
+);
+
+const rlglRulesTitle =
+    document.createElement("div");
+
+rlglRulesTitle.className =
+    "rlgl-rules-title";
+
+rlglRulesTitle.textContent =
+    "🚦 Red Light, Green Light";
+
+Object.assign(
+    rlglRulesTitle.style,
+    {
+        fontSize: "17px",
+        fontWeight: "800",
+        marginBottom: "7px",
+        color: "#ffffff"
+    }
+);
+
+const rlglRulesBody =
+    document.createElement("div");
+
+rlglRulesBody.innerHTML = `
+    <div style="font-weight:800;color:#ffd166;margin-bottom:4px;">Rules</div>
+    <div>🟢 <b>Green:</b> move or sprint toward the finish.</div>
+    <div>🔴 <b>Red:</b> stop completely — moving can eliminate you.</div>
+    <div>🏁 Cross the finish line to survive and earn the reward.</div>
+    <div>🚧 Stay inside the playground; leaving the legal area eliminates you.</div>
+
+    <div style="font-weight:800;color:#7ee787;margin:8px 0 4px;">Tips</div>
+    <div>• Release movement immediately when the lamp turns red.</div>
+    <div>• Sprint during green to cover more distance.</div>
+    <div>• Staying near the center of the lane gives you more room.</div>
+    <div>• Watch the traffic lamp and the 3D timer together.</div>
+`;
+
+rlglRulesPanel.append(
+    rlglRulesTitle,
+    rlglRulesBody
+);
+
+document.body.appendChild(
+    rlglRulesPanel
+);
+
+function setRlglRulesVisible(visible) {
+    rlglRulesPanel.style.display =
+        visible
+            ? "block"
+            : "none";
+}
+
 function setRlglMessage(text, color = "#ffffff", emphasized = false) {
     rlglUi.textContent = text;
     rlglUi.style.color = color;
@@ -182,6 +337,7 @@ function setRlglMessage(text, color = "#ffffff", emphasized = false) {
 }
 
 function clearRlglUi() {
+    setRlglRulesVisible(false);
     setRlglMessage("");
     rlglTimerUi.textContent = "";
     rlglTimerUi.style.display = "none";
@@ -358,7 +514,13 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     const assetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync("./", "BoyAnimV2.4.glb", scene);
     const rlglEffects = createRlglEffects(scene);
     const rlglSignal = scene.metadata?.rlglSignal ?? null;
-    const rlglArenaTimer = scene.metadata?.rlglArenaTimer ?? null;
+    const rlglArenaTimer =
+        scene.metadata?.rlglArenaTimer
+        ?? null;
+
+    const rlglActiveWalls =
+        scene.metadata?.rlglActiveWalls
+        ?? null;
 
     const rlglTestKeyHandler = async (event) => {
 
@@ -595,6 +757,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     });
 
     socket.on("disconnect", () => {
+        rlglActiveWalls?.setActive(false);
         multiplayerJoined = false;
         [...remotePlayers.keys()].forEach(removeRemotePlayer);
         handlers.onConnectionChanged?.(false);
@@ -703,6 +866,9 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
 
         if (phase === "LOBBY") {
+            setRlglRulesVisible(true);
+            rlglArenaTimer?.setNeutral?.();
+            rlglActiveWalls?.setActive(false);
             rlglRole = "waiting";
             rlglSignal?.setWaiting();
             rlglArenaTimer?.hide();
@@ -715,12 +881,17 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             rlglTimerUi.style.display = "none";
             rlglQuitBtn.style.display = "block";
         } else if (phase === "ACTIVE") {
+            setRlglRulesVisible(false);
+            rlglActiveWalls?.setActive(true);
             rlglQuitBtn.style.display = rlglRole === "spectator" ? "block" : "none";
             if (rlglRole === "spectator") {
                 localPlayer.isLocked = false;
                 setRlglMessage("Spectating Round...", "#aaaaaa");
             }
         } else if (phase === "FINISHED") {
+            setRlglRulesVisible(false);
+            rlglArenaTimer?.setNeutral?.();
+            rlglActiveWalls?.setActive(false);
             rlglSignal?.setFinished();
             rlglArenaTimer?.hide();
             rlglRoundEndsAt = null;
@@ -777,6 +948,9 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     socket.on(
         "rlgl:state",
         (isRedLight) => {
+            rlglArenaTimer?.setSignalState?.(
+                isRedLight
+            );
 
             if (isRedLight) {
 
@@ -833,11 +1007,11 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
             rlglEffects.eliminated();
 
-            rlglUi.textContent =
-                "💥 ELIMINATED!";
-
-            rlglUi.style.color =
-                "#ff3333";
+            setRlglMessage(
+                "💥 ELIMINATED!",
+                "#ff3333",
+                true
+            );
 
             rlglQuitBtn.style.display =
                 "block";
@@ -902,11 +1076,11 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             const points =
                 result?.pointsEarned ?? 0;
 
-            rlglUi.textContent =
-                `🎉 SURVIVED! +${points} POINTS 🎉`;
-
-            rlglUi.style.color =
-                "#FFD700";
+            setRlglMessage(
+                `🎉 SURVIVED! +${points} POINTS 🎉`,
+                "#FFD700",
+                true
+            );
 
             rlglQuitBtn.style.display =
                 "block";
@@ -914,6 +1088,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     );
 
     socket.on("rlgl:left", () => {
+        rlglActiveWalls?.setActive(false);
         rlglArenaTimer?.hide();
         clientInRlgl = false;
         rlglRole = "none";
@@ -1062,10 +1237,6 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             }
         },
         dispose() {
-            document.removeEventListener(
-                "keydown",
-                rlglTestKeyHandler
-            );
 
             rlglEffects.dispose();
 

@@ -24,7 +24,6 @@ const RLGL_WAITING_SPAWN = Object.freeze({
     z: -116.79
 });
 
-
 const RLGL_SPAWN_Y = 0.30;
 const RLGL_CENTER_Z = -116.79;
 
@@ -497,36 +496,9 @@ export default function registerMultiplayerSocket(io) {
                     return;
                 }
 
-                const isSpectator =
-                    rlglState.phase === "ACTIVE" &&
-                    !socket.data.isPlaying;
-
-                // While waiting for the next round, players may move freely
-                // AROUND the playground, but not inside the live game field.
-                if (
-                    rlglState.phase === "LOBBY" &&
-                    isInsideRlglArena(
-                        payload.position
-                    )
-                ) {
-                    socket.data.lastMoveAt = now;
-                    socket.emit(
-                        "rlgl:correction",
-                        player.position
-                    );
-                    return;
-                }
-
-                // Only finished-round players and ACTIVE spectators must
-                // remain behind the starting wall.
-                const mustStayBehindWall =
-                    rlglState.phase === "FINISHED" ||
-                    isSpectator;
-
-                if (
-                    mustStayBehindWall &&
-                    payload.position.x < RLGL_WAITING_MIN_X
-                ) {
+                const isSpectator = rlglState.phase === "ACTIVE" && !socket.data.isPlaying;
+                const mustStayBehindWall = rlglState.phase === "LOBBY" || rlglState.phase === "FINISHED" || isSpectator;
+                if (mustStayBehindWall && payload.position.x < RLGL_WAITING_MIN_X) {
                     socket.data.lastMoveAt = now;
                     socket.emit("rlgl:correction", player.position);
                     return;
@@ -654,15 +626,7 @@ export default function registerMultiplayerSocket(io) {
                 socket.data.inRlgl = true;
                 resetRlglSocketState(socket);
                 const waitingIndex = Math.max(0, getRlglSockets(io).findIndex((roomSocket) => roomSocket.id === socket.id));
-                teleportRlglPlayer(
-                    io,
-                    socket,
-                    getRlglSpawn(
-                        waitingIndex,
-                        RLGL_WAITING_SPAWN.x
-                    ),
-                    "join"
-                );
+                teleportRlglPlayer(io, socket, getRlglSpawn(waitingIndex, RLGL_WAITING_SPAWN.x), "join");
             }
 
             if (rlglState.phase === "IDLE") {

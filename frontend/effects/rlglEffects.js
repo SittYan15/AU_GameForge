@@ -210,6 +210,66 @@ export function createRlglEffects(scene) {
         }
     }
 
+    async function playCountdownBeep() {
+        const unlocked = await unlockAudio();
+
+        if (!unlocked) {
+            return;
+        }
+
+        const context =
+            BABYLON.Engine.audioEngine
+                ?.audioContext;
+
+        if (!context) {
+            return;
+        }
+
+        try {
+            const oscillator =
+                context.createOscillator();
+
+            const gain =
+                context.createGain();
+
+            const now =
+                context.currentTime;
+
+            oscillator.type = "sine";
+
+            oscillator.frequency.setValueAtTime(
+                880,
+                now
+            );
+
+            gain.gain.setValueAtTime(
+                0.0001,
+                now
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.12,
+                now + 0.01
+            );
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.0001,
+                now + 0.13
+            );
+
+            oscillator.connect(gain);
+            gain.connect(context.destination);
+
+            oscillator.start(now);
+            oscillator.stop(now + 0.14);
+        } catch (error) {
+            console.warn(
+                "Countdown beep failed:",
+                error
+            );
+        }
+    }
+
     const unlockFromInteraction = async () => {
         const unlocked = await unlockAudio();
 
@@ -601,7 +661,7 @@ export function createRlglEffects(scene) {
         },
 
         countdown() {
-            play(sounds.countdown);
+            void playCountdownBeep();
         },
 
         eliminated() {

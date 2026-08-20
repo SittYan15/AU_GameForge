@@ -2,6 +2,7 @@ import { verifyAccessToken } from "../middleware/authToken.js";
 import { getConvertedUserForGuest } from "../models/googleAccountModel.js";
 import { findGuestById, addGuestPoints } from "../models/guestModel.js";
 import { findUserById, addUserPoints } from "../models/userModel.js";
+import { getTopPlayers } from "../models/leaderboardModel.js";
 
 const players = new Map();
 const chatHistory = [];
@@ -11,146 +12,70 @@ const MAX_SPEED_UNITS_PER_SECOND = 30;
 const MOVEMENT_TOLERANCE = 3;
 const MIN_SPAWN_SEPARATION = 3;
 const VALID_ANIMATIONS = new Set(["idle", "walk", "run"]);
-const rlglState = { phase: "IDLE", isRedLight: false };
-let rlglTimer = null;
-let roundTimer = null;
 
-function startLobby(io) {
-    if (rlglState.phase === "LOBBY") return;
-    rlglState.phase = "LOBBY";
-    rlglState.isRedLight = false;
-    clearTimeout(rlglTimer);
+const RLGL_ROOM = "rlgl_minigame";
+const RLGL_LOBBY_SECONDS = 15;
+const RLGL_ROUND_DURATION_MS = 60_000;
+const RLGL_RESULTS_DURATION_MS = 5_000;
+const RLGL_REWARD_POINTS = 50;
+const RLGL_WAITING_SPAWN = Object.freeze({ x: 500, y: 10, z: 490 });
+const RLGL_START_Z = 500;
+const RLGL_FINISH_Z = 538;
+const RLGL_ARENA = Object.freeze({ minX: 450, maxX: 550, minY: 7, maxY: 20, minZ: 499, maxZ: 550 });
+const RLGL_WAITING_MAX_Z = 497;
+const RLGL_MAX_SPEED_UNITS_PER_SECOND = 16;
+const RLGL_MOVEMENT_TOLERANCE = 0.75;
+const RLGL_MAX_MOVEMENT_ELAPSED_SECONDS = 0.25;
+const RLGL_RED_MOVEMENT_TOLERANCE = 0.12;
 
-    // Tell clients the wall is DOWN and round is starting soon
-    io.to("rlgl_minigame").emit("rlgl:phase", "LOBBY");
+const rlglState = {
+    phase: "IDLE",
+    isRedLight: false,
+    roundId: 0,
+    roundEndsAt: null
+};
 
-    let count = 15; // 15 seconds to enter the arena
-    const countdownInterval = setInterval(() => {
-        if (count > 0) {
-            io.to("rlgl_minigame").emit("rlgl:lobby_countdown", count);
-            count--;
-        } else {
-            clearInterval(countdownInterval);
-            startGame(io);
-        }
-    }, 1000);
+let rlglLightTimer = null;
+let rlglRoundTimer = null;
+let rlglLobbyInterval = null;
+let rlglRestartTimer = null;
+
+async function broadcastLeaderboard(io) {
+    try {
+        io.emit("leaderboard:updated", await getTopPlayers(5));
+    } catch (error) {
+        console.error("Could not refresh leaderboard:", error.message);
+    }
 }
 
-function startGame(io) {
-    rlglState.phase = "ACTIVE";
-    rlglState.isRedLight = false;
-
-    let activePlayerCount = 0;
-
-    // Evaluate who is playing vs spectating
-    io.in("rlgl_minigame").fetchSockets().then(sockets => {
-        sockets.forEach(socket => {
-            const player = players.get(socket.id);
-            if (player) {
-                if (player.position.z >= 498) {
-                    socket.data.isPlaying = true;
-                    socket.data.isEliminated = false;
-                    socket.data.hasFinished = false;
-                    activePlayerCount++;
-                } else {
-                    socket.data.isPlaying = false;
-                }
-            }
-        });
-
-        // If no one actually crossed the start line, end the round immediately
-        if (activePlayerCount === 0) {
-            endRound(io);
-            return;
-        }
-
-        io.to("rlgl_minigame").emit("rlgl:phase", "ACTIVE");
-        io.to("rlgl_minigame").emit("rlgl:state", false); // Start on Green Light
-
-        rlglTimer = setTimeout(() => toggleLight(io), Math.random() * 2000 + 2000);
-
-        // Maximum round time: 60 seconds
-        roundTimer = setTimeout(() => endRound(io), 60000);
-    });
+function clearRlglTimers() {
+    clearTimeout(rlglLightTimer);
+    clearTimeout(rlglRoundTimer);
+    clearTimeout(rlglRestartTimer);
+    clearInterval(rlglLobbyInterval);
+    rlglLightTimer = null;
+    rlglRoundTimer = null;
+    rlglLobbyInterval = null;
+    rlglRestartTimer = null;
 }
 
-function toggleLight(io) {
-    if (rlglState.phase !== "ACTIVE") return;
-    rlglState.isRedLight = !rlglState.isRedLight;
-    io.to("rlgl_minigame").emit("rlgl:state", rlglState.isRedLight);
-
-    const delay = rlglState.isRedLight
-        ? Math.random() * 2000 + 3000
-        : Math.random() * 2000 + 2000;
-    rlglTimer = setTimeout(() => toggleLight(io), delay);
+function getRlglSockets(io) {
+    const socketIds = io.sockets.adapter.rooms.get(RLGL_ROOM);
+    if (!socketIds) return [];
+    return [...socketIds]
+        .map((socketId) => io.sockets.sockets.get(socketId))
+        .filter(Boolean);
 }
 
-function checkRoundStatus(io) {
-    if (rlglState.phase !== "ACTIVE") return;
-
-    io.in("rlgl_minigame").fetchSockets().then(sockets => {
-        // Check if any active player is still alive and hasn't finished
-        const stillPlaying = sockets.some(s =>
-            s.data.isPlaying && !s.data.isEliminated && !s.data.hasFinished
-        );
-
-        if (!stillPlaying) {
-            endRound(io);
-        }
-    });
-}
-
-function endRound(io) {
-    if (rlglState.phase === "FINISHED") return;
-    rlglState.phase = "FINISHED";
-
-    clearTimeout(rlglTimer);
-    clearTimeout(roundTimer);
-
-    io.to("rlgl_minigame").emit("rlgl:phase", "FINISHED");
-
-    // Wait 5 seconds to show the results, then restart the lobby
-    setTimeout(() => startLobby(io), 5000);
-}
-
-function startRlglLoop(io) {
-    if (rlglState.active) return;
-    rlglState.active = true;
-
-    const toggleLight = () => {
-        rlglState.isRedLight = !rlglState.isRedLight;
-        io.to("rlgl_minigame").emit("rlgl:state", rlglState.isRedLight);
-
-        // Randomize timing: 2-4s for Green, 3-5s for Red
-        const delay = rlglState.isRedLight
-            ? Math.random() * 2000 + 3000
-            : Math.random() * 2000 + 2000;
-        setTimeout(toggleLight, delay);
+function getRlglSpawn(index, z) {
+    const columns = 9;
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return {
+        x: 500 + (column - Math.floor(columns / 2)) * 2.5,
+        y: 10,
+        z: z + row * 2.5
     };
-    toggleLight();
-}
-
-function startRlglCountdown(io) {
-    if (rlglState.active || rlglState.countingDown) return;
-    rlglState.countingDown = true;
-
-    let count = 3;
-    const countdownInterval = setInterval(() => {
-        if (count > 0) {
-            io.to("rlgl_minigame").emit("rlgl:countdown", count);
-            count--;
-        } else {
-            clearInterval(countdownInterval);
-            rlglState.countingDown = false;
-            rlglState.active = true;
-            rlglState.isRedLight = false; // Always start on Green
-
-            io.to("rlgl_minigame").emit("rlgl:state", false);
-
-            // Queue up the first light toggle
-            setTimeout(() => toggleLight(io), Math.random() * 2000 + 2000);
-        }
-    }, 1000);
 }
 
 function isVector3(value) {
@@ -175,6 +100,229 @@ function distance(a, b) {
 
 function horizontalDistance(a, b) {
     return Math.hypot(a.x - b.x, a.z - b.z);
+}
+
+function isInsideRlglArena(position) {
+    return position.x >= RLGL_ARENA.minX
+        && position.x <= RLGL_ARENA.maxX
+        && position.y >= RLGL_ARENA.minY
+        && position.y <= RLGL_ARENA.maxY
+        && position.z >= RLGL_ARENA.minZ
+        && position.z <= RLGL_ARENA.maxZ;
+}
+
+function isAtRlglFinish(position) {
+    return isInsideRlglArena(position) && position.z >= RLGL_FINISH_Z;
+}
+
+function broadcastPlayerPosition(io, player) {
+    io.emit("player:moved", {
+        socketId: player.socketId,
+        position: player.position,
+        rotation: player.rotation
+    });
+}
+
+function teleportRlglPlayer(io, socket, position, reason) {
+    const player = players.get(socket.id);
+    if (!player) return;
+
+    player.position = { ...position };
+    socket.data.lastMoveAt = Date.now();
+    socket.emit("rlgl:teleport", { position: player.position, reason });
+    broadcastPlayerPosition(io, player);
+}
+
+function resetRlglSocketState(socket) {
+    socket.data.isPlaying = false;
+    socket.data.isEliminated = false;
+    socket.data.hasFinished = false;
+    socket.data.rlglRedAnchor = null;
+}
+
+function setRlglIdle() {
+    clearRlglTimers();
+    rlglState.phase = "IDLE";
+    rlglState.isRedLight = false;
+    rlglState.roundEndsAt = null;
+}
+
+function ensureRlglStopsWhenEmpty(io) {
+    if (getRlglSockets(io).length === 0) {
+        setRlglIdle();
+        return true;
+    }
+    return false;
+}
+
+function eliminateRlglPlayer(io, socket, reason) {
+    if (
+        !socket.data.isPlaying ||
+        socket.data.isEliminated ||
+        socket.data.hasFinished
+    ) {
+        return;
+    }
+
+    const player = players.get(socket.id);
+
+    if (!player) return;
+
+    socket.data.isEliminated = true;
+    socket.data.rlglRedAnchor = null;
+
+    // Tell the dead player about their death.
+    socket.emit("rlgl:eliminated", {
+        reason
+    });
+
+    // Tell EVERYONE in Red Light Green Light
+    // exactly which player exploded.
+    io.to(RLGL_ROOM).emit(
+        "rlgl:player_eliminated",
+        {
+            socketId: socket.id,
+
+            position: {
+                x: player.position.x,
+                y: player.position.y,
+                z: player.position.z
+            },
+
+            reason
+        }
+    );
+
+    checkRlglRoundStatus(io);
+}
+
+function toggleRlglLight(io) {
+    if (rlglState.phase !== "ACTIVE") return;
+
+    rlglState.isRedLight = !rlglState.isRedLight;
+    const sockets = getRlglSockets(io);
+
+    sockets.forEach((socket) => {
+        const player = players.get(socket.id);
+        if (!player || !socket.data.isPlaying || socket.data.isEliminated || socket.data.hasFinished) {
+            socket.data.rlglRedAnchor = null;
+            return;
+        }
+        socket.data.rlglRedAnchor = rlglState.isRedLight ? { ...player.position } : null;
+    });
+
+    io.to(RLGL_ROOM).emit("rlgl:state", rlglState.isRedLight);
+
+    const delay = rlglState.isRedLight
+        ? Math.random() * 2000 + 3000
+        : Math.random() * 2000 + 2000;
+    rlglLightTimer = setTimeout(() => toggleRlglLight(io), delay);
+}
+
+function endRlglRound(io) {
+    if (rlglState.phase !== "ACTIVE") return;
+
+    clearTimeout(rlglLightTimer);
+    clearTimeout(rlglRoundTimer);
+    rlglLightTimer = null;
+    rlglRoundTimer = null;
+    rlglState.phase = "FINISHED";
+    rlglState.isRedLight = false;
+    rlglState.roundEndsAt = null;
+
+    getRlglSockets(io).forEach((socket) => {
+        if (socket.data.isPlaying && !socket.data.isEliminated && !socket.data.hasFinished) {
+            socket.data.isEliminated = true;
+            socket.emit("rlgl:eliminated", { reason: "timeout" });
+        }
+        socket.data.isPlaying = false;
+        socket.data.rlglRedAnchor = null;
+    });
+
+    io.to(RLGL_ROOM).emit("rlgl:phase", "FINISHED");
+
+    if (ensureRlglStopsWhenEmpty(io)) return;
+    rlglRestartTimer = setTimeout(() => startRlglLobby(io), RLGL_RESULTS_DURATION_MS);
+}
+
+function checkRlglRoundStatus(io) {
+    if (rlglState.phase !== "ACTIVE") return;
+
+    const stillPlaying = getRlglSockets(io).some((socket) =>
+        socket.data.isPlaying && !socket.data.isEliminated && !socket.data.hasFinished
+    );
+
+    if (!stillPlaying) endRlglRound(io);
+}
+
+function startRlglGame(io) {
+    if (rlglState.phase !== "LOBBY") return;
+
+    const sockets = getRlglSockets(io);
+    if (sockets.length === 0) {
+        setRlglIdle();
+        return;
+    }
+
+    clearInterval(rlglLobbyInterval);
+    rlglLobbyInterval = null;
+    rlglState.phase = "ACTIVE";
+    rlglState.isRedLight = false;
+    rlglState.roundId += 1;
+    rlglState.roundEndsAt = Date.now() + RLGL_ROUND_DURATION_MS;
+
+    sockets.forEach((socket, index) => {
+        socket.data.isPlaying = true;
+        socket.data.isEliminated = false;
+        socket.data.hasFinished = false;
+        socket.data.rlglRedAnchor = null;
+        teleportRlglPlayer(io, socket, getRlglSpawn(index, RLGL_START_Z), "round-start");
+        socket.emit("rlgl:role", "player");
+    });
+
+    io.to(RLGL_ROOM).emit("rlgl:phase", "ACTIVE");
+    io.to(RLGL_ROOM).emit("rlgl:state", false);
+    io.to(RLGL_ROOM).emit("rlgl:round_started", {
+        roundId: rlglState.roundId,
+        endsAt: rlglState.roundEndsAt
+    });
+
+    rlglLightTimer = setTimeout(() => toggleRlglLight(io), Math.random() * 2000 + 2000);
+    rlglRoundTimer = setTimeout(() => endRlglRound(io), RLGL_ROUND_DURATION_MS);
+}
+
+function startRlglLobby(io) {
+    const sockets = getRlglSockets(io);
+    if (sockets.length === 0) {
+        setRlglIdle();
+        return;
+    }
+
+    clearRlglTimers();
+    rlglState.phase = "LOBBY";
+    rlglState.isRedLight = false;
+    rlglState.roundEndsAt = null;
+
+    sockets.forEach((socket, index) => {
+        resetRlglSocketState(socket);
+        teleportRlglPlayer(io, socket, getRlglSpawn(index, RLGL_WAITING_SPAWN.z), "lobby-reset");
+        socket.emit("rlgl:role", "waiting");
+    });
+
+    io.to(RLGL_ROOM).emit("rlgl:phase", "LOBBY");
+
+    let count = RLGL_LOBBY_SECONDS;
+    io.to(RLGL_ROOM).emit("rlgl:lobby_countdown", count);
+    rlglLobbyInterval = setInterval(() => {
+        count -= 1;
+        if (count > 0) {
+            io.to(RLGL_ROOM).emit("rlgl:lobby_countdown", count);
+            return;
+        }
+        clearInterval(rlglLobbyInterval);
+        rlglLobbyInterval = null;
+        startRlglGame(io);
+    }, 1000);
 }
 
 function findAvailableSpawn(requestedPosition) {
@@ -232,7 +380,7 @@ export default function registerMultiplayerSocket(io) {
                     : await findUserById(tokenIdentity.userId);
             } catch (error) {
                 console.error("Could not verify multiplayer account:", error.message);
-                socket.emit("player:joinError", "Guest verification is temporarily unavailable.");
+                socket.emit("player:joinError", "Account verification is temporarily unavailable.");
                 socket.data.joining = false;
                 return;
             }
@@ -270,35 +418,52 @@ export default function registerMultiplayerSocket(io) {
 
             const now = Date.now();
             const elapsedSeconds = Math.max((now - socket.data.lastMoveAt) / 1000, 1 / 60);
-            const allowedDistance = MAX_SPEED_UNITS_PER_SECOND * elapsedSeconds + MOVEMENT_TOLERANCE;
-            if (distance(player.position, payload.position) > allowedDistance) return;
 
-            if (
-                socket.data.inRlgl &&
-                rlglState.phase === "ACTIVE" &&
-                socket.data.isPlaying &&
-                rlglState.isRedLight &&
-                !socket.data.isEliminated &&
-                !socket.data.hasFinished
-            ) {
-                const moveDist = horizontalDistance(player.position, payload.position);
-                if (moveDist > 0.05) {
-                    socket.data.isEliminated = true;
-                    socket.emit("rlgl:eliminated");
-                    checkRoundStatus(io);
-
-                    // Optional: Check if round should end early if all active players are dead/finished
+            if (socket.data.inRlgl) {
+                const rlglElapsed = Math.min(elapsedSeconds, RLGL_MAX_MOVEMENT_ELAPSED_SECONDS);
+                const rlglAllowedDistance = RLGL_MAX_SPEED_UNITS_PER_SECOND * rlglElapsed + RLGL_MOVEMENT_TOLERANCE;
+                if (distance(player.position, payload.position) > rlglAllowedDistance) {
+                    socket.data.lastMoveAt = now;
+                    socket.emit("rlgl:correction", player.position);
+                    return;
                 }
+
+                const isSpectator = rlglState.phase === "ACTIVE" && !socket.data.isPlaying;
+                const mustStayBehindWall = rlglState.phase === "LOBBY" || rlglState.phase === "FINISHED" || isSpectator;
+                if (mustStayBehindWall && payload.position.z > RLGL_WAITING_MAX_Z) {
+                    socket.data.lastMoveAt = now;
+                    socket.emit("rlgl:correction", player.position);
+                    return;
+                }
+
+                if (rlglState.phase === "ACTIVE" && socket.data.isPlaying
+                    && !socket.data.isEliminated && !socket.data.hasFinished) {
+                    if (!isInsideRlglArena(payload.position)) {
+                        eliminateRlglPlayer(io, socket, "out_of_bounds");
+                        socket.data.lastMoveAt = now;
+                        socket.emit("rlgl:correction", player.position);
+                        return;
+                    }
+
+                    if (rlglState.isRedLight && socket.data.rlglRedAnchor) {
+                        const moveDist = horizontalDistance(socket.data.rlglRedAnchor, payload.position);
+                        if (moveDist > RLGL_RED_MOVEMENT_TOLERANCE) {
+                            eliminateRlglPlayer(io, socket, "moved_on_red");
+                            socket.data.lastMoveAt = now;
+                            socket.emit("rlgl:correction", player.position);
+                            return;
+                        }
+                    }
+                }
+            } else {
+                const allowedDistance = MAX_SPEED_UNITS_PER_SECOND * elapsedSeconds + MOVEMENT_TOLERANCE;
+                if (distance(player.position, payload.position) > allowedDistance) return;
             }
 
-            player.position = payload.position;
-            player.rotation = payload.rotation;
+            player.position = { ...payload.position };
+            player.rotation = { ...payload.rotation };
             socket.data.lastMoveAt = now;
-            io.emit("player:moved", {
-                socketId: socket.id,
-                position: player.position,
-                rotation: player.rotation
-            });
+            broadcastPlayerPosition(io, player);
         });
 
         socket.on("player:animation", (animation) => {
@@ -324,6 +489,7 @@ export default function registerMultiplayerSocket(io) {
                     accountType: player.accountType,
                     playerName: player.playerName
                 });
+                void broadcastLeaderboard(io);
             } catch (error) {
                 console.error("Could not update multiplayer identity:", error.message);
             }
@@ -345,6 +511,7 @@ export default function registerMultiplayerSocket(io) {
                     playerName: player.playerName,
                     avatarKey: player.avatarKey
                 });
+                void broadcastLeaderboard(io);
             } catch (error) {
                 console.error("Could not update multiplayer profile:", error.message);
             }
@@ -365,71 +532,125 @@ export default function registerMultiplayerSocket(io) {
             io.emit("chat:message", message);
         });
 
-        socket.on("disconnect", () => {
-            if (!players.delete(socket.id)) return;
-            io.emit("player:left", socket.id);
-        });
-
-        // Game: Red Light, Green Light (RLGL) Implementation
-        // 1. Join the Minigame
-        socket.on("rlgl:join", (spawnPos) => {
-            socket.join("rlgl_minigame");
-            socket.data.inRlgl = true;
-            socket.data.isPlaying = false; // Default to waiting
-
+        socket.on("rlgl:join", async () => {
             const player = players.get(socket.id);
-            if (player && isVector3(spawnPos)) player.position = spawnPos;
-
-            // Start the lobby if the room was empty
-            if (rlglState.phase === "IDLE") {
-                startLobby(io);
-            } else {
-                // Send current phase to late joiners
-                socket.emit("rlgl:phase", rlglState.phase);
+            if (!player) {
+                socket.emit("rlgl:error", "Join multiplayer before entering the minigame.");
+                return;
             }
-        });
 
-        // 3. Finish Line Validation
-        socket.on("rlgl:finish", async () => {
-            const player = players.get(socket.id);
+            if (!socket.data.inRlgl) {
+                await socket.join(RLGL_ROOM);
+                socket.data.inRlgl = true;
+                resetRlglSocketState(socket);
+                const waitingIndex = Math.max(0, getRlglSockets(io).findIndex((roomSocket) => roomSocket.id === socket.id));
+                teleportRlglPlayer(io, socket, getRlglSpawn(waitingIndex, RLGL_WAITING_SPAWN.z), "join");
+            }
 
-            if (!player || !socket.data.inRlgl || !socket.data.isPlaying || socket.data.isEliminated || socket.data.hasFinished) return;
+            if (rlglState.phase === "IDLE") {
+                startRlglLobby(io);
+                return;
+            }
 
-            // Anti-Cheat: Verify they are actually past the finish line (Z >= 538 gives a tiny margin of error)
-            if (player.position.z >= 538) {
-                socket.data.hasFinished = true;
-                const REWARD_POINTS = 50; // The amount of points for surviving
-
-                try {
-                    // Award points based on account type
-                    if (player.accountType === "user") {
-                        await addUserPoints(player.userId, REWARD_POINTS);
-                    } else if (player.accountType === "guest") {
-                        await addGuestPoints(player.guestCode, REWARD_POINTS);
-                    }
-                } catch (error) {
-                    console.error("Failed to add points:", error.message);
-                }
-
-                // Notify the specific player they won
-                socket.emit("rlgl:winner", REWARD_POINTS);
-                checkRoundStatus(io);
-
-                // Broadcast an announcement to the entire minigame room
-                io.to("rlgl_minigame").emit("chat:message", {
-                    id: `${Date.now()}-server`,
-                    sender: "SERVER",
-                    text: `${player.playerName} survived and earned ${REWARD_POINTS} points!`,
-                    timestamp: Date.now()
+            if (rlglState.phase === "ACTIVE") {
+                socket.data.isPlaying = false;
+                socket.emit("rlgl:role", "spectator");
+            } else {
+                socket.emit("rlgl:role", rlglState.phase === "LOBBY" ? "waiting" : "spectator");
+            }
+            socket.emit("rlgl:phase", rlglState.phase);
+            if (rlglState.phase === "ACTIVE") {
+                socket.emit("rlgl:state", rlglState.isRedLight);
+                socket.emit("rlgl:round_started", {
+                    roundId: rlglState.roundId,
+                    endsAt: rlglState.roundEndsAt
                 });
             }
         });
 
-        socket.on("rlgl:leave", () => {
-            socket.leave("rlgl_minigame");
+        socket.on("rlgl:finish", async () => {
+            const player = players.get(socket.id);
+            if (!player
+                || !socket.data.inRlgl
+                || rlglState.phase !== "ACTIVE"
+                || !socket.data.isPlaying
+                || socket.data.isEliminated
+                || socket.data.hasFinished
+                || !isAtRlglFinish(player.position)) return;
+
+            socket.data.hasFinished = true;
+            socket.data.rlglRedAnchor = null;
+
+            let rewardSaved = false;
+            let totalPoints = null;
+            try {
+                const account = player.accountType === "user"
+                    ? await addUserPoints(player.userId, RLGL_REWARD_POINTS)
+                    : await addGuestPoints(player.guestCode, RLGL_REWARD_POINTS);
+                rewardSaved = Boolean(account);
+                totalPoints = account?.points ?? null;
+            } catch (error) {
+                console.error("Failed to save RLGL reward:", error.message);
+            }
+
+            socket.emit("rlgl:winner", {
+                pointsEarned: rewardSaved ? RLGL_REWARD_POINTS : 0,
+                rewardSaved,
+                totalPoints
+            });
+            if (rewardSaved) void broadcastLeaderboard(io);
+
+            const announcement = rewardSaved
+                ? `${player.playerName} survived and earned ${RLGL_REWARD_POINTS} points!`
+                : `${player.playerName} survived! Their reward could not be saved.`;
+            io.to(RLGL_ROOM).emit("chat:message", {
+                id: `${Date.now()}-server`,
+                sender: "SERVER",
+                text: announcement,
+                timestamp: Date.now()
+            });
+
+            checkRlglRoundStatus(io);
+        });
+
+        socket.on("rlgl:leave", async () => {
+            if (!socket.data.inRlgl) return;
+
+            const wasActivePlayer = rlglState.phase === "ACTIVE"
+                && socket.data.isPlaying
+                && !socket.data.isEliminated
+                && !socket.data.hasFinished;
+
             socket.data.inRlgl = false;
-            socket.data.isEliminated = false;
-            socket.data.hasFinished = false;
+            resetRlglSocketState(socket);
+            await socket.leave(RLGL_ROOM);
+
+            const player = players.get(socket.id);
+            if (player) {
+                const campusReturn = { x: -10, y: 10, z: 15 };
+                player.position = campusReturn;
+                socket.data.lastMoveAt = Date.now();
+                socket.emit("rlgl:teleport", { position: campusReturn, reason: "leave" });
+                broadcastPlayerPosition(io, player);
+            }
+            socket.emit("rlgl:left");
+
+            if (wasActivePlayer) checkRlglRoundStatus(io);
+            ensureRlglStopsWhenEmpty(io);
+        });
+
+        socket.on("disconnect", () => {
+            const wasInRlgl = Boolean(socket.data.inRlgl);
+            const wasActivePlayer = wasInRlgl
+                && rlglState.phase === "ACTIVE"
+                && socket.data.isPlaying
+                && !socket.data.isEliminated
+                && !socket.data.hasFinished;
+
+            if (players.delete(socket.id)) io.emit("player:left", socket.id);
+
+            if (wasActivePlayer) checkRlglRoundStatus(io);
+            if (wasInRlgl) ensureRlglStopsWhenEmpty(io);
         });
     });
 }

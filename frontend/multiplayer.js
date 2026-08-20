@@ -8,6 +8,7 @@ import {
     markNonGround,
     PLAYER_NAME_TAG_HEIGHT
 } from "./grounding.js";
+import { createRlglEffects } from "./effects/rlglEffects.js";
 
 export const remotePlayers = new Map();
 
@@ -20,46 +21,175 @@ const NAME_LABEL_CLOSE_CAMERA_DISTANCE = 4;
 const NAME_LABEL_MIN_CLOSE_SCALE = 0.45;
 const NAME_LABEL_MIN_DISTANCE_SCALE = 0.7;
 
-const SERVER_URL = (import.meta.env.VITE_SERVER_URL || (
-    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-        ? "http://localhost:3000"
-        : "https://au-gameforge-backend.onrender.com"
-)).replace(/\/$/, "");
+const hostname = window.location.hostname;
+
+const isLocalNetwork =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+
+const SERVER_URL = (
+    isLocalNetwork
+        ? `${window.location.protocol}//${hostname}:3001`
+        : import.meta.env.VITE_SERVER_URL ||
+        "https://au-gameforge-backend.onrender.com"
+).replace(/\/$/, "");
+
+console.log("Backend URL:", SERVER_URL);
 
 const STORAGE_KEY = "guestCode";
+const LEADERBOARD_REFRESH_MS = 15_000;
+
+const leaderboardPanel = document.createElement("section");
+leaderboardPanel.id = "topPlayersStatus";
+leaderboardPanel.className = "game-ui";
+leaderboardPanel.hidden = true;
+leaderboardPanel.setAttribute("aria-label", "Top players by points");
+Object.assign(leaderboardPanel.style, {
+    position: "absolute",
+    top: "68px",
+    left: "15px",
+    zIndex: "999",
+    width: "240px",
+    maxWidth: "calc(100vw - 30px)",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: "10px",
+    background: "rgba(25,27,31,0.92)",
+    color: "white",
+    fontFamily: "sans-serif",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.30)",
+    backdropFilter: "blur(8px)",
+    pointerEvents: "none"
+});
+
+const leaderboardTitle = document.createElement("div");
+leaderboardTitle.textContent = "🏆 Top Players";
+Object.assign(leaderboardTitle.style, {
+    marginBottom: "7px",
+    fontSize: "13px",
+    fontWeight: "800",
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    color: "#f7d774"
+});
+leaderboardPanel.appendChild(leaderboardTitle);
+
+const leaderboardList = document.createElement("div");
+leaderboardList.setAttribute("aria-live", "polite");
+leaderboardPanel.appendChild(leaderboardList);
+document.body.appendChild(leaderboardPanel);
+
+function renderLeaderboard(players = [], currentPlayerName = "") {
+    leaderboardList.replaceChildren();
+
+    if (!Array.isArray(players) || players.length === 0) {
+        const empty = document.createElement("div");
+        empty.textContent = "No scores yet";
+        Object.assign(empty.style, { color: "#aeb4bf", fontSize: "12px", padding: "2px 0" });
+        leaderboardList.appendChild(empty);
+        return;
+    }
+
+    const medals = ["🥇", "🥈", "🥉"];
+    players.slice(0, 5).forEach((player, index) => {
+        const row = document.createElement("div");
+        const isCurrentPlayer = player.playerName === currentPlayerName;
+        Object.assign(row.style, {
+            display: "grid",
+            gridTemplateColumns: "26px minmax(0,1fr) auto",
+            alignItems: "center",
+            gap: "6px",
+            minHeight: "24px",
+            padding: "2px 0",
+            fontSize: "12px",
+            fontWeight: isCurrentPlayer ? "800" : "600",
+            color: isCurrentPlayer ? "#69f0c0" : "#f2f4f7"
+        });
+
+        const rank = document.createElement("span");
+        rank.textContent = medals[index] || `#${index + 1}`;
+        rank.style.textAlign = "center";
+
+        const name = document.createElement("span");
+        name.textContent = player.playerName || "Player";
+        Object.assign(name.style, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+
+        const points = document.createElement("span");
+        const score = Number.isFinite(player.points) ? player.points : 0;
+        points.textContent = `${score.toLocaleString()} pts`;
+        Object.assign(points.style, { color: "#c7ccd4", fontVariantNumeric: "tabular-nums" });
+
+        row.append(rank, name, points);
+        leaderboardList.appendChild(row);
+    });
+}
 
 const rlglUi = document.createElement("div");
 rlglUi.style.position = "absolute";
 rlglUi.style.top = "10%";
 rlglUi.style.left = "50%";
 rlglUi.style.transform = "translateX(-50%)";
-rlglUi.style.fontSize = "64px";
+rlglUi.style.fontSize = "clamp(32px, 5vw, 64px)";
 rlglUi.style.fontWeight = "bold";
+rlglUi.style.textAlign = "center";
 rlglUi.style.textShadow = "4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000";
 rlglUi.style.zIndex = "1000";
-rlglUi.style.pointerEvents = "none"; // So it doesn't block clicks
+rlglUi.style.pointerEvents = "none";
+rlglUi.style.display = "none";
 document.body.appendChild(rlglUi);
 
-// Create the Quit Button
+const rlglTimerUi = document.createElement("div");
+rlglTimerUi.style.position = "absolute";
+rlglTimerUi.style.top = "18%";
+rlglTimerUi.style.left = "50%";
+rlglTimerUi.style.transform = "translateX(-50%)";
+rlglTimerUi.style.fontSize = "clamp(18px, 2.5vw, 28px)";
+rlglTimerUi.style.fontWeight = "700";
+rlglTimerUi.style.color = "white";
+rlglTimerUi.style.textShadow = "2px 2px 0 #000";
+rlglTimerUi.style.zIndex = "1000";
+rlglTimerUi.style.pointerEvents = "none";
+rlglTimerUi.style.display = "none";
+document.body.appendChild(rlglTimerUi);
+
 const rlglQuitBtn = document.createElement("button");
 rlglQuitBtn.textContent = "Return to Campus";
 rlglQuitBtn.style.position = "absolute";
-rlglQuitBtn.style.top = "20%";
+rlglQuitBtn.style.top = "24%";
 rlglQuitBtn.style.left = "50%";
 rlglQuitBtn.style.transform = "translateX(-50%)";
-rlglQuitBtn.style.padding = "15px 30px";
-rlglQuitBtn.style.fontSize = "24px";
+rlglQuitBtn.style.padding = "12px 24px";
+rlglQuitBtn.style.fontSize = "20px";
 rlglQuitBtn.style.fontWeight = "bold";
 rlglQuitBtn.style.cursor = "pointer";
-rlglQuitBtn.style.display = "none"; // Hidden by default
+rlglQuitBtn.style.display = "none";
 rlglQuitBtn.style.zIndex = "1001";
 rlglQuitBtn.style.pointerEvents = "auto";
 document.body.appendChild(rlglQuitBtn);
 
-rlglQuitBtn.addEventListener("click", () => {
-    rlglUi.textContent = "";
-    rlglQuitBtn.style.display = "none";
+function setRlglMessage(text, color = "#ffffff", emphasized = false) {
+    rlglUi.textContent = text;
+    rlglUi.style.color = color;
+    rlglUi.style.display = text ? "block" : "none";
+    rlglUi.style.transition = emphasized ? "transform 0.25s ease" : "none";
+    rlglUi.style.transform = emphasized
+        ? "translateX(-50%) scale(1.12)"
+        : "translateX(-50%)";
+}
 
+function clearRlglUi() {
+    setRlglMessage("");
+    rlglTimerUi.textContent = "";
+    rlglTimerUi.style.display = "none";
+    rlglQuitBtn.style.display = "none";
+}
+
+rlglQuitBtn.addEventListener("click", () => {
+    rlglQuitBtn.style.display = "none";
     if (window.exitRlgl) window.exitRlgl();
 });
 
@@ -79,6 +209,10 @@ async function request(path, options = {}) {
         throw error;
     }
     return body;
+}
+
+export async function getLeaderboard() {
+    return request("/api/users/leaderboard");
 }
 
 export async function googleLogin(credential) {
@@ -197,13 +331,6 @@ export async function upgradeGuestWithPassword(username, password) {
     };
 }
 
-export async function addPoints(guestCode, pointsToAdd) {
-    return request(`/api/guests/${encodeURIComponent(guestCode)}/points`, {
-        method: "PATCH",
-        body: JSON.stringify({ pointsToAdd })
-    });
-}
-
 export async function updateGuestProfile(profile) {
     return request("/api/guests/profile", {
         method: "PATCH",
@@ -212,14 +339,6 @@ export async function updateGuestProfile(profile) {
             avatarKey: profile.avatarKey,
             bio: profile.bio
         })
-    });
-}
-
-export async function addUserPoints(userId, pointsToAdd, token) {
-    return request(`/api/users/${encodeURIComponent(userId)}/points`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ pointsToAdd })
     });
 }
 
@@ -237,6 +356,54 @@ function isVector3(value) {
 
 export async function createMultiplayer(scene, localPlayer, session, handlers = {}) {
     const assetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync("./", "BoyAnimV2.4.glb", scene);
+    const rlglEffects = createRlglEffects(scene);
+
+    const rlglTestKeyHandler = async (event) => {
+
+        if (
+            event.key !== "7" &&
+            event.key !== "8" &&
+            event.key !== "9"
+        ) {
+            return;
+        }
+
+        await unlockAudio();
+
+        console.log(
+            "Audio state:",
+            BABYLON.Engine.audioEngine
+                ?.audioContext?.state
+        );
+
+        if (event.key === "7") {
+
+            console.log("🟢 GREEN TEST");
+
+            rlglEffects.greenLight();
+        }
+
+        if (event.key === "8") {
+
+            console.log("🔴 RED TEST");
+
+            rlglEffects.redLight();
+        }
+
+        if (event.key === "9") {
+
+            console.log("💥 EXPLOSION TEST");
+
+            rlglEffects.explosion(
+                localPlayer.position.clone()
+            );
+        }
+    };
+
+    document.addEventListener(
+        "keydown",
+        rlglTestKeyHandler
+    );
     assetContainer.materials.forEach((material) => {
         material.transparencyMode = BABYLON.PBRMaterial.PBRMATERIAL_OPAQUE;
         material.backFaceCulling = true;
@@ -311,6 +478,15 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         };
     };
 
+    const playRemoteAnimation = (remotePlayer, animationName) => {
+        if (remotePlayer.currentAnimation === animationName) return;
+        const nextAnimation = animationByName(remotePlayer.animationGroups, animationName);
+        if (!nextAnimation) return;
+        remotePlayer.animationGroups.forEach((group) => group.stop());
+        nextAnimation.start(true, 1, nextAnimation.from, nextAnimation.to, false);
+        remotePlayer.currentAnimation = animationName;
+    };
+
     const createRemotePlayer = (data, source = "new-player") => {
         if (!data || data.socketId === socket.id || remotePlayers.has(data.socketId)) return;
 
@@ -364,25 +540,31 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         notifyPlayerCount();
     };
 
-    const playRemoteAnimation = (remotePlayer, animationName) => {
-        if (remotePlayer.currentAnimation === animationName) return;
-        const nextAnimation = animationByName(remotePlayer.animationGroups, animationName);
-        if (!nextAnimation) return;
-        remotePlayer.animationGroups.forEach((group) => group.stop());
-        nextAnimation.start(true, 1, nextAnimation.from, nextAnimation.to, false);
-        remotePlayer.currentAnimation = animationName;
-    };
-
     const removeRemotePlayer = (socketId) => {
         const remotePlayer = remotePlayers.get(socketId);
         if (!remotePlayer) return;
         remotePlayer.nameTag.dispose();
         remotePlayer.animationGroups.forEach((group) => group.dispose());
-        // Remote instances share the asset container's materials and textures.
-        // Disposing them with one player turns the remaining characters grey.
         remotePlayer.rootMesh.dispose(false, false);
         remotePlayers.delete(socketId);
         notifyPlayerCount();
+    };
+
+    let multiplayerJoined = false;
+    let clientInRlgl = false;
+    let rlglRole = "none";
+    let rlglPhase = "IDLE";
+    let rlglRoundEndsAt = null;
+    let lastTimerSecond = null;
+    let leaderboardRefreshInterval = null;
+
+    const updateLeaderboard = (players) => renderLeaderboard(players, session.playerName);
+    const refreshLeaderboard = async () => {
+        try {
+            updateLeaderboard(await getLeaderboard());
+        } catch (error) {
+            console.warn("Could not refresh leaderboard:", error.message);
+        }
     };
 
     const socket = io(SERVER_URL, {
@@ -404,17 +586,30 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         socket.emit("player:animation", state.animation);
         handlers.onConnectionChanged?.(true);
         notifyPlayerCount();
+        void refreshLeaderboard();
+        if (!leaderboardRefreshInterval) {
+            leaderboardRefreshInterval = window.setInterval(refreshLeaderboard, LEADERBOARD_REFRESH_MS);
+        }
     });
+
     socket.on("disconnect", () => {
+        multiplayerJoined = false;
         [...remotePlayers.keys()].forEach(removeRemotePlayer);
         handlers.onConnectionChanged?.(false);
         handlers.onPlayerCountChanged?.(0);
+        if (clientInRlgl) {
+            localPlayer.isLocked = true;
+            setRlglMessage("Reconnecting...", "#ffcc66");
+        }
     });
+
     socket.on("connect_error", (error) => handlers.onError?.(error));
     socket.on("player:joinError", (message) => handlers.onError?.(new Error(message)));
     socket.on("player:spawned", (position) => {
         if (!isVector3(position)) return;
+        multiplayerJoined = true;
         localPlayer.setGroundedPosition(position, "server-spawn");
+        if (clientInRlgl && socket.connected) socket.emit("rlgl:join");
     });
     socket.on("players:current", (players) => {
         players.forEach((player) => createRemotePlayer(player, "initial-player"));
@@ -450,106 +645,214 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     });
     socket.on("chat:history", (messages) => handlers.onChatHistory?.(messages));
     socket.on("chat:message", (message) => handlers.onChatMessage?.(message));
+    socket.on("leaderboard:updated", updateLeaderboard);
 
-    // -- Game Loop: Update remote player positions and send local player state to server
-    socket.on("rlgl:lobby_countdown", (count) => {
-        rlglUi.textContent = `Round starts in ${count}... Cross the line!`;
-        rlglUi.style.color = "#ffff00";
+    socket.on("rlgl:error", (message) => {
+        handlers.onError?.(new Error(message));
+        localPlayer.isLocked = false;
+        setRlglMessage(message, "#ff6666");
+        rlglQuitBtn.style.display = "block";
     });
 
+    socket.on("rlgl:teleport", ({ position, reason } = {}) => {
+        if (!isVector3(position)) return;
+        localPlayer.setGroundedPosition(position, `rlgl-${reason || "teleport"}`);
+        if (reason === "join" || reason === "lobby-reset" || reason === "round-start") {
+            clientInRlgl = true;
+        }
+    });
+
+    socket.on("rlgl:correction", (position) => {
+        if (!isVector3(position)) return;
+        localPlayer.setGroundedPosition(position, "rlgl-server-correction");
+    });
+
+    socket.on("rlgl:role", (role) => {
+        rlglRole = role;
+        if (rlglPhase === "ACTIVE" && role === "spectator") {
+            localPlayer.isLocked = false;
+            setRlglMessage("Spectating Round...", "#aaaaaa");
+            rlglQuitBtn.style.display = "block";
+        }
+    });
+
+    socket.on("rlgl:lobby_countdown", (count) => {
+        rlglUi.textContent = `Round starts in ${count}...`;
+
+        rlglUi.style.color = "#ffff00";
+
+        if (count <= 5) {
+            rlglEffects.countdown();
+        }
+    }
+    );
+
     socket.on("rlgl:phase", (phase) => {
+        rlglPhase = phase;
         const wall = scene.getMeshByName("rlgl_starting_wall");
+        if (wall) {
+            wall.checkCollisions = true;
+            wall.isVisible = true;
+        }
 
         if (phase === "LOBBY") {
-            rlglUi.textContent = "Waiting for next round...";
-            rlglUi.style.color = "#ffffff";
-            if (wall) {
-                wall.checkCollisions = false;
-                wall.isVisible = false;
-            }
-
-            // Reset local states
+            rlglRole = "waiting";
+            rlglRoundEndsAt = null;
+            lastTimerSecond = null;
             localPlayer.isEliminated = false;
             localPlayer.hasFinished = false;
             localPlayer.isLocked = false;
+            setRlglMessage("Waiting for next round...", "#ffffff");
+            rlglTimerUi.style.display = "none";
             rlglQuitBtn.style.display = "block";
-
-            // Teleport players back to the waiting area if they are still in the arena
-            // (Assuming window.insidePortal is set when they join the minigame)
-            if (window.insidePortal && localPlayer.position.z > 495) {
-                localPlayer.setGroundedPosition(new BABYLON.Vector3(500, 10, 490), "round-reset");
-            }
-
         } else if (phase === "ACTIVE") {
-            if (wall) {
-                wall.checkCollisions = true;
-                wall.isVisible = true;
+            rlglQuitBtn.style.display = rlglRole === "spectator" ? "block" : "none";
+            if (rlglRole === "spectator") {
+                localPlayer.isLocked = false;
+                setRlglMessage("Spectating Round...", "#aaaaaa");
             }
-            rlglQuitBtn.style.display = "none";
-
         } else if (phase === "FINISHED") {
-            rlglUi.textContent = "Round Over!";
-            rlglUi.style.color = "#ffffff";
-            localPlayer.isLocked = true; // Freeze everyone while results show
-            rlglQuitBtn.style.display = "block"; // Give them a chance to quit
+            rlglRoundEndsAt = null;
+            lastTimerSecond = null;
+            localPlayer.isLocked = true;
+            rlglTimerUi.style.display = "none";
+            const resultText = localPlayer.hasFinished
+                ? "Round Over — You survived!"
+                : localPlayer.isEliminated
+                    ? "Round Over — Eliminated"
+                    : "Round Over!";
+            setRlglMessage(resultText, "#ffffff");
+            rlglQuitBtn.style.display = "block";
         }
+    });
+
+    socket.on("rlgl:round_started", ({ endsAt } = {}) => {
+        rlglRoundEndsAt = Number.isFinite(endsAt) ? endsAt : null;
+        lastTimerSecond = null;
+        if (rlglRoundEndsAt) rlglTimerUi.style.display = "block";
     });
 
     socket.on("rlgl:state", (isRedLight) => {
+
+        if (isRedLight) {
+            rlglEffects.redLight();
+        } else {
+            rlglEffects.greenLight();
+        }
+
         if (localPlayer.isEliminated || localPlayer.hasFinished) return;
 
-        // If the player is behind the wall when the game starts, they are spectating
-        if (localPlayer.position.z < 498) {
-            rlglUi.textContent = "Spectating Round...";
-            rlglUi.style.color = "#aaaaaa";
+        if (rlglRole !== "player") {
+            setRlglMessage("Spectating Round...", "#aaaaaa");
             return;
         }
 
-        rlglUi.textContent = isRedLight ? "🔴 RED LIGHT! STOP!" : "🟢 GREEN LIGHT! GO!";
-        rlglUi.style.color = isRedLight ? "#ff3333" : "#33ff33";
-
-        if (!isRedLight) localPlayer.isLocked = false;
+        localPlayer.isLocked = false;
+        setRlglMessage(
+            isRedLight ? "🔴 RED LIGHT! STOP!" : "🟢 GREEN LIGHT! GO!",
+            isRedLight ? "#ff3333" : "#33ff33"
+        );
     });
 
-    socket.on("rlgl:eliminated", () => {
-        localPlayer.isLocked = true;
-        localPlayer.isEliminated = true; // Track elimination on the client
-        rlglUi.textContent = "❌ ELIMINATED! ❌";
-        rlglUi.style.color = "#ff0000";
-    });
+    socket.on(
+        "rlgl:eliminated",
+        ({ reason } = {}) => {
 
-    socket.on("rlgl:winner", () => {
-        localPlayer.isLocked = true;
-        localPlayer.hasFinished = true;
+            localPlayer.isLocked = true;
+            localPlayer.isEliminated = true;
 
-        // Override the Red/Green light text with a victory message
-        rlglUi.textContent = "🎉 YOU SURVIVED! 🎉";
-        rlglUi.style.color = "#FFD700"; // Gold
+            rlglEffects.eliminated();
 
-        // Optional: Make it pulse or animate
-        rlglUi.style.transform = "translateX(-50%) scale(1.2)";
-        rlglUi.style.transition = "transform 0.5s ease";
-    });
+            rlglUi.textContent =
+                "💥 ELIMINATED!";
 
-    socket.on("rlgl:eliminated", () => {
-        localPlayer.isLocked = true;
-        localPlayer.isEliminated = true;
-        rlglUi.textContent = "❌ ELIMINATED! ❌";
-        rlglUi.style.color = "#ff0000";
-        rlglQuitBtn.style.display = "block"; // Show quit button
-    });
+            rlglUi.style.color =
+                "#ff3333";
 
-    // Update the winner listener to accept points
-    socket.on("rlgl:winner", (pointsEarned) => {
-        localPlayer.isLocked = true;
-        localPlayer.hasFinished = true;
+            rlglQuitBtn.style.display =
+                "block";
+        }
+    );
 
-        rlglUi.textContent = `🎉 SURVIVED! +${pointsEarned} POINTS 🎉`;
-        rlglUi.style.color = "#FFD700";
-        rlglUi.style.transform = "translateX(-50%) scale(1.2)";
-        rlglUi.style.transition = "transform 0.5s ease";
+    socket.on(
+        "rlgl:player_eliminated",
+        ({
+            socketId,
+            position
+        }) => {
 
-        rlglQuitBtn.style.display = "block"; // Show quit button
+            let explosionPosition = null;
+
+            // Server position is preferred.
+            if (isVector3(position)) {
+                explosionPosition =
+                    new BABYLON.Vector3(
+                        position.x,
+                        position.y,
+                        position.z
+                    );
+            }
+
+            // Fallback to the rendered character.
+            if (!explosionPosition) {
+
+                if (socketId === socket.id) {
+                    explosionPosition =
+                        localPlayer.position.clone();
+                } else {
+
+                    const remotePlayer =
+                        remotePlayers.get(socketId);
+
+                    if (remotePlayer) {
+                        explosionPosition =
+                            remotePlayer.rootMesh
+                                .position.clone();
+                    }
+                }
+            }
+
+            if (explosionPosition) {
+                rlglEffects.explosion(
+                    explosionPosition
+                );
+            }
+        }
+    );
+
+    socket.on(
+        "rlgl:winner",
+        (result) => {
+
+            localPlayer.isLocked = true;
+            localPlayer.hasFinished = true;
+
+            rlglEffects.winner();
+
+            const points =
+                result?.pointsEarned ?? 0;
+
+            rlglUi.textContent =
+                `🎉 SURVIVED! +${points} POINTS 🎉`;
+
+            rlglUi.style.color =
+                "#FFD700";
+
+            rlglQuitBtn.style.display =
+                "block";
+        }
+    );
+
+    socket.on("rlgl:left", () => {
+        clientInRlgl = false;
+        rlglRole = "none";
+        rlglPhase = "IDLE";
+        rlglRoundEndsAt = null;
+        lastTimerSecond = null;
+        localPlayer.isEliminated = false;
+        localPlayer.hasFinished = false;
+        localPlayer.isLocked = false;
+        clearRlglUi();
     });
 
     let lastSentAt = 0;
@@ -592,6 +895,15 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             remotePlayer.nameTag.setScale(Math.min(closeCameraScale, distanceScale));
         });
 
+        if (clientInRlgl && rlglPhase === "ACTIVE" && rlglRoundEndsAt) {
+            const secondsLeft = Math.max(0, Math.ceil((rlglRoundEndsAt - Date.now()) / 1000));
+            if (secondsLeft !== lastTimerSecond) {
+                rlglTimerUi.textContent = `${secondsLeft}s remaining`;
+                rlglTimerUi.style.display = "block";
+                lastTimerSecond = secondsLeft;
+            }
+        }
+
         const now = performance.now();
         if (!socket.connected || now - lastSentAt < 1000 / 15) return;
         const state = localPlayer.getNetworkState();
@@ -609,8 +921,26 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     return {
         socket,
-        joinRlgl(spawnPos) {
-            if (socket.connected) socket.emit("rlgl:join", spawnPos);
+        joinRlgl() {
+            if (!socket.connected || !multiplayerJoined) return false;
+            clientInRlgl = true;
+            localPlayer.isLocked = true;
+            setRlglMessage("Entering Red Light, Green Light...", "#ffffff");
+            socket.emit("rlgl:join");
+            return true;
+        },
+        finishRlgl() {
+            if (!socket.connected || !clientInRlgl) return false;
+            socket.emit("rlgl:finish");
+            return true;
+        },
+        leaveRlgl() {
+            const wasConnected = socket.connected;
+            clientInRlgl = false;
+            rlglRole = "none";
+            rlglRoundEndsAt = null;
+            if (wasConnected) socket.emit("rlgl:leave");
+            return wasConnected;
         },
         sendAnimation(animation) {
             if (socket.connected) socket.emit("player:animation", animation);
@@ -630,7 +960,16 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             }
         },
         dispose() {
-            [...remotePlayers.keys()].forEach(removeRemotePlayer);
+            document.removeEventListener(
+                "keydown",
+                rlglTestKeyHandler
+            );
+
+            rlglEffects.dispose();
+
+            [...remotePlayers.keys()]
+                .forEach(removeRemotePlayer);
+
             assetContainer.dispose();
             socket.disconnect();
         }

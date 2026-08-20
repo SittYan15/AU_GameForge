@@ -13,27 +13,23 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
     player.checkCollisions = true;
     player.ellipsoid = new BABYLON.Vector3(0.3, 1, 0.3);
     player.ellipsoidOffset = new BABYLON.Vector3(0, 0, 0);
-    player.stepOffset = 0.5; // This helps the player "step" over tiny floor inaccuracies
+    player.stepOffset = 0.5;
     markNonGround(player, "local-player");
 
     player.isLocked = false;
+    player.isEliminated = false;
+    player.hasFinished = false;
 
-    // ==========================================
-    // DEBUG: SHOW COLLIDER
-    // ==========================================
-    player.isVisible = false; // Change this from false to true!
-
+    player.isVisible = false;
     const wireMat = new BABYLON.StandardMaterial("wireMat", scene);
     wireMat.wireframe = true;
-    wireMat.emissiveColor = new BABYLON.Color3(1, 0, 0); // Bright Red
+    wireMat.emissiveColor = new BABYLON.Color3(1, 0, 0);
     player.material = wireMat;
-    // ==========================================
 
     const cameraTarget = new BABYLON.TransformNode("cameraTarget", scene);
     cameraTarget.parent = player;
     cameraTarget.position = new BABYLON.Vector3(0, 0.7, 0);
     camera.lockedTarget = cameraTarget;
-
     camera.angularSensibility = 1500;
 
     let characterMesh = null;
@@ -68,11 +64,7 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
 
     player.characterGrounding = calculateCharacterGrounding(player, [characterMesh]);
     player.position.copyFrom(groundNetworkPosition(scene, player.position, "local-spawn", "local"));
-    player.setGroundedPosition = (position, source = "local-network-spawn") => {
-        player.position.copyFrom(groundNetworkPosition(scene, position, source, "local"));
-    };
 
-    // ---> EXPOSE MESH: So main.js can hide the body in First-Person Mode
     player.characterMesh = characterMesh;
 
     idleAnim = charResult.animationGroups.find(a => a.name.includes("idle"));
@@ -101,28 +93,30 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
 
     const walkSpeed = 0.06;
     const runSpeed = 0.16;
-
-    // ---> JUMP VARIABLES
     let verticalVelocity = 0;
-    const jumpForce = 0.25; // How high you jump
+    const jumpForce = 0.25;
     const gravity = scene.gravity.y + 0.025;
-
     let lastJumpTime = 0;
     const jumpCooldown = 600;
+
+    player.setGroundedPosition = (position, source = "local-network-spawn") => {
+        player.position.copyFrom(groundNetworkPosition(scene, position, source, "local"));
+        verticalVelocity = 0;
+    };
 
     scene.onBeforeRenderObservable.add(() => {
         let velocity = BABYLON.Vector3.Zero();
         let isMoving = false;
         let isRunning = inputMap["shift"];
 
-        let deltaTime = scene.getAnimationRatio();
-        let speed = (isRunning ? runSpeed : walkSpeed) * deltaTime;
+        const deltaTime = scene.getAnimationRatio();
+        const speed = (isRunning ? runSpeed : walkSpeed) * deltaTime;
 
-        let forward = camera.getDirection(BABYLON.Vector3.Forward());
+        const forward = camera.getDirection(BABYLON.Vector3.Forward());
         forward.y = 0;
         forward.normalize();
 
-        let right = camera.getDirection(BABYLON.Vector3.Right());
+        const right = camera.getDirection(BABYLON.Vector3.Right());
         right.y = 0;
         right.normalize();
 
@@ -137,48 +131,41 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
             isRunning = false;
         }
 
-        // 1. Shoot a tiny ray down from the capsule's center to check the ground
-        let ray = new BABYLON.Ray(player.position, new BABYLON.Vector3(0, -1, 0), 1.5);
-        let hit = scene.pickWithRay(ray, (mesh) => mesh.checkCollisions && mesh.name !== "player");
+        const ray = new BABYLON.Ray(player.position, new BABYLON.Vector3(0, -1, 0), 1.5);
+        const hit = scene.pickWithRay(ray, (mesh) =>
+            mesh.metadata?.groundingRole === "walkable" && mesh.name !== "player"
+        );
 
         if (hit.hit) {
-            // Get the current time in milliseconds
-            let currentTime = performance.now();
+            const currentTime = performance.now();
 
-            if (verticalVelocity <= 0) {
-                verticalVelocity = -0.15; // Tiny downward force to stick to ramps[cite: 1]
-            }
+            if (verticalVelocity <= 0) verticalVelocity = -0.15;
 
-            // If Spacebar is pressed AND the cooldown has passed, apply jump force!
-            if (inputMap[" "] && (currentTime - lastJumpTime) > jumpCooldown) {
+            if (!player.isLocked
+                && inputMap[" "]
+                && (currentTime - lastJumpTime) > jumpCooldown) {
                 verticalVelocity = jumpForce;
                 lastJumpTime = currentTime;
             }
         } else {
-            // We are in the air, slowly pull down with gravity
             verticalVelocity += gravity * deltaTime;
         }
 
-        // Apply the vertical math to our actual movement velocity
         velocity.y = verticalVelocity;
         player.moveWithCollisions(velocity);
 
         if (characterMesh && isMoving) {
-            let targetAngle = Math.atan2(velocity.x, velocity.z);
-            characterMesh.rotation.y = targetAngle;
+            characterMesh.rotation.y = Math.atan2(velocity.x, velocity.z);
         }
 
-        // Only play ground animations if we are actually touching the ground
         if (characterMesh && hit.hit) {
             if (!isMoving) transitionTo(idleAnim);
-            else if (isMoving && !isRunning) transitionTo(walkAnim);
-            else if (isMoving && isRunning) transitionTo(runAnim);
+            else if (!isRunning) transitionTo(walkAnim);
+            else transitionTo(runAnim);
         }
 
         if (player.position.y <= -500) {
-            // Instantly move the player back to the original spawn coordinates
             player.setGroundedPosition(new BABYLON.Vector3(-100, 30, 0), "local-respawn");
-            verticalVelocity = 0;
         }
     });
 

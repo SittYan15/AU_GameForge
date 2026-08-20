@@ -17,7 +17,7 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
 
     const envTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./e_noon_puresky_2k.env", scene);
     scene.environmentTexture = envTexture;
-    const skybox = scene.createDefaultSkybox(envTexture, true, 1500);
+    scene.createDefaultSkybox(envTexture, true, 1500);
 
     // camera setup
     const camera = new BABYLON.ArcRotateCamera("thirdPersonCamera", Math.PI / 2, Math.PI / 3, 6, BABYLON.Vector3.Zero(), scene);
@@ -42,14 +42,11 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     headNode.parent = player;
     headNode.position = new BABYLON.Vector3(0, 0.8, 0.2);
 
-    // ... NPC routes, and Car spawning here ...
-
     const routeOne = [
         new BABYLON.Vector3(-60.15, 1.53, 50.57),
         new BABYLON.Vector3(-64.33, 1.53, -61.37),
         new BABYLON.Vector3(-67.37, 1.53, 4.34)
     ];
-    // Spawn NPC 1
     createNPC(scene, "TourGuide", new BABYLON.Vector3(-66.45, 1.53, 16.32), routeOne);
 
     const routeTwo = [
@@ -57,12 +54,8 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
         new BABYLON.Vector3(-50.60, 1.53, -47.27),
         new BABYLON.Vector3(-68.89, 1.53, 63.22)
     ];
-    // Spawn NPC 2
     createNPC(scene, "LostStudent", new BABYLON.Vector3(-66.58, 1.53, -6.79), routeTwo);
 
-    // ==========================================
-    // SPAWN TRAFFIC
-    // ==========================================
     const carRoute = [
         new BABYLON.Vector3(-123.99, -0.00, -6.33),
         new BABYLON.Vector3(-406.43, -0.00, -4.86),
@@ -80,113 +73,109 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
         new BABYLON.Vector3(-401.93, 0.00, 5.78),
         new BABYLON.Vector3(-128.06, 0.00, 6.91)
     ];
-
     createCar(scene, "BlueCruiser", carRoute, player);
 
-    // Create a glowing portal pad
+    // ==========================================
+    // RED LIGHT, GREEN LIGHT ARENA
+    // ==========================================
     const portal = BABYLON.MeshBuilder.CreateCylinder("rlgl_portal", { diameter: 4, height: 0.2 }, scene);
-    portal.position = new BABYLON.Vector3(-114.79, 0.00, -0.09); // Set this to your preferred location
+    portal.position = new BABYLON.Vector3(-114.79, 0.00, -0.09);
     const portalMat = new BABYLON.StandardMaterial("portalMat", scene);
     portalMat.emissiveColor = new BABYLON.Color3(0, 1, 1);
     portal.material = portalMat;
 
     const arenaFloor = BABYLON.MeshBuilder.CreateGround("rlgl_floor", { width: 100, height: 100 }, scene);
     arenaFloor.position = new BABYLON.Vector3(500, 9.5, 500);
-    arenaFloor.checkCollisions = true; // Crucial so the player doesn't fall through
-    markWalkableGround(arenaFloor); // Register it with your grounding system
-
-    window.insidePortal = false;
-    scene.onBeforeRenderObservable.add(() => {
-        if (!insidePortal && BABYLON.Vector3.Distance(player.position, portal.position) < 2) {
-            insidePortal = true;
-            player.isLocked = true;
-
-            const targetSpawn = new BABYLON.Vector3(500, 10, 490);
-
-            // Pass the target spawn to the server so it updates your position legally
-            if (window.multiplayerInstance) {
-                window.multiplayerInstance.joinRlgl({
-                    x: targetSpawn.x,
-                    y: targetSpawn.y,
-                    z: targetSpawn.z
-                });
-            }
-
-            player.setGroundedPosition(targetSpawn, "portal-teleport");
-        }
-        if (insidePortal && !player.isEliminated && !player.hasFinished) {
-            if (player.position.z >= 540) {
-                player.hasFinished = true;
-                player.isLocked = true; // Immediately stop them from walking off the edge
-
-                // Tell the server we made it!
-                if (window.multiplayerInstance) {
-                    window.multiplayerInstance.socket.emit("rlgl:finish");
-                }
-            }
-        }
-    });
+    arenaFloor.checkCollisions = true;
+    markWalkableGround(arenaFloor);
 
     const finishLine = BABYLON.MeshBuilder.CreateBox("finishLine", { width: 100, height: 0.2, depth: 4 }, scene);
     finishLine.position = new BABYLON.Vector3(500, 9.6, 540);
+    finishLine.checkCollisions = false;
     const finishMat = new BABYLON.StandardMaterial("finishMat", scene);
-    finishMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0); // Glowing Yellow/Gold
+    finishMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0);
     finishLine.material = finishMat;
 
-    // Create the Starting Wall (Barrier)
+    // This barrier stays up. The server teleports active players to the arena side
+    // when a round begins, while late joiners remain behind it as spectators.
     const startingWall = BABYLON.MeshBuilder.CreateBox("rlgl_starting_wall", { width: 100, height: 10, depth: 1 }, scene);
-    startingWall.position = new BABYLON.Vector3(500, 5, 498); // Placed right before the arena starts
+    startingWall.position = new BABYLON.Vector3(500, 14.5, 498);
     const wallMat = new BABYLON.StandardMaterial("wallMat", scene);
-    wallMat.alpha = 0.5; // Semi-transparent glass look
-    wallMat.emissiveColor = new BABYLON.Color3(1, 0, 0); // Red when active
+    wallMat.alpha = 0.5;
+    wallMat.emissiveColor = new BABYLON.Color3(1, 0, 0);
     startingWall.material = wallMat;
-    startingWall.checkCollisions = true; // Blocks players initially
+    startingWall.checkCollisions = true;
+
+    let insideRlgl = false;
+    let portalCooldownUntil = 0;
+    let lastFinishRequestAt = 0;
+
+    scene.onBeforeRenderObservable.add(() => {
+        const now = performance.now();
+        const multiplayer = window.multiplayerInstance;
+
+        if (!insideRlgl
+            && now >= portalCooldownUntil
+            && BABYLON.Vector3.Distance(player.position, portal.position) < 2) {
+            if (multiplayer?.joinRlgl()) {
+                insideRlgl = true;
+                player.isLocked = true;
+                player.isEliminated = false;
+                player.hasFinished = false;
+                lastFinishRequestAt = 0;
+            }
+        }
+
+        if (insideRlgl
+            && !player.isEliminated
+            && !player.hasFinished
+            && player.position.z >= 538
+            && now - lastFinishRequestAt >= 1000) {
+            if (multiplayer?.finishRlgl()) lastFinishRequestAt = now;
+        }
+    });
 
     // ==========================================
     // DEBUG: COORDINATE HELPER (Shift + Click)
     // ==========================================
     scene.onPointerObservable.add((pointerInfo) => {
-        // Check if the user clicked, held the Shift key, and actually hit a 3D mesh
         if (
-            pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
-            pointerInfo.event.shiftKey &&
-            pointerInfo.pickInfo.hit
+            pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN
+            && pointerInfo.event.shiftKey
+            && pointerInfo.pickInfo.hit
         ) {
             const point = pointerInfo.pickInfo.pickedPoint;
-
-            // 1. Print the exact vector to the browser console for easy copy-pasting
             console.log(`new BABYLON.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`);
 
-            // 2. Spawn a highly visible red sphere at the exact click location
             const marker = BABYLON.MeshBuilder.CreateSphere("debugMarker", { diameter: 1 }, scene);
             marker.position = point;
 
             const mat = new BABYLON.StandardMaterial("markerMat", scene);
-            mat.emissiveColor = new BABYLON.Color3(1, 0, 0); // Bright Red
+            mat.emissiveColor = new BABYLON.Color3(1, 0, 0);
             mat.wireframe = true;
             marker.material = mat;
-
-            // Disable collisions on the marker so it doesn't block the player
             marker.checkCollisions = false;
             marker.isPickable = false;
         }
     });
 
     window.exitRlgl = () => {
-        insidePortal = false; // Reset so they can enter again later
+        insideRlgl = false;
+        portalCooldownUntil = performance.now() + 1500;
+        lastFinishRequestAt = 0;
         player.isEliminated = false;
         player.hasFinished = false;
+        player.isLocked = true;
 
-        // Tell the server we are leaving the minigame room
-        if (window.multiplayerInstance) {
-            window.multiplayerInstance.socket.emit("rlgl:leave");
+        const multiplayer = window.multiplayerInstance;
+        const serverWillTeleport = multiplayer?.leaveRlgl() || false;
+
+        // If networking is unavailable, return locally. On a connected socket the
+        // server owns the teleport so remote clients see the same position.
+        if (!serverWillTeleport) {
+            player.setGroundedPosition(new BABYLON.Vector3(-10, 10, 15), "rlgl-offline-return");
+            player.isLocked = false;
         }
-
-        // Teleport back slightly in front of the portal so they don't instantly re-enter
-        player.setGroundedPosition(new BABYLON.Vector3(-10, 10, 15), "portal-return");
-
-        // Unlock movement
-        setTimeout(() => { player.isLocked = false; }, 100);
     };
 
     return { scene, camera, player, headNode };

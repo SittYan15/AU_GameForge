@@ -16,6 +16,8 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
     player.stepOffset = 0.5; // This helps the player "step" over tiny floor inaccuracies
     markNonGround(player, "local-player");
 
+    player.isLocked = false;
+
     // ==========================================
     // DEBUG: SHOW COLLIDER
     // ==========================================
@@ -29,7 +31,7 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
 
     const cameraTarget = new BABYLON.TransformNode("cameraTarget", scene);
     cameraTarget.parent = player;
-    cameraTarget.position = new BABYLON.Vector3(0, 0.7, 0); 
+    cameraTarget.position = new BABYLON.Vector3(0, 0.7, 0);
     camera.lockedTarget = cameraTarget;
 
     camera.angularSensibility = 1500;
@@ -128,6 +130,12 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
         if (inputMap["s"]) { velocity.addInPlace(forward.scale(-speed)); isMoving = true; }
         if (inputMap["a"]) { velocity.addInPlace(right.scale(-speed)); isMoving = true; }
         if (inputMap["d"]) { velocity.addInPlace(right.scale(speed)); isMoving = true; }
+
+        if (player.isLocked) {
+            velocity = BABYLON.Vector3.Zero();
+            isMoving = false;
+            isRunning = false;
+        }
 
         // 1. Shoot a tiny ray down from the capsule's center to check the ground
         let ray = new BABYLON.Ray(player.position, new BABYLON.Vector3(0, -1, 0), 1.5);

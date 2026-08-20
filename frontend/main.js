@@ -16,8 +16,8 @@ import { createMultiplayer } from "./multiplayer.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-// const BaseUrl = "./au_campus/";
+// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
@@ -27,6 +27,8 @@ async function startGame(session) {
     if (gameStarted) return;
     gameStarted = true;
     currentSession = session;
+
+    window.multiplayerInstance = multiplayer;
 
     document.getElementById("welcomeScreen").hidden = true;
     document.querySelectorAll(".game-ui").forEach(el => el.hidden = false);
@@ -59,6 +61,7 @@ async function startGame(session) {
                 onChatHistory: (messages) => {/* Set chat history using UI func */ },
                 onChatMessage: addChatMessage
             });
+            window.multiplayerInstance = multiplayer;
             await setupProfile(session, multiplayer);
             setupChat(multiplayer);
         } catch (error) {

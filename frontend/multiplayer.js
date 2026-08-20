@@ -28,6 +28,41 @@ const SERVER_URL = (import.meta.env.VITE_SERVER_URL || (
 
 const STORAGE_KEY = "guestCode";
 
+const rlglUi = document.createElement("div");
+rlglUi.style.position = "absolute";
+rlglUi.style.top = "10%";
+rlglUi.style.left = "50%";
+rlglUi.style.transform = "translateX(-50%)";
+rlglUi.style.fontSize = "64px";
+rlglUi.style.fontWeight = "bold";
+rlglUi.style.textShadow = "4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000";
+rlglUi.style.zIndex = "1000";
+rlglUi.style.pointerEvents = "none"; // So it doesn't block clicks
+document.body.appendChild(rlglUi);
+
+// Create the Quit Button
+const rlglQuitBtn = document.createElement("button");
+rlglQuitBtn.textContent = "Return to Campus";
+rlglQuitBtn.style.position = "absolute";
+rlglQuitBtn.style.top = "20%";
+rlglQuitBtn.style.left = "50%";
+rlglQuitBtn.style.transform = "translateX(-50%)";
+rlglQuitBtn.style.padding = "15px 30px";
+rlglQuitBtn.style.fontSize = "24px";
+rlglQuitBtn.style.fontWeight = "bold";
+rlglQuitBtn.style.cursor = "pointer";
+rlglQuitBtn.style.display = "none"; // Hidden by default
+rlglQuitBtn.style.zIndex = "1001";
+rlglQuitBtn.style.pointerEvents = "auto";
+document.body.appendChild(rlglQuitBtn);
+
+rlglQuitBtn.addEventListener("click", () => {
+    rlglUi.textContent = "";
+    rlglQuitBtn.style.display = "none";
+
+    if (window.exitRlgl) window.exitRlgl();
+});
+
 async function request(path, options = {}) {
     const response = await fetch(`${SERVER_URL}${path}`, {
         ...options,
@@ -416,6 +451,107 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     socket.on("chat:history", (messages) => handlers.onChatHistory?.(messages));
     socket.on("chat:message", (message) => handlers.onChatMessage?.(message));
 
+    // -- Game Loop: Update remote player positions and send local player state to server
+    socket.on("rlgl:lobby_countdown", (count) => {
+        rlglUi.textContent = `Round starts in ${count}... Cross the line!`;
+        rlglUi.style.color = "#ffff00";
+    });
+
+    socket.on("rlgl:phase", (phase) => {
+        const wall = scene.getMeshByName("rlgl_starting_wall");
+
+        if (phase === "LOBBY") {
+            rlglUi.textContent = "Waiting for next round...";
+            rlglUi.style.color = "#ffffff";
+            if (wall) {
+                wall.checkCollisions = false;
+                wall.isVisible = false;
+            }
+
+            // Reset local states
+            localPlayer.isEliminated = false;
+            localPlayer.hasFinished = false;
+            localPlayer.isLocked = false;
+            rlglQuitBtn.style.display = "block";
+
+            // Teleport players back to the waiting area if they are still in the arena
+            // (Assuming window.insidePortal is set when they join the minigame)
+            if (window.insidePortal && localPlayer.position.z > 495) {
+                localPlayer.setGroundedPosition(new BABYLON.Vector3(500, 10, 490), "round-reset");
+            }
+
+        } else if (phase === "ACTIVE") {
+            if (wall) {
+                wall.checkCollisions = true;
+                wall.isVisible = true;
+            }
+            rlglQuitBtn.style.display = "none";
+
+        } else if (phase === "FINISHED") {
+            rlglUi.textContent = "Round Over!";
+            rlglUi.style.color = "#ffffff";
+            localPlayer.isLocked = true; // Freeze everyone while results show
+            rlglQuitBtn.style.display = "block"; // Give them a chance to quit
+        }
+    });
+
+    socket.on("rlgl:state", (isRedLight) => {
+        if (localPlayer.isEliminated || localPlayer.hasFinished) return;
+
+        // If the player is behind the wall when the game starts, they are spectating
+        if (localPlayer.position.z < 498) {
+            rlglUi.textContent = "Spectating Round...";
+            rlglUi.style.color = "#aaaaaa";
+            return;
+        }
+
+        rlglUi.textContent = isRedLight ? "🔴 RED LIGHT! STOP!" : "🟢 GREEN LIGHT! GO!";
+        rlglUi.style.color = isRedLight ? "#ff3333" : "#33ff33";
+
+        if (!isRedLight) localPlayer.isLocked = false;
+    });
+
+    socket.on("rlgl:eliminated", () => {
+        localPlayer.isLocked = true;
+        localPlayer.isEliminated = true; // Track elimination on the client
+        rlglUi.textContent = "❌ ELIMINATED! ❌";
+        rlglUi.style.color = "#ff0000";
+    });
+
+    socket.on("rlgl:winner", () => {
+        localPlayer.isLocked = true;
+        localPlayer.hasFinished = true;
+
+        // Override the Red/Green light text with a victory message
+        rlglUi.textContent = "🎉 YOU SURVIVED! 🎉";
+        rlglUi.style.color = "#FFD700"; // Gold
+
+        // Optional: Make it pulse or animate
+        rlglUi.style.transform = "translateX(-50%) scale(1.2)";
+        rlglUi.style.transition = "transform 0.5s ease";
+    });
+
+    socket.on("rlgl:eliminated", () => {
+        localPlayer.isLocked = true;
+        localPlayer.isEliminated = true;
+        rlglUi.textContent = "❌ ELIMINATED! ❌";
+        rlglUi.style.color = "#ff0000";
+        rlglQuitBtn.style.display = "block"; // Show quit button
+    });
+
+    // Update the winner listener to accept points
+    socket.on("rlgl:winner", (pointsEarned) => {
+        localPlayer.isLocked = true;
+        localPlayer.hasFinished = true;
+
+        rlglUi.textContent = `🎉 SURVIVED! +${pointsEarned} POINTS 🎉`;
+        rlglUi.style.color = "#FFD700";
+        rlglUi.style.transform = "translateX(-50%) scale(1.2)";
+        rlglUi.style.transition = "transform 0.5s ease";
+
+        rlglQuitBtn.style.display = "block"; // Show quit button
+    });
+
     let lastSentAt = 0;
     let lastPosition = null;
     let lastRotation = null;
@@ -438,7 +574,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
                 : playerDistance >= NAME_MAX_VISIBILITY_DISTANCE
                     ? 0
                     : (NAME_MAX_VISIBILITY_DISTANCE - playerDistance)
-                        / (NAME_MAX_VISIBILITY_DISTANCE - NAME_FULL_VISIBILITY_DISTANCE);
+                    / (NAME_MAX_VISIBILITY_DISTANCE - NAME_FULL_VISIBILITY_DISTANCE);
             remotePlayer.nameTag.setVisibility(opacity);
             const cameraDistance = scene.activeCamera
                 ? BABYLON.Vector3.Distance(scene.activeCamera.globalPosition, remotePlayer.nameTag.plane.position)
@@ -473,6 +609,9 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     return {
         socket,
+        joinRlgl(spawnPos) {
+            if (socket.connected) socket.emit("rlgl:join", spawnPos);
+        },
         sendAnimation(animation) {
             if (socket.connected) socket.emit("player:animation", animation);
         },

@@ -24,6 +24,13 @@ const RLGL_WAITING_SPAWN = Object.freeze({
     z: -116.79
 });
 
+// During LOBBY, players wait INSIDE the playground and can move freely.
+// When the round starts, everyone is teleported back to RLGL_START_X.
+const RLGL_LOBBY_SPAWN = Object.freeze({
+    x: -600.0,
+    y: 0.30,
+    z: -116.79
+});
 
 const RLGL_SPAWN_Y = 0.30;
 const RLGL_CENTER_Z = -116.79;
@@ -374,7 +381,7 @@ function startRlglLobby(io) {
 
     sockets.forEach((socket, index) => {
         resetRlglSocketState(socket);
-        teleportRlglPlayer(io, socket, getRlglSpawn(index, RLGL_WAITING_SPAWN.x), "lobby-reset");
+        teleportRlglPlayer(io, socket, getRlglSpawn(index, RLGL_LOBBY_SPAWN.x, -1), "lobby-reset");
         socket.emit("rlgl:role", "waiting");
     });
 
@@ -501,11 +508,11 @@ export default function registerMultiplayerSocket(io) {
                     rlglState.phase === "ACTIVE" &&
                     !socket.data.isPlaying;
 
-                // While waiting for the next round, players may move freely
-                // AROUND the playground, but not inside the live game field.
+                // During LOBBY, players can explore the whole RLGL playground.
+                // They still cannot leave the legal rectangular game area.
                 if (
                     rlglState.phase === "LOBBY" &&
-                    isInsideRlglArena(
+                    !isInsideRlglArena(
                         payload.position
                     )
                 ) {
@@ -654,13 +661,26 @@ export default function registerMultiplayerSocket(io) {
                 socket.data.inRlgl = true;
                 resetRlglSocketState(socket);
                 const waitingIndex = Math.max(0, getRlglSockets(io).findIndex((roomSocket) => roomSocket.id === socket.id));
+                const joiningLobby =
+                    rlglState.phase === "LOBBY" ||
+                    rlglState.phase === "IDLE";
+
+                const joinSpawn =
+                    joiningLobby
+                        ? getRlglSpawn(
+                            waitingIndex,
+                            RLGL_LOBBY_SPAWN.x,
+                            -1
+                        )
+                        : getRlglSpawn(
+                            waitingIndex,
+                            RLGL_WAITING_SPAWN.x
+                        );
+
                 teleportRlglPlayer(
                     io,
                     socket,
-                    getRlglSpawn(
-                        waitingIndex,
-                        RLGL_WAITING_SPAWN.x
-                    ),
+                    joinSpawn,
                     "join"
                 );
             }

@@ -3,8 +3,7 @@ import {
     createGuestAccount,
     getGuestAccount,
     restoreGuestAccount,
-    updateCurrentGuestProfile,
-    updateGuestPoints
+    updateCurrentGuestProfile
 } from "../controllers/guestController.js";
 import { requireGuestSession } from "../middleware/sessionAuth.js";
 
@@ -14,6 +13,8 @@ router.post("/", createGuestAccount);
 router.post("/restore", restoreGuestAccount);
 router.patch("/profile", requireGuestSession, updateCurrentGuestProfile);
 router.get("/:guestCode", getGuestAccount);
-router.patch("/:guestCode/points", updateGuestPoints);
+router.patch("/:guestCode/points", requireGuestSession, (_req, res) => {
+    res.status(403).json({ error: "Points are awarded by server-controlled game systems." });
+});
 
 export default router;

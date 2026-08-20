@@ -37,7 +37,8 @@ export async function createGuest() {
             const result = await pool.query(
                 `INSERT INTO guest_users (guest_code, player_name)
                  VALUES ($1, $2)
-                 RETURNING id, guest_code, player_name, avatar_key, bio, points, created_at, updated_at`,
+                 RETURNING id, guest_code, player_name, avatar_key, bio, points,
+                           converted_to_user_id, created_at, updated_at`,
                 [generateGuestCode(), generatePlayerName()]
             );
             return toGuest(result.rows[0]);
@@ -92,7 +93,9 @@ export async function addGuestPoints(guestCode, pointsToAdd) {
          SET points = points + $1,
              updated_at = CURRENT_TIMESTAMP
          WHERE guest_code = $2
-         RETURNING id, guest_code, player_name, points, created_at, updated_at`,
+           AND converted_to_user_id IS NULL
+         RETURNING id, guest_code, player_name, avatar_key, bio, points,
+                   converted_to_user_id, created_at, updated_at`,
         [pointsToAdd, guestCode]
     );
     return toGuest(result.rows[0]);

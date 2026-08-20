@@ -28,6 +28,8 @@ async function startGame(session) {
     gameStarted = true;
     currentSession = session;
 
+    window.multiplayerInstance = multiplayer;
+
     document.getElementById("welcomeScreen").hidden = true;
     document.querySelectorAll(".game-ui").forEach(el => el.hidden = false);
 
@@ -59,6 +61,7 @@ async function startGame(session) {
                 onChatHistory: (messages) => {/* Set chat history using UI func */ },
                 onChatMessage: addChatMessage
             });
+            window.multiplayerInstance = multiplayer;
             await setupProfile(session, multiplayer);
             setupChat(multiplayer);
         } catch (error) {

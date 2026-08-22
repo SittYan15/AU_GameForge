@@ -1,5 +1,5 @@
 // ui/auth.js
-import { loginUser, signupUser, createGuest, restoreGuest, googleLogin } from "../multiplayer.js";
+import { clearTabAuthentication, hasTabAuthentication, loginUser, signupUser, createGuest, restoreGuest, googleLogin, restoreSession } from "../multiplayer.js";
 import { renderGoogleButton } from "../googleIdentity.js";
 
 const welcomeScreen = document.getElementById("welcomeScreen");
@@ -23,7 +23,7 @@ const createGuestAfterFailureButton = document.getElementById("createGuestAfterF
 const guestFlowBackButton = document.getElementById("guestFlowBackButton");
 const authMessage = document.getElementById("authMessage");
 
-export function initAuth(startGameCallback) {
+export async function initAuth(startGameCallback) {
     function setAuthBusy(busy, message = "") {
         loginButton.disabled = busy;
         signupButton.disabled = busy;
@@ -168,4 +168,31 @@ export function initAuth(startGameCallback) {
         if (authMessage) authMessage.textContent = "";
         document.getElementById("guestCodeInput").focus();
     });
+
+    // Do not expose the signed-out choices until the existing HTTP-only
+    // session has been checked. This prevents refreshes from flashing or
+    // entering the logged-out state before session restoration completes.
+    if (!hasTabAuthentication()) {
+        showWelcomeChoices();
+        setAuthBusy(false, "");
+        return;
+    }
+
+    welcomeChoices.hidden = true;
+    setAuthBusy(true, "Restoring your session...");
+    try {
+        await startGameCallback(await restoreSession());
+    } catch (error) {
+        if (error.status === 401 || error.status === 404) clearTabAuthentication();
+        showWelcomeChoices();
+        const savedMessage = sessionStorage.getItem("auGameForgeAuthMessage");
+        if (savedMessage) sessionStorage.removeItem("auGameForgeAuthMessage");
+        setAuthBusy(false, savedMessage || (error.status === 401 || error.status === 404
+            ? ""
+            : "Your session could not be restored. Please log in again."));
+    } finally {
+        // The game or duplicate-tab screen may now cover the welcome UI, but
+        // startup must never leave authentication controls in a busy state.
+        if (welcomeScreen.hidden) setAuthBusy(false, "");
+    }
 }

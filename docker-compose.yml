@@ -38,7 +38,7 @@ services:
     # Run server with nodemon or node --watch for live reloading
     command: npm run dev
     environment:
-      - CLIENT_ORIGIN=http://localhost:3000, http://10.120.209.76:3000
+      - CLIENT_ORIGIN=http://localhost:3000, http://192.168.88.129:3000
       - DATABASE_HOST=db
     depends_on:
       - db

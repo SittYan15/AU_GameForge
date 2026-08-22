@@ -1,7 +1,8 @@
 import pool from "../config/db.js";
 
 const USER_COLUMNS = `id, username, player_name, points, email, google_sub,
-                      profile_picture_url, avatar_key, bio, created_at, updated_at`;
+                      profile_picture_url, avatar_key, bio, active_session_id,
+                      active_session_expires_at, created_at, updated_at`;
 
 function toProfile(row) {
     if (!row) return null;

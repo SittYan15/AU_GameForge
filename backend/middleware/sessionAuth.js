@@ -1,8 +1,27 @@
-export function requireSession(req, res, next) {
+import { findUserById } from "../models/userModel.js";
+import { SESSION_REPLACED_CODE } from "./authToken.js";
+
+export async function requireSession(req, res, next) {
     if (!req.session?.accountType) {
         return res.status(401).json({ error: "An active player session is required." });
     }
-    return next();
+    if (req.session.accountType !== "user") return next();
+    try {
+        const user = await findUserById(req.session.userId);
+        if (user?.activeSessionId && user.activeSessionId === req.session.sessionId
+            && user.activeSessionExpiresAt && new Date(user.activeSessionExpiresAt) > new Date()) return next();
+        const response = {
+            error: "Your account was logged in from another browser or device. Please log in again.",
+            code: SESSION_REPLACED_CODE
+        };
+        return req.session.destroy((destroyError) => {
+            if (destroyError) return next(destroyError);
+            res.clearCookie("au_gameforge_session");
+            return res.status(401).json(response);
+        });
+    } catch (error) {
+        return next(error);
+    }
 }
 
 export function requireGuestSession(req, res, next) {

@@ -27,6 +27,30 @@
         [hidden] { display: none !important; }
         .hidden { display: none !important; }
 
+        #gameAlreadyOpenScreen {
+            position: fixed;
+            inset: 0;
+            z-index: 100001;
+            display: grid;
+            place-items: center;
+            box-sizing: border-box;
+            padding: 24px;
+            background: radial-gradient(circle at top, #662020, #171010 55%, #080808);
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+        #gameAlreadyOpenScreen > div {
+            width: min(480px, 100%);
+            padding: 32px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 18px;
+            background: rgba(12,12,12,.9);
+        }
+        #gameAlreadyOpenScreen h1 { margin: 0 0 12px; }
+        #gameAlreadyOpenScreen p { margin: 0; color: #ddd; line-height: 1.5; }
+
         #welcomeScreen {
             position: fixed;
             inset: 0;

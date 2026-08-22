@@ -1,10 +1,12 @@
 import { verifyAccessToken } from "../middleware/authToken.js";
 import { getConvertedUserForGuest } from "../models/googleAccountModel.js";
 import { findGuestById, addGuestPoints } from "../models/guestModel.js";
-import { findUserById, addUserPoints } from "../models/userModel.js";
+import { findUserById, addUserPoints, setActiveSessionExpiration } from "../models/userModel.js";
 import { getTopPlayers } from "../models/leaderboardModel.js";
 
 const players = new Map();
+const activePlayerSockets = new Map();
+let multiplayerIo = null;
 const chatHistory = [];
 const MAX_CHAT_HISTORY = 50;
 const MAX_PLAYER_NAME_LENGTH = 50;
@@ -420,6 +422,7 @@ function findAvailableSpawn(requestedPosition) {
 }
 
 export default function registerMultiplayerSocket(io) {
+    multiplayerIo = io;
     io.on("connection", (socket) => {
         socket.data.lastMoveAt = Date.now();
         socket.emit("chat:history", chatHistory);
@@ -458,6 +461,78 @@ export default function registerMultiplayerSocket(io) {
                 if (socket.connected) socket.emit("player:joinError", "Player account not found.");
                 return;
             }
+            if (accountType === "user"
+                && (!account.activeSessionId || account.activeSessionId !== tokenIdentity.sessionId
+                    || !account.activeSessionExpiresAt
+                    || new Date(account.activeSessionExpiresAt) <= new Date())) {
+                socket.emit("auth:sessionReplaced", {
+                    message: "Your account was logged in from another browser or device. Please log in again."
+                });
+                socket.disconnect(true);
+                return;
+            }
+
+            if (accountType === "user") {
+                socket.data.authUserId = tokenIdentity.userId;
+                socket.data.authSessionId = tokenIdentity.sessionId;
+                try {
+                    await setActiveSessionExpiration(
+                        tokenIdentity.userId,
+                        tokenIdentity.sessionId,
+                        new Date(Date.now() + 8 * 60 * 60 * 1000)
+                    );
+                } catch (error) {
+                    console.error("Could not activate multiplayer session:", error.message);
+                    socket.emit("player:joinError", "Session verification is temporarily unavailable.");
+                    socket.disconnect(true);
+                    return;
+                }
+                socket.data.sessionValidationTimer = setInterval(async () => {
+                    try {
+                        const currentUser = await findUserById(tokenIdentity.userId);
+                        if (currentUser?.activeSessionId === tokenIdentity.sessionId
+                            && currentUser.activeSessionExpiresAt
+                            && new Date(currentUser.activeSessionExpiresAt) > new Date()) return;
+                        socket.emit("auth:sessionReplaced", {
+                            message: "Your account was logged in from another browser or device. Please log in again."
+                        });
+                        socket.disconnect(true);
+                    } catch (error) {
+                        console.error("Could not revalidate multiplayer session:", error.message);
+                    }
+                }, 5000);
+            }
+
+            const accountKey = accountType === "user"
+                ? `user:${account.id}`
+                : `guest:${account.id}`;
+            const gameTabId = typeof socket.handshake.auth?.gameTabId === "string"
+                ? socket.handshake.auth.gameTabId.slice(0, 100)
+                : null;
+            let existingSocketId = activePlayerSockets.get(accountKey);
+            if (existingSocketId && existingSocketId !== socket.id) {
+                let existingSocket = io.sockets.sockets.get(existingSocketId);
+                if (gameTabId && existingSocket?.data.gameTabId === gameTabId) {
+                    // During refresh, the new transport can reach player:join
+                    // just before the old transport's disconnect is processed.
+                    await new Promise((resolve) => setTimeout(resolve, 400));
+                    existingSocketId = activePlayerSockets.get(accountKey);
+                    existingSocket = existingSocketId
+                        ? io.sockets.sockets.get(existingSocketId)
+                        : null;
+                }
+                if (existingSocket?.connected) {
+                    socket.emit("game:duplicateTab", {
+                        message: "This game is already open in another tab. Please use the existing tab."
+                    });
+                    socket.disconnect(true);
+                    return;
+                }
+                activePlayerSockets.delete(accountKey);
+            }
+            activePlayerSockets.set(accountKey, socket.id);
+            socket.data.accountKey = accountKey;
+            socket.data.gameTabId = gameTabId;
 
             const requestedPosition = isVector3(payload.position) ? payload.position : { x: -100, y: 10, z: 0 };
             const position = findAvailableSpawn(requestedPosition);
@@ -758,6 +833,7 @@ export default function registerMultiplayerSocket(io) {
         });
 
         socket.on("disconnect", () => {
+            if (socket.data.sessionValidationTimer) clearInterval(socket.data.sessionValidationTimer);
             const wasInRlgl = Boolean(socket.data.inRlgl);
             const wasActivePlayer = wasInRlgl
                 && rlglState.phase === "ACTIVE"
@@ -766,6 +842,22 @@ export default function registerMultiplayerSocket(io) {
                 && !socket.data.hasFinished;
 
             if (players.delete(socket.id)) io.emit("player:left", socket.id);
+            if (socket.data.accountKey
+                && activePlayerSockets.get(socket.data.accountKey) === socket.id) {
+                activePlayerSockets.delete(socket.data.accountKey);
+                if (socket.data.authUserId && socket.data.authSessionId) {
+                    // A refresh restores /api/profile immediately and renews
+                    // this lease. A genuinely closed tab leaves it to expire,
+                    // allowing another browser to log in shortly afterward.
+                    void setActiveSessionExpiration(
+                        socket.data.authUserId,
+                        socket.data.authSessionId,
+                        new Date(Date.now() + 3000)
+                    ).catch((error) => {
+                        console.error("Could not shorten closed game session:", error.message);
+                    });
+                }
+            }
 
             if (wasActivePlayer) checkRlglRoundStatus(io);
             if (wasInRlgl) ensureRlglStopsWhenEmpty(io);
@@ -774,3 +866,11 @@ export default function registerMultiplayerSocket(io) {
 }
 
 export { players };
+
+export function disconnectUserSession(userId, sessionId) {
+    if (!multiplayerIo) return;
+    for (const socket of multiplayerIo.sockets.sockets.values()) {
+        if (socket.data.authUserId !== userId || socket.data.authSessionId !== sessionId) continue;
+        socket.disconnect(true);
+    }
+}

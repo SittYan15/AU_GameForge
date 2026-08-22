@@ -13,6 +13,8 @@ function toUser(row) {
         profilePictureUrl: row.profile_picture_url,
         avatarKey: row.avatar_key,
         bio: row.bio,
+        activeSessionId: row.active_session_id,
+        activeSessionExpiresAt: row.active_session_expires_at,
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
@@ -21,7 +23,7 @@ function toUser(row) {
 export async function findUserByUsername(username) {
     const result = await pool.query(
         `SELECT id, username, password_hash, player_name, points, email, google_sub,
-                profile_picture_url, avatar_key, bio, created_at, updated_at
+                profile_picture_url, avatar_key, bio, active_session_id, active_session_expires_at, created_at, updated_at
          FROM users
          WHERE username = $1`,
         [username]
@@ -34,7 +36,7 @@ export async function createUser(username, passwordHash, playerName) {
         `INSERT INTO users (username, password_hash, player_name)
          VALUES ($1, $2, $3)
          RETURNING id, username, player_name, points, email, google_sub,
-                   profile_picture_url, avatar_key, bio, created_at, updated_at`,
+                   profile_picture_url, avatar_key, bio, active_session_id, active_session_expires_at, created_at, updated_at`,
         [username, passwordHash, playerName]
     );
     return toUser(result.rows[0]);
@@ -72,7 +74,7 @@ export async function upgradeGuestToPasswordUser(guestId, username, passwordHash
             `INSERT INTO users (username, password_hash, player_name, points, avatar_key, bio)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, username, password_hash, player_name, points, email, google_sub,
-                       profile_picture_url, avatar_key, bio, created_at, updated_at`,
+                       profile_picture_url, avatar_key, bio, active_session_id, active_session_expires_at, created_at, updated_at`,
             [username, passwordHash, guest.player_name, guest.points, guest.avatar_key, guest.bio]
         );
         const user = toUser(userResult.rows[0]);
@@ -99,12 +101,48 @@ export async function upgradeGuestToPasswordUser(guestId, username, passwordHash
 export async function findUserById(userId) {
     const result = await pool.query(
         `SELECT id, username, password_hash, player_name, points, email, google_sub,
-                profile_picture_url, avatar_key, bio, created_at, updated_at
+                profile_picture_url, avatar_key, bio, active_session_id, active_session_expires_at, created_at, updated_at
          FROM users
          WHERE id = $1`,
         [userId]
     );
     return toUser(result.rows[0]);
+}
+
+export async function claimActiveSession(userId, sessionId, expiresAt) {
+    const result = await pool.query(
+        `UPDATE users
+         SET active_session_id = $1, active_session_expires_at = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+           AND (active_session_id IS NULL
+                OR active_session_expires_at IS NULL
+                OR active_session_expires_at <= CURRENT_TIMESTAMP)
+         RETURNING active_session_id`,
+        [sessionId, expiresAt, userId]
+    );
+    return result.rowCount === 1;
+}
+
+export async function clearActiveSession(userId, sessionId) {
+    const result = await pool.query(
+        `UPDATE users
+         SET active_session_id = NULL, active_session_expires_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND active_session_id = $2`,
+        [userId, sessionId]
+    );
+    return result.rowCount === 1;
+}
+
+export async function setActiveSessionExpiration(userId, sessionId, expiresAt) {
+    const result = await pool.query(
+        `UPDATE users
+         SET active_session_expires_at = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND active_session_id = $3`,
+        [expiresAt, userId, sessionId]
+    );
+    return result.rowCount === 1;
 }
 
 export async function addUserPoints(userId, pointsToAdd) {
@@ -122,6 +160,11 @@ export async function addUserPoints(userId, pointsToAdd) {
 
 export function publicUser(user) {
     if (!user) return null;
-    const { passwordHash: _passwordHash, ...safeUser } = user;
+    const {
+        passwordHash: _passwordHash,
+        activeSessionId: _activeSessionId,
+        activeSessionExpiresAt: _activeSessionExpiresAt,
+        ...safeUser
+    } = user;
     return safeUser;
 }

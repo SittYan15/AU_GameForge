@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
     points INTEGER NOT NULL DEFAULT 0 CHECK (points >= 0),
     avatar_key VARCHAR(100) NOT NULL DEFAULT 'default_avatar',
     bio VARCHAR(160) NOT NULL DEFAULT '',
+    active_session_id UUID,
+    active_session_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT users_auth_method_check CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL)
@@ -30,6 +32,11 @@ CREATE TABLE IF NOT EXISTS guest_users (
         OR (converted_to_user_id IS NOT NULL AND converted_at IS NOT NULL)
     )
 );
+
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS active_session_id UUID;
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS active_session_expires_at TIMESTAMPTZ;
 
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_unique_idx
     ON users (google_sub) WHERE google_sub IS NOT NULL;

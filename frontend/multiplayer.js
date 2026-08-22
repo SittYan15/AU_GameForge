@@ -40,7 +40,20 @@ const SERVER_URL = (
 console.log("Backend URL:", SERVER_URL);
 
 const STORAGE_KEY = "guestCode";
+const TAB_AUTH_KEY = "auGameForgeTabAuthenticated";
 const LEADERBOARD_REFRESH_MS = 15_000;
+
+export function hasTabAuthentication() {
+    return sessionStorage.getItem(TAB_AUTH_KEY) === "true";
+}
+
+export function markTabAuthenticated() {
+    sessionStorage.setItem(TAB_AUTH_KEY, "true");
+}
+
+export function clearTabAuthentication() {
+    sessionStorage.removeItem(TAB_AUTH_KEY);
+}
 
 const leaderboardPanel = document.createElement("section");
 leaderboardPanel.id = "topPlayersStatus";
@@ -357,6 +370,11 @@ async function request(path, options = {}) {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
+        if (response.status === 401 && body.code === "SESSION_REPLACED") {
+            window.dispatchEvent(new CustomEvent("auth:session-replaced", {
+                detail: { message: body.error }
+            }));
+        }
         const error = new Error(body.error || `Request failed (${response.status}).`);
         error.status = response.status;
         Object.entries(body).forEach(([key, value]) => {
@@ -372,10 +390,12 @@ export async function getLeaderboard() {
 }
 
 export async function googleLogin(credential) {
-    return request("/api/auth/google", {
+    const session = await request("/api/auth/google", {
         method: "POST",
         body: JSON.stringify({ credential })
     });
+    markTabAuthenticated();
+    return session;
 }
 
 export async function upgradeGuestWithGoogle(credential, mergeConfirmed = false) {
@@ -385,12 +405,37 @@ export async function upgradeGuestWithGoogle(credential, mergeConfirmed = false)
     });
 }
 
-export async function getProfile() {
-    return request("/api/profile");
+export async function getProfile(options = {}) {
+    return request("/api/profile", options);
+}
+
+export async function restoreSession() {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    try {
+        const profile = await getProfile({ signal: controller.signal });
+        return {
+            ...profile,
+            token: profile.accountType === "user" ? profile.token : undefined
+        };
+    } catch (error) {
+        if (error.name === "AbortError") {
+            throw new Error("Session restoration timed out. Please check your connection and try again.");
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 export async function logoutSession() {
-    return request("/api/auth/logout", { method: "POST" });
+    const response = await request("/api/auth/logout", { method: "POST" });
+    clearTabAuthentication();
+    return response;
+}
+
+export async function keepSessionAlive() {
+    return request("/api/auth/heartbeat", { method: "POST" });
 }
 
 export function clearSavedGuest() {
@@ -400,6 +445,7 @@ export function clearSavedGuest() {
 export async function createGuest() {
     const guest = await request("/api/guests", { method: "POST" });
     localStorage.setItem(STORAGE_KEY, guest.guestCode);
+    markTabAuthenticated();
     return toGuestSession(guest);
 }
 
@@ -410,6 +456,7 @@ export async function restoreGuest(guestCode) {
         body: JSON.stringify({ guestCode: normalizedCode })
     });
     localStorage.setItem(STORAGE_KEY, guest.guestCode);
+    markTabAuthenticated();
     return toGuestSession(guest);
 }
 
@@ -431,6 +478,7 @@ export async function loginUser(username, password) {
         method: "POST",
         body: JSON.stringify({ username: String(username || "").trim(), password })
     });
+    markTabAuthenticated();
     return {
         accountType: "user",
         userId: user.id,
@@ -451,6 +499,7 @@ export async function signupUser(username, password) {
         method: "POST",
         body: JSON.stringify({ username: String(username || "").trim(), password })
     });
+    markTabAuthenticated();
     return {
         accountType: "user",
         userId: user.id,
@@ -471,6 +520,7 @@ export async function upgradeGuestWithPassword(username, password) {
         method: "POST",
         body: JSON.stringify({ username: String(username || "").trim(), password })
     });
+    markTabAuthenticated();
     return {
         accountType: "user",
         accountProvider: "password",
@@ -733,7 +783,10 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     const socket = io(SERVER_URL, {
         transports: ["websocket", "polling"],
-        auth: { token: session.accountType === "user" ? session.token : undefined }
+        auth: {
+            token: session.accountType === "user" ? session.token : undefined,
+            gameTabId: session.gameTabId
+        }
     });
 
     socket.on("connect", () => {
@@ -770,6 +823,16 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     socket.on("connect_error", (error) => handlers.onError?.(error));
     socket.on("player:joinError", (message) => handlers.onError?.(new Error(message)));
+    socket.on("auth:sessionReplaced", ({ message } = {}) => {
+        window.dispatchEvent(new CustomEvent("auth:session-replaced", {
+            detail: { message }
+        }));
+        socket.disconnect();
+    });
+    socket.on("game:duplicateTab", () => {
+        window.dispatchEvent(new Event("game:duplicate-tab"));
+        socket.disconnect();
+    });
     socket.on("player:spawned", (position) => {
         if (!isVector3(position)) return;
         multiplayerJoined = true;

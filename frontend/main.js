@@ -12,7 +12,8 @@ import { InputController } from "./core/input.js";
 // World Systems
 import { createMainScene } from "./world/scene.js";
 import { initChunkManager } from "./world/chunkManager.js";
-import { createMultiplayer } from "./multiplayer.js";
+import { clearTabAuthentication, createMultiplayer, keepSessionAlive } from "./multiplayer.js";
+import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
@@ -22,9 +23,48 @@ const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
 let multiplayer = null;
 let currentSession = null;
 let gameStarted = false;
+let handlingSessionReplacement = false;
+
+window.addEventListener("auth:session-replaced", (event) => {
+    if (handlingSessionReplacement) return;
+    handlingSessionReplacement = true;
+    const message = event.detail?.message ||
+        "Your account was logged in from another browser or device. Please log in again.";
+    sessionStorage.setItem("auGameForgeAuthMessage", message);
+    multiplayer?.dispose();
+    multiplayer = null;
+    currentSession = null;
+    clearTabAuthentication();
+    releaseGameTab();
+    window.location.reload();
+});
+
+function showGameAlreadyOpen() {
+    multiplayer?.dispose();
+    multiplayer = null;
+    releaseGameTab();
+    document.querySelectorAll(".game-ui").forEach((element) => { element.hidden = true; });
+    document.getElementById("welcomeScreen").hidden = true;
+    let screen = document.getElementById("gameAlreadyOpenScreen");
+    if (!screen) {
+        screen = document.createElement("section");
+        screen.id = "gameAlreadyOpenScreen";
+        screen.innerHTML = "<div><h1>Game Already Open</h1><p>This game is already running in another tab. Please return to the existing tab.</p></div>";
+        document.body.appendChild(screen);
+    }
+    screen.hidden = false;
+}
+
+window.addEventListener("game:duplicate-tab", showGameAlreadyOpen);
 
 async function startGame(session) {
     if (gameStarted) return;
+    const tabClaim = await claimGameTab(session);
+    if (!tabClaim.allowed) {
+        showGameAlreadyOpen();
+        return;
+    }
+    session = { ...session, gameTabId: tabClaim.tabId };
     gameStarted = true;
     currentSession = session;
 
@@ -35,6 +75,10 @@ async function startGame(session) {
 
     engine.resize();
     engine.displayLoadingUI();
+    const startupHeartbeat = session.accountType === "user"
+        ? window.setInterval(() => { void keepSessionAlive().catch(() => {}); }, 1000)
+        : null;
+    if (session.accountType === "user") void keepSessionAlive().catch(() => {});
 
     try {
         // Connect the reference map so the player movement script can read it
@@ -61,10 +105,12 @@ async function startGame(session) {
                 onChatHistory: (messages) => {/* Set chat history using UI func */ },
                 onChatMessage: addChatMessage
             });
+            if (startupHeartbeat) clearInterval(startupHeartbeat);
             window.multiplayerInstance = multiplayer;
             await setupProfile(session, multiplayer);
             setupChat(multiplayer);
         } catch (error) {
+            if (startupHeartbeat) clearInterval(startupHeartbeat);
             console.error("Multiplayer initialization failed:", error);
         }
 
@@ -78,6 +124,8 @@ async function startGame(session) {
         });
 
     } catch (error) {
+        if (startupHeartbeat) clearInterval(startupHeartbeat);
+        releaseGameTab();
         gameStarted = false;
         engine.hideLoadingUI();
         document.getElementById("welcomeScreen").hidden = false;

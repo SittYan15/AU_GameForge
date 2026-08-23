@@ -6,8 +6,20 @@ import { createCar } from "../car.js";
 import { markWalkableGround } from "../grounding.js";
 import { createRlglSignal } from "./rlglSignal.js";
 import { createRlglArenaTimer } from "./rlglArenaTimer.js";
+import {
+    CAMPUS_QUIZ_PORTAL_TRIGGER_RADIUS,
+    createCampusQuizPortal
+} from "./campusQuizPortal.js";
+import { createCampusQuizArena } from "./campusQuizArena.js";
 
-export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, animationCallback) {
+export async function createMainScene(
+    engine,
+    canvas,
+    BaseUrl,
+    inputMapRef,
+    animationCallback,
+    loadingScreen = null
+) {
     const scene = new BABYLON.Scene(engine);
 
     // World Setup
@@ -27,7 +39,29 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     camera.minZ = 0.05;
 
     try {
-        const result = await BABYLON.SceneLoader.ImportMeshAsync("", BaseUrl, "au_campus_v2.0.0.glb", scene);
+        loadingScreen?.beginAsset?.(
+            "AU Campus Map",
+            1,
+            2
+        );
+
+        const result =
+            await BABYLON.SceneLoader.ImportMeshAsync(
+                "",
+                BaseUrl,
+                "au_campus_v2.0.0.glb",
+                scene,
+                (event) => {
+                    loadingScreen?.updateAssetProgress?.(
+                        event,
+                        "AU Campus Map"
+                    );
+                }
+            );
+
+        loadingScreen?.completeAsset?.(
+            "AU Campus Map"
+        );
         result.meshes.forEach((mesh) => {
             if (mesh.isVisible && mesh.name !== "__root__") {
                 mesh.checkCollisions = true;
@@ -38,7 +72,14 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
         console.error("Exterior map error:", error);
     }
 
-    const player = await createPlayer(scene, camera, inputMapRef, animationCallback);
+    const player =
+        await createPlayer(
+            scene,
+            camera,
+            inputMapRef,
+            animationCallback,
+            loadingScreen
+        );
 
     const headNode = new BABYLON.TransformNode("headNode", scene);
     headNode.parent = player;
@@ -125,6 +166,19 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
         );
 
     portal.material = portalMat;
+
+    // Campus Quiz portal.
+    // Default location: CL Plaza (0, 1.73, 0).
+    const campusQuizPortal =
+        createCampusQuizPortal(scene);
+
+    const campusQuizArena =
+        createCampusQuizArena(scene);
+
+    scene.metadata = scene.metadata || {};
+    scene.metadata.campusQuizArena = campusQuizArena;
+
+    let wasInsideCampusQuizPortal = false;
 
     // Thin overlay so the campus surface is still visible.
     const arenaFloor =
@@ -348,6 +402,26 @@ export async function createMainScene(engine, canvas, BaseUrl, inputMapRef, anim
     scene.onBeforeRenderObservable.add(() => {
         const now = performance.now();
         const multiplayer = window.multiplayerInstance;
+
+        const insideCampusQuizPortal =
+            BABYLON.Vector3.Distance(
+                player.position,
+                campusQuizPortal.position
+            ) < CAMPUS_QUIZ_PORTAL_TRIGGER_RADIUS;
+
+        if (
+            insideCampusQuizPortal &&
+            !wasInsideCampusQuizPortal &&
+            !insideRlgl
+        ) {
+            if (multiplayer?.startCampusQuiz?.()) {
+                wasInsideCampusQuizPortal = true;
+            }
+        }
+
+        if (!insideCampusQuizPortal) {
+            wasInsideCampusQuizPortal = false;
+        }
 
         if (!insideRlgl
             && now >= portalCooldownUntil

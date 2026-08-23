@@ -454,16 +454,6 @@ export default function registerMultiplayerSocket(io) {
                         socket,
                         player
                     );
-                },
-
-                onTeleport(player, position, reason) {
-                    player.position = { ...position };
-                    socket.data.lastMoveAt = Date.now();
-                    socket.emit("campusQuiz:teleport", {
-                        position: player.position,
-                        reason
-                    });
-                    broadcastPlayerPosition(io, player);
                 }
             }
         );
@@ -609,6 +599,11 @@ export default function registerMultiplayerSocket(io) {
         socket.on("player:move", (payload = {}) => {
             const player = players.get(socket.id);
             if (!player || !isVector3(payload.position) || !isVector3(payload.rotation)) return;
+
+            if (socket.data.inCampusQuiz) {
+                socket.data.lastMoveAt = Date.now();
+                return;
+            }
 
             const now = Date.now();
             const elapsedSeconds = Math.max((now - socket.data.lastMoveAt) / 1000, 1 / 60);

@@ -6,6 +6,7 @@ import "@babylonjs/loaders/glTF";
 import { initAuth } from "./ui/auth.js";
 import { setupChat, addChatMessage } from "./ui/chat.js";
 import { setupProfile } from "./ui/profile.js";
+import "./ui/mobileHudLayout.js";
 import { initEngine } from "./core/engine.js";
 import { InputController } from "./core/input.js";
 
@@ -17,13 +18,19 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-// const BaseUrl = "./au_campus/";
+// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
 let gameStarted = false;
 let handlingSessionReplacement = false;
+let startupStage = "Idle";
+
+function setStartupStage(stage) {
+    startupStage = stage;
+    console.log("[Startup]", stage);
+}
 
 window.addEventListener("auth:session-replaced", (event) => {
     if (handlingSessionReplacement) return;
@@ -81,14 +88,33 @@ async function startGame(session) {
     if (session.accountType === "user") void keepSessionAlive().catch(() => {});
 
     try {
+        setStartupStage("Creating main scene");
+
         // Connect the reference map so the player movement script can read it
         const inputMapRef = {};
-        const { scene, camera, player, headNode } = await createMainScene(engine, canvas, BaseUrl, inputMapRef, (animation) => multiplayer?.sendAnimation(animation));
+        const { scene, camera, player, headNode } = await createMainScene(
+            engine,
+            canvas,
+            BaseUrl,
+            inputMapRef,
+            (animation) => multiplayer?.sendAnimation(animation),
+            engine.loadingScreen
+        );
+
+        engine.loadingScreen?.setStatus?.(
+            "Content download complete",
+            "Connecting to multiplayer..."
+        );
+
+        setStartupStage("Creating input controller");
 
         // Pass inputMapRef directly into the controller
         const inputController = new InputController(scene, camera, player, headNode, inputMapRef);
 
+        setStartupStage("Starting chunk manager");
         initChunkManager(scene, player, BaseUrl);
+
+        setStartupStage("Initializing multiplayer");
 
         // Initialize Network Features
         try {
@@ -114,6 +140,7 @@ async function startGame(session) {
             console.error("Multiplayer initialization failed:", error);
         }
 
+        setStartupStage("Starting render loop");
         engine.hideLoadingUI();
 
         // Start Game Loop
@@ -130,7 +157,29 @@ async function startGame(session) {
         engine.hideLoadingUI();
         document.getElementById("welcomeScreen").hidden = false;
         document.querySelectorAll(".game-ui").forEach(el => el.hidden = true);
-        console.error(`Could not load the game: ${error.message}`);
+
+        const originalMessage =
+            error?.message ||
+            String(error) ||
+            "Unknown startup error";
+
+        const startupError =
+            new Error(
+                `Game startup failed during "${startupStage}": ${originalMessage}`
+            );
+
+        startupError.cause = error;
+
+        console.error(
+            "[AU GameForge startup failure]",
+            {
+                stage: startupStage,
+                originalError: error,
+                userAgent: navigator.userAgent
+            }
+        );
+
+        throw startupError;
     }
 }
 

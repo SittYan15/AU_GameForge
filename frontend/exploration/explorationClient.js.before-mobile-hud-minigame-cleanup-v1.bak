@@ -2,10 +2,8 @@
 export function createExplorationClient(socket) {
     let state = null;
     let hideTimer = null;
-    let minigameActive = false;
 
     const panel = document.createElement("aside");
-    panel.id = "campusExplorerPanel";
     Object.assign(panel.style, {
         position: "fixed", left: "16px", top: "330px", zIndex: "997",
         width: "250px", maxWidth: "calc(100vw - 32px)", boxSizing: "border-box",
@@ -31,11 +29,7 @@ export function createExplorationClient(socket) {
     }
 
     function render() {
-        if (!state || minigameActive) {
-            panel.style.display = "none";
-            return;
-        }
-
+        if (!state) { panel.style.display = "none"; return; }
         panel.style.display = "block";
         const rows = (state.locations || []).map((location) =>
             `<div style="display:flex;justify-content:space-between;padding:3px 0;color:${location.visited ? '#7ee787' : '#e5e7eb'}"><span>${location.title}</span><span>${location.visited ? '✓' : '○'}</span></div>`
@@ -51,26 +45,9 @@ export function createExplorationClient(socket) {
         }
     }
 
-    const onMinigameState = (event) => {
-        minigameActive =
-            event.detail?.active === true;
-
-        if (minigameActive && hideTimer) {
-            window.clearTimeout(hideTimer);
-            hideTimer = null;
-        }
-
-        render();
-    };
-
     const onState = (next) => { state = next; render(); };
     const onVisited = (data = {}) => showToast(`✓ Discovered: ${data.title} (${data.visitedCount}/${data.totalCount})`, "#7ee787");
     const onCompleted = (data = {}) => showToast(`🏆 CAMPUS EXPLORER COMPLETE +${data.pointsEarned || 0} POINTS — Dynamic Missions Unlocked!`, "#ffd166", 4200);
-
-    window.addEventListener(
-        "au:minigame-state",
-        onMinigameState
-    );
 
     socket.on("exploration:state", onState);
     socket.on("exploration:visited", onVisited);
@@ -78,11 +55,6 @@ export function createExplorationClient(socket) {
 
     return {
         dispose() {
-            window.removeEventListener(
-                "au:minigame-state",
-                onMinigameState
-            );
-
             socket.off("exploration:state", onState);
             socket.off("exploration:visited", onVisited);
             socket.off("exploration:completed", onCompleted);

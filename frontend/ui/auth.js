@@ -1,5 +1,14 @@
 // ui/auth.js
-import { clearTabAuthentication, hasTabAuthentication, loginUser, signupUser, createGuest, restoreGuest, googleLogin, restoreSession } from "../multiplayer.js";
+import {
+    clearTabAuthentication,
+    hasTabAuthentication,
+    loginUser,
+    signupUser,
+    createGuest,
+    restoreGuest,
+    googleLogin,
+    restoreSession
+} from "../multiplayer.js";
 import { renderGoogleButton } from "../googleIdentity.js";
 
 const welcomeScreen = document.getElementById("welcomeScreen");

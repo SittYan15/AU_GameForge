@@ -1,0 +1,444 @@
+// frontend/quiz/quizClient.js
+
+export function createCampusQuizClient(
+    scene,
+    localPlayer,
+    socket
+) {
+    let active = false;
+    let joinPending = false;
+    let role = "none";
+    let phase = "IDLE";
+    let lives = 3;
+    let score = 0;
+    let correctCount = 0;
+    let totalQuestions = 8;
+    let currentQuestionNumber = 0;
+    let survivorRewardPoints = 50;
+    let messageTimer = null;
+
+    const arena = scene.metadata?.campusQuizArena ?? null;
+
+    function setCampusQuizMinigameState(active) {
+        window.dispatchEvent(
+            new CustomEvent(
+                "au:minigame-state",
+                {
+                    detail: {
+                        active: Boolean(active),
+                        type: "campus-quiz"
+                    }
+                }
+            )
+        );
+    }
+
+    const cameraMode =
+        () =>
+            scene.metadata
+                ?.cameraModeController
+                ?? null;
+
+    const enterFixedCamera =
+        () => {
+            cameraMode()
+                ?.enterCampusQuizFixedCamera?.();
+        };
+
+    const restoreFpsCamera =
+        () => {
+            cameraMode()
+                ?.exitCampusQuizFixedCamera?.();
+        };
+
+    const style = document.createElement("style");
+    style.textContent = `
+        #campusQuizSurvivalHud {
+            position: fixed;
+            top: 72px;
+            right: 16px;
+            z-index: 1200;
+            width: min(290px, calc(100vw - 32px));
+            box-sizing: border-box;
+            padding: 11px 13px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,.15);
+            background: rgba(15,18,25,.90);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            box-shadow: 0 6px 20px rgba(0,0,0,.34);
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            display: none;
+        }
+
+        #campusQuizSurvivalMessage {
+            position: fixed;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1300;
+            max-width: min(520px, calc(100vw - 24px));
+            box-sizing: border-box;
+            padding: 12px 18px;
+            border-radius: 12px;
+            background: rgba(10,12,18,.94);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            font-size: clamp(16px, 2.2vw, 24px);
+            font-weight: 900;
+            text-align: center;
+            box-shadow: 0 8px 28px rgba(0,0,0,.42);
+            pointer-events: none;
+            display: none;
+        }
+
+        #campusQuizReturnButton {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1301;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,.22);
+            background: rgba(18,20,24,.92);
+            color: white;
+            font: 700 14px system-ui, sans-serif;
+            cursor: pointer;
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            #campusQuizSurvivalHud {
+                top: 58px;
+                right: 10px;
+                width: min(245px, calc(100vw - 20px));
+                padding: 9px 10px;
+            }
+
+            #campusQuizReturnButton {
+                top: auto;
+                right: 12px;
+                bottom: calc(12px + env(safe-area-inset-bottom));
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    const hud = document.createElement("aside");
+    hud.id = "campusQuizSurvivalHud";
+
+    const title = document.createElement("div");
+    title.textContent = "CAMPUS QUIZ SURVIVAL";
+    Object.assign(title.style, {
+        color: "#c4a7ff",
+        fontSize: "12px",
+        fontWeight: "900",
+        letterSpacing: ".08em",
+        marginBottom: "5px"
+    });
+
+    const hearts = document.createElement("div");
+    Object.assign(hearts.style, {
+        fontSize: "23px",
+        marginBottom: "4px"
+    });
+
+    const status = document.createElement("div");
+    Object.assign(status.style, {
+        fontSize: "12px",
+        fontWeight: "800",
+        color: "#d8dde5"
+    });
+
+    hud.append(title, hearts, status);
+    document.body.appendChild(hud);
+
+    const message = document.createElement("div");
+    message.id = "campusQuizSurvivalMessage";
+    document.body.appendChild(message);
+
+    const returnButton = document.createElement("button");
+    returnButton.id = "campusQuizReturnButton";
+    returnButton.textContent = "Return to Campus";
+    document.body.appendChild(returnButton);
+
+    function updateHud() {
+        hearts.textContent = `${"♥".repeat(Math.max(0, lives))}${"♡".repeat(Math.max(0, 3 - lives))}`;
+        hearts.style.color = lives > 1 ? "#ff6b81" : "#ff3b30";
+
+        const questionStatus = currentQuestionNumber > 0
+            ? `Q ${currentQuestionNumber}/${totalQuestions}`
+            : phase === "LOBBY"
+                ? "Waiting for round"
+                : role === "spectator"
+                    ? "Spectating"
+                    : "Ready";
+
+        status.textContent = `${questionStatus} • Score ${score.toLocaleString()} • Correct ${correctCount}`;
+    }
+
+    function showMessage(text, color = "#ffffff", duration = 2400) {
+        if (messageTimer) window.clearTimeout(messageTimer);
+
+        message.textContent = text;
+        message.style.color = color;
+        message.style.display = "block";
+
+        messageTimer = window.setTimeout(() => {
+            message.style.display = "none";
+        }, duration);
+    }
+
+    function setActiveUi(value) {
+        setCampusQuizMinigameState(value);
+        hud.style.display = value ? "block" : "none";
+        returnButton.style.display = value ? "block" : "none";
+    }
+
+    const onStarted = (data = {}) => {
+        joinPending = false;
+        active = true;
+        role = "waiting";
+        phase = data.phase || "LOBBY";
+        lives = Number(data.startingLives) || 3;
+        totalQuestions = Number(data.questionsPerRound) || 8;
+        survivorRewardPoints = Number(data.survivorRewardPoints) || 50;
+        score = 0;
+        correctCount = 0;
+        currentQuestionNumber = 0;
+        setActiveUi(true);
+
+        // Campus Quiz uses a fixed arena camera instead of FPS.
+        enterFixedCamera();
+
+        localPlayer.isLocked = false;
+        arena?.setLeaderboard?.(data.leaderboard || []);
+        updateHud();
+        document.exitPointerLock?.();
+    };
+
+    const onRole = (nextRole) => {
+        role = nextRole || "none";
+
+        if (role === "spectator") {
+            localPlayer.isLocked = true;
+            showMessage("Round already started — spectating until the next round", "#c7ccd4", 3200);
+        }
+
+        updateHud();
+    };
+
+    const onPhase = (nextPhase) => {
+        phase = nextPhase || "IDLE";
+
+        if (phase === "LOBBY") {
+            localPlayer.isLocked = false;
+        }
+
+        if (phase === "FINISHED") {
+            arena?.setFinished?.();
+        }
+
+        updateHud();
+    };
+
+    const onLobbyCountdown = (count) => {
+        arena?.setWaiting?.(count);
+        currentQuestionNumber = 0;
+        updateHud();
+    };
+
+    const onRoundStarted = (data = {}) => {
+        role = "player";
+        lives = Number(data.startingLives) || 3;
+        totalQuestions = Number(data.totalQuestions) || totalQuestions;
+        survivorRewardPoints = Number(data.survivorRewardPoints) || survivorRewardPoints;
+        score = 0;
+        correctCount = 0;
+        localPlayer.isLocked = false;
+        showMessage(`Survive ${totalQuestions} questions — ${lives} lives`, "#ffd166", 2600);
+        updateHud();
+    };
+
+    const onQuestion = (data = {}) => {
+        currentQuestionNumber = Number(data.questionNumber) || currentQuestionNumber;
+        totalQuestions = Number(data.totalQuestions) || totalQuestions;
+        arena?.setQuestion?.(data);
+
+        if (role === "player" && lives > 0) {
+            localPlayer.isLocked = false;
+        }
+
+        updateHud();
+    };
+
+    const onReveal = (data = {}) => {
+        arena?.reveal?.(data);
+    };
+
+    const onLifeResult = (data = {}) => {
+        lives = Math.max(0, Number(data.livesRemaining) || 0);
+        score = Number(data.score) || 0;
+        correctCount = Number(data.correctCount) || 0;
+
+        if (data.correct) {
+            showMessage("✓ CORRECT — your floor survives!", "#7ee787", 2100);
+        } else if (data.eliminated) {
+            showMessage("💀 GAME OVER — 3 wrong floors", "#ff6b6b", 3600);
+        } else if (!data.selectedFloorId) {
+            showMessage(`No answer floor selected — life lost (${lives} left)`, "#ff9b71", 2600);
+        } else {
+            showMessage(`Wrong floor — life lost (${lives} left)`, "#ff6b6b", 2600);
+        }
+
+        updateHud();
+    };
+
+    const onRoundStatus = (rows) => {
+        arena?.setPlayerStatus?.(rows || []);
+    };
+
+    const onTeleport = ({ position, reason } = {}) => {
+        if (!position || ![position.x, position.y, position.z].every(Number.isFinite)) return;
+
+        localPlayer.setGroundedPosition(position, `campus-quiz-${reason || "teleport"}`);
+
+        if (reason === "eliminated" || reason === "spectator") {
+            localPlayer.isLocked = true;
+        } else if (reason === "leave") {
+            localPlayer.isLocked = false;
+        } else {
+            localPlayer.isLocked = false;
+        }
+    };
+
+    const onFinished = (data = {}) => {
+        score = Number(data.score) || score;
+        correctCount = Number(data.correctCount) || correctCount;
+        lives = Math.max(0, Number(data.livesRemaining) || lives);
+        arena?.setLeaderboard?.(data.leaderboard || []);
+        arena?.setFinished?.();
+        localPlayer.isLocked = true;
+
+        if (data.survived) {
+            showMessage(
+                `🏆 SURVIVED! +${data.pointsEarned || 0} CAMPUS POINTS`,
+                "#ffd166",
+                5200
+            );
+        } else if (data.participated) {
+            showMessage(
+                `Round over — score ${score.toLocaleString()}. Survive next time for +${survivorRewardPoints} points.`,
+                "#c7ccd4",
+                5000
+            );
+        } else {
+            showMessage("Round over — next round begins soon", "#c7ccd4", 4200);
+        }
+
+        updateHud();
+    };
+
+    const onLeaderboard = (rows) => {
+        arena?.setLeaderboard?.(rows || []);
+    };
+
+    const onError = (text) => {
+        joinPending = false;
+        active = false;
+        role = "none";
+        phase = "IDLE";
+        localPlayer.isLocked = false;
+        restoreFpsCamera();
+        setActiveUi(false);
+        arena?.setIdle?.();
+        console.warn("Campus Quiz:", text);
+    };
+
+    const onLeft = () => {
+        joinPending = false;
+        active = false;
+        role = "none";
+        phase = "IDLE";
+        lives = 3;
+        score = 0;
+        correctCount = 0;
+        currentQuestionNumber = 0;
+        localPlayer.isLocked = false;
+        restoreFpsCamera();
+        setActiveUi(false);
+        arena?.setIdle?.();
+        updateHud();
+    };
+
+    const onDisconnect = () => {
+        onLeft();
+    };
+
+    socket.on("campusQuiz:started", onStarted);
+    socket.on("campusQuiz:role", onRole);
+    socket.on("campusQuiz:phase", onPhase);
+    socket.on("campusQuiz:lobbyCountdown", onLobbyCountdown);
+    socket.on("campusQuiz:roundStarted", onRoundStarted);
+    socket.on("campusQuiz:question", onQuestion);
+    socket.on("campusQuiz:reveal", onReveal);
+    socket.on("campusQuiz:lifeResult", onLifeResult);
+    socket.on("campusQuiz:roundStatus", onRoundStatus);
+    socket.on("campusQuiz:teleport", onTeleport);
+    socket.on("campusQuiz:finished", onFinished);
+    socket.on("campusQuiz:leaderboard", onLeaderboard);
+    socket.on("campusQuiz:error", onError);
+    socket.on("campusQuiz:left", onLeft);
+    socket.on("disconnect", onDisconnect);
+
+    returnButton.addEventListener("click", () => {
+        if (active && socket.connected) socket.emit("campusQuiz:leave");
+    });
+
+    return {
+        requestStart() {
+            if (!socket.connected || active || joinPending) return false;
+            joinPending = true;
+            socket.emit("campusQuiz:join");
+            return true;
+        },
+
+        requestLeaderboard() {
+            if (socket.connected) socket.emit("campusQuiz:leaderboardRequest");
+        },
+
+        isActive() {
+            return active || joinPending;
+        },
+
+        dispose() {
+            if (messageTimer) window.clearTimeout(messageTimer);
+
+            setCampusQuizMinigameState(false);
+
+            restoreFpsCamera();
+
+            socket.off("campusQuiz:started", onStarted);
+            socket.off("campusQuiz:role", onRole);
+            socket.off("campusQuiz:phase", onPhase);
+            socket.off("campusQuiz:lobbyCountdown", onLobbyCountdown);
+            socket.off("campusQuiz:roundStarted", onRoundStarted);
+            socket.off("campusQuiz:question", onQuestion);
+            socket.off("campusQuiz:reveal", onReveal);
+            socket.off("campusQuiz:lifeResult", onLifeResult);
+            socket.off("campusQuiz:roundStatus", onRoundStatus);
+            socket.off("campusQuiz:teleport", onTeleport);
+            socket.off("campusQuiz:finished", onFinished);
+            socket.off("campusQuiz:leaderboard", onLeaderboard);
+            socket.off("campusQuiz:error", onError);
+            socket.off("campusQuiz:left", onLeft);
+            socket.off("disconnect", onDisconnect);
+
+            hud.remove();
+            message.remove();
+            returnButton.remove();
+            style.remove();
+        }
+    };
+}

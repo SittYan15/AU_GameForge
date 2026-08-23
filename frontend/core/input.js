@@ -15,6 +15,17 @@ export class InputController {
         this.headNode = headNode;
         this.inputMap = sharedInputMap;
 
+        // Campus Quiz can temporarily switch the same ArcRotateCamera
+        // from FPS into a locked arena overview and then restore FPS.
+        this.isFixedCamera = false;
+        this.fixedCameraSnapshot = null;
+
+        this.scene.metadata =
+            this.scene.metadata || {};
+
+        this.scene.metadata.cameraModeController =
+            this;
+
         // FPS-only mode.
         // No TPS raycasts, no TPS obstruction checks, no camera switching.
         this.applyFirstPersonMode();
@@ -25,7 +36,8 @@ export class InputController {
         this.scene.onPointerDown = (evt) => {
             if (
                 evt.button === 0 &&
-                !this.isMobileDevice()
+                !this.isMobileDevice() &&
+                !this.isFixedCamera
             ) {
                 this.scene
                     .getEngine()
@@ -35,6 +47,8 @@ export class InputController {
     }
 
     applyFirstPersonMode() {
+        this.isFixedCamera = false;
+
         this.camera.lockedTarget =
             this.headNode;
 
@@ -78,6 +92,122 @@ export class InputController {
             );
         }
     }
+
+
+
+    enterCampusQuizFixedCamera() {
+        if (this.isFixedCamera) {
+            return;
+        }
+
+        this.fixedCameraSnapshot = {
+            alpha: this.camera.alpha,
+            beta: this.camera.beta,
+            radius: this.camera.radius,
+            lowerRadiusLimit:
+                this.camera.lowerRadiusLimit,
+            upperRadiusLimit:
+                this.camera.upperRadiusLimit,
+            lowerBetaLimit:
+                this.camera.lowerBetaLimit,
+            upperBetaLimit:
+                this.camera.upperBetaLimit,
+            panningSensibility:
+                this.camera.panningSensibility,
+            inertia:
+                this.camera.inertia
+        };
+
+        this.isFixedCamera = true;
+
+        document.exitPointerLock?.();
+
+        // Prevent mouse/touch from rotating the arena camera.
+        this.camera.detachControl();
+
+        // Fixed spectator-style view from the safe-platform side,
+        // looking toward the answer floors and giant question wall.
+        const fixedTarget =
+            new BABYLON.Vector3(
+                165.56,
+                1.8,
+                -50.2
+            );
+
+        this.camera.lockedTarget =
+            fixedTarget;
+
+        this.camera.alpha =
+            Math.PI / 2;
+
+        this.camera.beta =
+            1.22;
+
+        this.camera.lowerBetaLimit =
+            1.22;
+
+        this.camera.upperBetaLimit =
+            1.22;
+
+        // v2.6: slightly closer fixed Campus Quiz camera.
+        this.camera.radius =
+            36;
+
+        this.camera.lowerRadiusLimit =
+            36;
+
+        this.camera.upperRadiusLimit =
+            36;
+
+        this.camera.panningSensibility =
+            0;
+
+        this.camera.inertia =
+            0;
+
+        // The player must be visible from the fixed camera.
+        if (this.player.characterMesh) {
+            this.player.characterMesh.setEnabled(
+                true
+            );
+        }
+    }
+
+    exitCampusQuizFixedCamera() {
+        if (!this.isFixedCamera) {
+            return;
+        }
+
+        const snapshot =
+            this.fixedCameraSnapshot;
+
+        this.fixedCameraSnapshot =
+            null;
+
+        // Re-enter the normal FPS configuration.
+        this.applyFirstPersonMode();
+
+        if (snapshot) {
+            this.camera.alpha =
+                snapshot.alpha;
+
+            this.camera.beta =
+                snapshot.beta;
+        }
+
+        const canvas =
+            this.scene
+                .getEngine()
+                .getRenderingCanvas();
+
+        if (canvas) {
+            this.camera.attachControl(
+                canvas,
+                true
+            );
+        }
+    }
+
 
     setupKeyboard() {
         this.scene.actionManager =

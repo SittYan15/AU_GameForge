@@ -1,0 +1,282 @@
+// frontend/ui/mobileHudLayout.js
+// Responsive HUD cleanup for mobile landscape.
+//
+// Minigame focus is intentionally enabled only by the two full minigames:
+//   - Red Light, Green Light
+//   - Campus Quiz Survival
+//
+// Dynamic Pop-Up Missions do NOT enable this mode.
+
+const style = document.createElement("style");
+style.id = "auMobileHudLayoutStyle";
+
+style.textContent = `
+    /* ---------------------------------------------------------
+       MOBILE / TABLET HUD
+       --------------------------------------------------------- */
+    @media (max-width: 900px) {
+        /* The FPS number competes with Full Screen / Return buttons. */
+        #fpsCounter {
+            display: none !important;
+        }
+
+        /* Compact connection/player-count badge. */
+        #playerCountStatus {
+            top: max(8px, env(safe-area-inset-top)) !important;
+            left: max(8px, env(safe-area-inset-left)) !important;
+            max-width: 205px !important;
+            gap: 6px !important;
+            padding: 7px 9px !important;
+            border-radius: 9px !important;
+            font-size: 12px !important;
+            line-height: 1 !important;
+        }
+
+        #playerCountStatus .online-dot {
+            width: 10px !important;
+            height: 10px !important;
+            flex-basis: 10px !important;
+        }
+
+        /* Smaller leaderboard while freely exploring the campus. */
+        #topPlayersStatus {
+            top: calc(max(8px, env(safe-area-inset-top)) + 39px) !important;
+            left: max(8px, env(safe-area-inset-left)) !important;
+            width: 184px !important;
+            max-width: 38vw !important;
+            padding: 7px 9px !important;
+            border-radius: 9px !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,.28) !important;
+        }
+
+        #topPlayersStatus > div:first-child {
+            margin-bottom: 4px !important;
+            font-size: 10px !important;
+        }
+
+        /* Turn Profile into a small icon button on mobile. */
+        #profileButton {
+            top: max(8px, env(safe-area-inset-top)) !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            width: 40px !important;
+            min-width: 40px !important;
+            height: 36px !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            font-size: 0 !important;
+        }
+
+        #profileButton .profile-icon {
+            font-size: 18px !important;
+        }
+
+        /* Full Screen sits immediately to the left of Profile. */
+        #btn-fullscreen {
+            top: max(8px, env(safe-area-inset-top)) !important;
+            right: calc(max(8px, env(safe-area-inset-right)) + 48px) !important;
+            width: auto !important;
+            height: 36px !important;
+            padding: 0 10px !important;
+            font-size: 11px !important;
+            border-radius: 9px !important;
+        }
+
+        /* Explorer belongs above the joystick, not underneath it. */
+        #campusExplorerPanel {
+            top: auto !important;
+            left: max(8px, env(safe-area-inset-left)) !important;
+            bottom: calc(166px + env(safe-area-inset-bottom)) !important;
+            width: 215px !important;
+            max-width: 38vw !important;
+            max-height: 31vh !important;
+            overflow: hidden !important;
+            padding: 8px 9px !important;
+            border-radius: 10px !important;
+            box-shadow: 0 3px 12px rgba(0,0,0,.30) !important;
+        }
+
+        /*
+         * Full minigame focus mode.
+         * Keep only gameplay-essential UI on the phone.
+         */
+        body.au-minigame-focus #campusExplorerPanel,
+        body.au-minigame-focus #topPlayersStatus,
+        body.au-minigame-focus #profileButton,
+        body.au-minigame-focus #profilePanel,
+        body.au-minigame-focus #btn-fullscreen,
+        body.au-minigame-focus #chatToggle,
+        body.au-minigame-focus #chatPanel,
+        body.au-minigame-focus #fpsCounter {
+            display: none !important;
+        }
+
+        body.au-minigame-focus #playerCountStatus {
+            max-width: 180px !important;
+        }
+
+        /* -----------------------------------------------------
+           RLGL mobile layout
+           ----------------------------------------------------- */
+        body.au-minigame-focus #rlglQuitBtn {
+            top: max(8px, env(safe-area-inset-top)) !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
+            padding: 8px 11px !important;
+            font-size: 12px !important;
+            border-radius: 9px !important;
+            max-width: 150px !important;
+        }
+
+        body.au-minigame-focus #rlglRulesPanel {
+            top: calc(max(8px, env(safe-area-inset-top)) + 43px) !important;
+            left: max(8px, env(safe-area-inset-left)) !important;
+            right: auto !important;
+            bottom: auto !important;
+            width: min(270px, 47vw) !important;
+            max-height: 42vh !important;
+            padding: 8px 10px !important;
+            border-radius: 10px !important;
+            overflow: hidden !important;
+            font-size: 10.5px !important;
+            line-height: 1.28 !important;
+        }
+
+        body.au-minigame-focus #rlglRulesPanel .rlgl-rules-title {
+            margin-bottom: 5px !important;
+            font-size: 14px !important;
+        }
+
+        /* Tips remain on desktop; phone shows only the rules. */
+        body.au-minigame-focus #rlglRulesPanel .rlgl-tips {
+            display: none !important;
+        }
+
+        /* -----------------------------------------------------
+           Campus Quiz Survival mobile layout
+           ----------------------------------------------------- */
+        body.au-minigame-focus #campusQuizReturnButton {
+            top: max(8px, env(safe-area-inset-top)) !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            bottom: auto !important;
+            left: auto !important;
+            padding: 8px 11px !important;
+            font-size: 12px !important;
+            border-radius: 9px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalHud {
+            top: calc(max(8px, env(safe-area-inset-top)) + 43px) !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            width: 190px !important;
+            max-width: 36vw !important;
+            padding: 7px 9px !important;
+            border-radius: 10px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalHud > div:nth-child(1) {
+            font-size: 9px !important;
+            margin-bottom: 3px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalHud > div:nth-child(2) {
+            font-size: 18px !important;
+            margin-bottom: 2px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalHud > div:nth-child(3) {
+            font-size: 10px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalMessage {
+            max-width: 58vw !important;
+            padding: 8px 11px !important;
+            font-size: 14px !important;
+        }
+
+        /* Keep the touch controls above the 3D canvas. */
+        #mobileController {
+            z-index: 1050 !important;
+        }
+
+        #joystick-zone {
+            left: max(18px, env(safe-area-inset-left)) !important;
+            bottom: max(8px, env(safe-area-inset-bottom)) !important;
+        }
+
+        #action-buttons {
+            right: max(18px, env(safe-area-inset-right)) !important;
+            bottom: max(0px, env(safe-area-inset-bottom)) !important;
+        }
+    }
+
+    /*
+     * Extra tightening for short landscape phone screens.
+     * This is the shape shown in the Android screenshots.
+     */
+    @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+        #topPlayersStatus {
+            width: 170px !important;
+            max-width: 34vw !important;
+        }
+
+        #campusExplorerPanel {
+            bottom: calc(152px + env(safe-area-inset-bottom)) !important;
+            width: 200px !important;
+            max-height: 27vh !important;
+        }
+
+        body.au-minigame-focus #rlglRulesPanel {
+            width: min(250px, 43vw) !important;
+            max-height: 39vh !important;
+            font-size: 10px !important;
+        }
+
+        body.au-minigame-focus #campusQuizSurvivalHud {
+            width: 176px !important;
+        }
+    }
+`;
+
+document.head.appendChild(style);
+
+let activeMinigame = null;
+
+function applyMinigameState(detail = {}) {
+    const active = detail.active === true;
+
+    activeMinigame =
+        active
+            ? detail.type || "minigame"
+            : null;
+
+    document.body.classList.toggle(
+        "au-minigame-focus",
+        Boolean(activeMinigame)
+    );
+
+    if (activeMinigame) {
+        document.body.dataset.minigame =
+            activeMinigame;
+    } else {
+        delete document.body.dataset.minigame;
+    }
+}
+
+window.addEventListener(
+    "au:minigame-state",
+    (event) => applyMinigameState(event.detail)
+);
+
+// Defensive cleanup after page restoration/navigation.
+window.addEventListener(
+    "pageshow",
+    () => {
+        if (!activeMinigame) {
+            document.body.classList.remove(
+                "au-minigame-focus"
+            );
+        }
+    }
+);

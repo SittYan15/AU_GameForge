@@ -7,7 +7,13 @@ import {
     markNonGround
 } from "./grounding.js";
 
-export const createPlayer = async (scene, camera, inputMap, onAnimationChanged = () => { }) => {
+export const createPlayer = async (
+    scene,
+    camera,
+    inputMap,
+    onAnimationChanged = () => { },
+    loadingScreen = null
+) => {
     const player = BABYLON.MeshBuilder.CreateCapsule("player", { radius: 0.3, height: 2 }, scene);
     player.position = new BABYLON.Vector3(-100, 10, 0);
     player.checkCollisions = true;
@@ -45,7 +51,29 @@ export const createPlayer = async (scene, camera, inputMap, onAnimationChanged =
         onAnimationChanged(animationName);
     };
 
-    const charResult = await BABYLON.SceneLoader.ImportMeshAsync("", "./", "BoyAnimV2.4.glb", scene);
+    loadingScreen?.beginAsset?.(
+        "Player Character",
+        2,
+        2
+    );
+
+    const charResult =
+        await BABYLON.SceneLoader.ImportMeshAsync(
+            "",
+            "./",
+            "BoyAnimV2.4.glb",
+            scene,
+            (event) => {
+                loadingScreen?.updateAssetProgress?.(
+                    event,
+                    "Player Character"
+                );
+            }
+        );
+
+    loadingScreen?.completeAsset?.(
+        "Player Character"
+    );
     charResult.animationGroups.forEach(anim => anim.stop());
 
     charResult.meshes.forEach((mesh) => {

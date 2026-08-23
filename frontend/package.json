@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Babylon.js multiplayer client for AU GameForge",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --force",
     "build": "vite build",
     "preview": "vite preview"
   },

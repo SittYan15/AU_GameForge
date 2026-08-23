@@ -11,10 +11,6 @@ import {
     stopDynamicMissions
 } from "../missions/missionManager.js";
 import { checkCampusExplorationProgress, initializeCampusExploration } from "../exploration/explorationManager.js";
-import {
-    registerCampusQuizSocket,
-    transferCampusQuizGuestProgress
-} from "../quiz/quizManager.js";
 
 const players = new Map();
 const activePlayerSockets = new Map();
@@ -439,35 +435,6 @@ export default function registerMultiplayerSocket(io) {
         socket.data.lastMoveAt = Date.now();
         socket.emit("chat:history", chatHistory);
 
-        registerCampusQuizSocket(
-            io,
-            socket,
-            () => players.get(socket.id),
-            {
-                onEnter() {
-                    cancelDynamicMissionForMinigame(socket);
-                },
-
-                onExit(player) {
-                    resumeDynamicMissionsAfterMinigame(
-                        io,
-                        socket,
-                        player
-                    );
-                },
-
-                onTeleport(player, position, reason) {
-                    player.position = { ...position };
-                    socket.data.lastMoveAt = Date.now();
-                    socket.emit("campusQuiz:teleport", {
-                        position: player.position,
-                        reason
-                    });
-                    broadcastPlayerPosition(io, player);
-                }
-            }
-        );
-
         socket.on("player:join", async (payload = {}) => {
             if (players.has(socket.id) || socket.data.joining) return;
 
@@ -721,27 +688,10 @@ export default function registerMultiplayerSocket(io) {
             try {
                 const profile = await getConvertedUserForGuest(player.guestId);
                 if (!profile) return;
-                const previousQuizGuestId = player.guestId;
-
                 player.accountType = "user";
                 player.userId = profile.userId;
                 player.guestId = null;
                 player.guestCode = null;
-
-                if (Number.isSafeInteger(previousQuizGuestId)) {
-                    try {
-                        await transferCampusQuizGuestProgress(
-                            previousQuizGuestId,
-                            profile.userId,
-                            profile.playerName
-                        );
-                    } catch (error) {
-                        console.error(
-                            "Could not transfer Campus Quiz progress:",
-                            error.message
-                        );
-                    }
-                }
                 player.playerName = profile.playerName.slice(0, MAX_PLAYER_NAME_LENGTH);
                 io.emit("player:identityChanged", {
                     socketId: socket.id,
@@ -795,11 +745,6 @@ export default function registerMultiplayerSocket(io) {
             const player = players.get(socket.id);
             if (!player) {
                 socket.emit("rlgl:error", "Join multiplayer before entering the minigame.");
-                return;
-            }
-
-            if (socket.data.inCampusQuiz) {
-                socket.emit("rlgl:error", "Exit Campus Quiz before entering Red Light, Green Light.");
                 return;
             }
 

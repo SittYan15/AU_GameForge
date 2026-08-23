@@ -1,0 +1,762 @@
+// backend/quiz/quizManager.js
+
+import { addGuestPoints } from "../models/guestModel.js";
+import { getTopPlayers } from "../models/leaderboardModel.js";
+import {
+    getCampusQuizLeaderboard,
+    saveCampusQuizResult,
+    transferCampusQuizGuestProgress as transferQuizGuestProgress
+} from "../models/quizModel.js";
+import { addUserPoints } from "../models/userModel.js";
+import {
+    CAMPUS_QUIZ_ARENA,
+    CAMPUS_QUIZ_FLOORS,
+    CAMPUS_QUIZ_LOBBY_SECONDS,
+    CAMPUS_QUIZ_PORTAL,
+    CAMPUS_QUIZ_QUESTION_TIME_MS,
+    CAMPUS_QUIZ_QUESTIONS,
+    CAMPUS_QUIZ_QUESTIONS_PER_ROUND,
+    CAMPUS_QUIZ_REVEAL_TIME_MS,
+    CAMPUS_QUIZ_RESULTS_TIME_MS,
+    CAMPUS_QUIZ_RETURN_POSITION,
+    CAMPUS_QUIZ_ROOM,
+    CAMPUS_QUIZ_SCORE_PER_CORRECT,
+    CAMPUS_QUIZ_SPECTATOR_SPAWN,
+    CAMPUS_QUIZ_STARTING_LIVES,
+    CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS,
+    CAMPUS_QUIZ_WAITING_SPAWN
+} from "./quizDefinitions.js";
+
+const socketHandlers = new Map();
+
+const quizState = {
+    phase: "IDLE",
+    roundId: 0,
+    questionIndex: -1,
+    questionIds: [],
+    currentQuestion: null,
+    currentFloorMap: null,
+    correctFloorId: null,
+    currentPublicQuestion: null,
+    questionDeadline: null,
+    lobbyEndsAt: null,
+    roundStartedAt: null
+};
+
+let lobbyInterval = null;
+let questionTimer = null;
+let revealTimer = null;
+let restartTimer = null;
+
+function shuffle(values) {
+    const copy = [...values];
+
+    for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+    }
+
+    return copy;
+}
+
+function clearQuizTimers() {
+    clearInterval(lobbyInterval);
+    clearTimeout(questionTimer);
+    clearTimeout(revealTimer);
+    clearTimeout(restartTimer);
+
+    lobbyInterval = null;
+    questionTimer = null;
+    revealTimer = null;
+    restartTimer = null;
+}
+
+function getQuizSockets(io) {
+    const ids = io.sockets.adapter.rooms.get(CAMPUS_QUIZ_ROOM);
+    if (!ids) return [];
+
+    return [...ids]
+        .map((id) => io.sockets.sockets.get(id))
+        .filter(Boolean);
+}
+
+function handlersFor(socket) {
+    return socketHandlers.get(socket.id) ?? null;
+}
+
+function playerFor(socket) {
+    return handlersFor(socket)?.getPlayer?.() ?? null;
+}
+
+function distanceToPortal(position) {
+    return Math.hypot(
+        position.x - CAMPUS_QUIZ_PORTAL.x,
+        position.y - CAMPUS_QUIZ_PORTAL.y,
+        position.z - CAMPUS_QUIZ_PORTAL.z
+    );
+}
+
+function floorAtPosition(position) {
+    if (!position) return null;
+
+    // Player must still be near the live answer-platform height when the
+    // server locks the answer. Standing below the arena or on the safe pad
+    // cannot count as an answer.
+    if (
+        position.y < CAMPUS_QUIZ_ARENA.y - 1.8 ||
+        position.y > CAMPUS_QUIZ_ARENA.y + 4.0
+    ) {
+        return null;
+    }
+
+    return CAMPUS_QUIZ_FLOORS.find((floor) =>
+        Math.abs(position.x - floor.x) <= floor.halfWidth &&
+        Math.abs(position.z - floor.z) <= floor.halfDepth
+    )?.id ?? null;
+}
+
+function quizSpawn(index) {
+    const columns = 9;
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+
+    return {
+        x: CAMPUS_QUIZ_WAITING_SPAWN.x + (column - 4) * 3.5,
+        y: CAMPUS_QUIZ_WAITING_SPAWN.y,
+        z: CAMPUS_QUIZ_WAITING_SPAWN.z + row * 2.4
+    };
+}
+
+function spectatorSpawn(index) {
+    return {
+        x: CAMPUS_QUIZ_SPECTATOR_SPAWN.x + ((index % 9) - 4) * 3.5,
+        y: CAMPUS_QUIZ_SPECTATOR_SPAWN.y,
+        z: CAMPUS_QUIZ_SPECTATOR_SPAWN.z + Math.floor(index / 9) * 2.4
+    };
+}
+
+function teleport(socket, position, reason) {
+    const player = playerFor(socket);
+    if (!player) return;
+
+    const handler = handlersFor(socket)?.onTeleport;
+
+    if (handler) {
+        handler(player, position, reason);
+        return;
+    }
+
+    // Fallback for older integration. The local player still receives the
+    // authoritative teleport even if the caller did not provide a broadcaster.
+    player.position = { ...position };
+    socket.data.lastMoveAt = Date.now();
+    socket.emit("campusQuiz:teleport", {
+        position: player.position,
+        reason
+    });
+}
+
+function resetSocketForRound(socket) {
+    socket.data.campusQuizParticipating = true;
+    socket.data.campusQuizEliminated = false;
+    socket.data.campusQuizLives = CAMPUS_QUIZ_STARTING_LIVES;
+    socket.data.campusQuizCorrectCount = 0;
+    socket.data.campusQuizScore = 0;
+}
+
+function setSocketSpectator(socket) {
+    socket.data.campusQuizParticipating = false;
+    socket.data.campusQuizEliminated = true;
+    socket.data.campusQuizLives = 0;
+}
+
+function publicPlayerStatus(io) {
+    return getQuizSockets(io).map((socket) => {
+        const player = playerFor(socket);
+
+        return {
+            socketId: socket.id,
+            playerName: player?.playerName ?? "Player",
+            lives: socket.data.campusQuizLives ?? 0,
+            score: socket.data.campusQuizScore ?? 0,
+            correctCount: socket.data.campusQuizCorrectCount ?? 0,
+            participating: Boolean(socket.data.campusQuizParticipating),
+            eliminated: Boolean(socket.data.campusQuizEliminated)
+        };
+    });
+}
+
+function emitRoundStatus(io) {
+    io.to(CAMPUS_QUIZ_ROOM).emit(
+        "campusQuiz:roundStatus",
+        publicPlayerStatus(io)
+    );
+}
+
+async function emitQuizLeaderboard(io) {
+    try {
+        const leaderboard = await getCampusQuizLeaderboard(10);
+        io.emit("campusQuiz:leaderboard", leaderboard);
+        return leaderboard;
+    } catch (error) {
+        console.error("Could not load Campus Quiz leaderboard:", error.message);
+        return [];
+    }
+}
+
+async function emitGlobalLeaderboard(io) {
+    try {
+        io.emit("leaderboard:updated", await getTopPlayers(5));
+    } catch (error) {
+        console.error("Could not refresh global leaderboard after Campus Quiz:", error.message);
+    }
+}
+
+function buildPublicQuestion(question) {
+    const shuffledOptions = shuffle(question.options);
+    const floorIds = ["A", "B", "C", "D"];
+
+    quizState.currentFloorMap = new Map(
+        shuffledOptions.map((option, index) => [floorIds[index], option.id])
+    );
+
+    quizState.correctFloorId = [...quizState.currentFloorMap.entries()]
+        .find(([, canonicalId]) => canonicalId === question.correctOptionId)?.[0] ?? null;
+
+    return {
+        id: question.id,
+        category: question.category,
+        question: question.question,
+        options: shuffledOptions.map((option, index) => ({
+            floorId: floorIds[index],
+            text: option.text
+        })),
+        questionNumber: quizState.questionIndex + 1,
+        totalQuestions: quizState.questionIds.length,
+        deadline: quizState.questionDeadline
+    };
+}
+
+function currentQuestion() {
+    const id = quizState.questionIds[quizState.questionIndex];
+    return CAMPUS_QUIZ_QUESTIONS.find((question) => question.id === id) ?? null;
+}
+
+function aliveParticipants(io) {
+    return getQuizSockets(io).filter((socket) =>
+        socket.data.campusQuizParticipating &&
+        !socket.data.campusQuizEliminated
+    );
+}
+
+function setIdle() {
+    clearQuizTimers();
+
+    quizState.phase = "IDLE";
+    quizState.questionIndex = -1;
+    quizState.questionIds = [];
+    quizState.currentQuestion = null;
+    quizState.currentFloorMap = null;
+    quizState.correctFloorId = null;
+    quizState.currentPublicQuestion = null;
+    quizState.questionDeadline = null;
+    quizState.lobbyEndsAt = null;
+    quizState.roundStartedAt = null;
+}
+
+function ensureStopsWhenEmpty(io) {
+    if (getQuizSockets(io).length === 0) {
+        setIdle();
+        return true;
+    }
+
+    return false;
+}
+
+async function finishRound(io) {
+    if (quizState.phase === "FINISHED" || quizState.phase === "IDLE") return;
+
+    clearTimeout(questionTimer);
+    clearTimeout(revealTimer);
+    questionTimer = null;
+    revealTimer = null;
+
+    quizState.phase = "FINISHED";
+    quizState.questionDeadline = null;
+
+    const sockets = getQuizSockets(io);
+    const durationMs = Math.max(1, Date.now() - (quizState.roundStartedAt ?? Date.now()));
+    let anySurvivorReward = false;
+
+    const results = await Promise.all(
+        sockets.map(async (socket) => {
+            const player = playerFor(socket);
+            const participated = Boolean(socket.data.campusQuizParticipating);
+            const survived = participated && !socket.data.campusQuizEliminated;
+            const score = socket.data.campusQuizScore ?? 0;
+            const correctCount = socket.data.campusQuizCorrectCount ?? 0;
+            const livesRemaining = Math.max(0, socket.data.campusQuizLives ?? 0);
+
+            let resultSaved = false;
+            let rewardSaved = !survived;
+            let totalPoints = null;
+
+            if (player && participated) {
+                try {
+                    await saveCampusQuizResult(player, {
+                        score,
+                        correctCount,
+                        durationMs
+                    });
+                    resultSaved = true;
+                } catch (error) {
+                    console.error("Could not save Campus Quiz survival result:", error.message);
+                }
+
+                if (survived) {
+                    try {
+                        const account = player.accountType === "user"
+                            ? await addUserPoints(player.userId, CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS)
+                            : await addGuestPoints(player.guestCode, CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS);
+
+                        rewardSaved = Boolean(account);
+                        totalPoints = account?.points ?? null;
+                        anySurvivorReward ||= rewardSaved;
+                    } catch (error) {
+                        rewardSaved = false;
+                        console.error("Could not save Campus Quiz survivor reward:", error.message);
+                    }
+                }
+            }
+
+            return {
+                socket,
+                participated,
+                survived,
+                score,
+                correctCount,
+                livesRemaining,
+                resultSaved,
+                rewardSaved,
+                totalPoints
+            };
+        })
+    );
+
+    const leaderboard = await emitQuizLeaderboard(io);
+
+    if (anySurvivorReward) {
+        void emitGlobalLeaderboard(io);
+    }
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "FINISHED");
+
+    for (const result of results) {
+        result.socket.emit("campusQuiz:finished", {
+            survived: result.survived,
+            participated: result.participated,
+            score: result.score,
+            correctCount: result.correctCount,
+            totalQuestions: quizState.questionIds.length,
+            livesRemaining: result.livesRemaining,
+            pointsEarned: result.survived && result.rewardSaved
+                ? CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS
+                : 0,
+            rewardSaved: result.rewardSaved,
+            resultSaved: result.resultSaved,
+            totalPoints: result.totalPoints,
+            leaderboard
+        });
+    }
+
+    emitRoundStatus(io);
+
+    if (ensureStopsWhenEmpty(io)) return;
+
+    restartTimer = setTimeout(() => {
+        startLobby(io);
+    }, CAMPUS_QUIZ_RESULTS_TIME_MS);
+}
+
+function sendQuestion(io) {
+    if (quizState.phase !== "QUESTION") return;
+
+    const question = currentQuestion();
+
+    if (!question) {
+        void finishRound(io);
+        return;
+    }
+
+    quizState.currentQuestion = question;
+    quizState.questionDeadline = Date.now() + CAMPUS_QUIZ_QUESTION_TIME_MS;
+    quizState.currentPublicQuestion = buildPublicQuestion(question);
+
+    io.to(CAMPUS_QUIZ_ROOM).emit(
+        "campusQuiz:question",
+        quizState.currentPublicQuestion
+    );
+
+    clearTimeout(questionTimer);
+    questionTimer = setTimeout(() => {
+        evaluateQuestion(io);
+    }, CAMPUS_QUIZ_QUESTION_TIME_MS + 40);
+}
+
+function prepareNextQuestion(io) {
+    if (quizState.phase === "IDLE" || quizState.phase === "FINISHED") return;
+
+    if (quizState.questionIndex + 1 >= quizState.questionIds.length) {
+        void finishRound(io);
+        return;
+    }
+
+    if (aliveParticipants(io).length === 0) {
+        void finishRound(io);
+        return;
+    }
+
+    quizState.questionIndex += 1;
+    quizState.phase = "QUESTION";
+
+    const activeSockets = aliveParticipants(io);
+    activeSockets.forEach((socket, index) => {
+        teleport(socket, quizSpawn(index), "next-question");
+    });
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "QUESTION");
+    sendQuestion(io);
+}
+
+function evaluateQuestion(io) {
+    if (quizState.phase !== "QUESTION") return;
+
+    clearTimeout(questionTimer);
+    questionTimer = null;
+
+    const question = quizState.currentQuestion;
+    const publicQuestion = quizState.currentPublicQuestion;
+
+    if (!question || !publicQuestion) {
+        void finishRound(io);
+        return;
+    }
+
+    quizState.phase = "REVEAL";
+    quizState.questionDeadline = null;
+
+    const correctFloorId = quizState.correctFloorId;
+    const wrongFloorIds = CAMPUS_QUIZ_FLOORS
+        .map((floor) => floor.id)
+        .filter((id) => id !== correctFloorId);
+
+    const activeSockets = aliveParticipants(io);
+
+    for (const socket of activeSockets) {
+        const player = playerFor(socket);
+        const selectedFloorId = floorAtPosition(player?.position);
+        const correct = selectedFloorId === correctFloorId;
+
+        if (correct) {
+            socket.data.campusQuizCorrectCount += 1;
+            socket.data.campusQuizScore += CAMPUS_QUIZ_SCORE_PER_CORRECT;
+        } else {
+            socket.data.campusQuizLives = Math.max(
+                0,
+                (socket.data.campusQuizLives ?? CAMPUS_QUIZ_STARTING_LIVES) - 1
+            );
+
+            if (socket.data.campusQuizLives <= 0) {
+                socket.data.campusQuizEliminated = true;
+            }
+        }
+
+        socket.emit("campusQuiz:lifeResult", {
+            questionId: question.id,
+            selectedFloorId,
+            correctFloorId,
+            correct,
+            livesRemaining: socket.data.campusQuizLives,
+            eliminated: socket.data.campusQuizEliminated,
+            score: socket.data.campusQuizScore,
+            correctCount: socket.data.campusQuizCorrectCount
+        });
+    }
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "REVEAL");
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:reveal", {
+        questionId: question.id,
+        correctFloorId,
+        wrongFloorIds,
+        explanation: question.explanation,
+        revealEndsAt: Date.now() + CAMPUS_QUIZ_REVEAL_TIME_MS
+    });
+
+    emitRoundStatus(io);
+
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+        revealTimer = null;
+
+        const roomSockets = getQuizSockets(io);
+        let spectatorIndex = 0;
+
+        for (const socket of roomSockets) {
+            if (socket.data.campusQuizParticipating && socket.data.campusQuizEliminated) {
+                teleport(socket, spectatorSpawn(spectatorIndex), "eliminated");
+                spectatorIndex += 1;
+            }
+        }
+
+        prepareNextQuestion(io);
+    }, CAMPUS_QUIZ_REVEAL_TIME_MS);
+}
+
+function startRound(io) {
+    if (quizState.phase !== "LOBBY") return;
+
+    const sockets = getQuizSockets(io);
+
+    if (sockets.length === 0) {
+        setIdle();
+        return;
+    }
+
+    clearInterval(lobbyInterval);
+    lobbyInterval = null;
+
+    quizState.roundId += 1;
+    quizState.phase = "QUESTION";
+    quizState.questionIndex = 0;
+    quizState.roundStartedAt = Date.now();
+    quizState.lobbyEndsAt = null;
+    quizState.questionIds = shuffle(
+        CAMPUS_QUIZ_QUESTIONS.map((question) => question.id)
+    ).slice(
+        0,
+        Math.min(CAMPUS_QUIZ_QUESTIONS_PER_ROUND, CAMPUS_QUIZ_QUESTIONS.length)
+    );
+
+    sockets.forEach((socket, index) => {
+        resetSocketForRound(socket);
+        teleport(socket, quizSpawn(index), "round-start");
+        socket.emit("campusQuiz:role", "player");
+    });
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:roundStarted", {
+        roundId: quizState.roundId,
+        totalQuestions: quizState.questionIds.length,
+        startingLives: CAMPUS_QUIZ_STARTING_LIVES,
+        survivorRewardPoints: CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS
+    });
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "QUESTION");
+    emitRoundStatus(io);
+    sendQuestion(io);
+}
+
+function startLobby(io) {
+    const sockets = getQuizSockets(io);
+
+    if (sockets.length === 0) {
+        setIdle();
+        return;
+    }
+
+    clearQuizTimers();
+
+    quizState.phase = "LOBBY";
+    quizState.questionIndex = -1;
+    quizState.questionIds = [];
+    quizState.currentQuestion = null;
+    quizState.currentFloorMap = null;
+    quizState.correctFloorId = null;
+    quizState.currentPublicQuestion = null;
+    quizState.questionDeadline = null;
+    quizState.roundStartedAt = null;
+    quizState.lobbyEndsAt = Date.now() + CAMPUS_QUIZ_LOBBY_SECONDS * 1000;
+
+    sockets.forEach((socket, index) => {
+        resetSocketForRound(socket);
+        teleport(socket, quizSpawn(index), "lobby");
+        socket.emit("campusQuiz:role", "waiting");
+    });
+
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "LOBBY");
+    emitRoundStatus(io);
+
+    let count = CAMPUS_QUIZ_LOBBY_SECONDS;
+    io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:lobbyCountdown", count);
+
+    lobbyInterval = setInterval(() => {
+        count -= 1;
+
+        if (count > 0) {
+            io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:lobbyCountdown", count);
+            return;
+        }
+
+        clearInterval(lobbyInterval);
+        lobbyInterval = null;
+        startRound(io);
+    }, 1000);
+}
+
+function checkRoundAfterPlayerLeft(io) {
+    if (ensureStopsWhenEmpty(io)) return;
+
+    if (
+        (quizState.phase === "QUESTION" || quizState.phase === "REVEAL") &&
+        aliveParticipants(io).length === 0
+    ) {
+        void finishRound(io);
+    }
+}
+
+export function registerCampusQuizSocket(
+    io,
+    socket,
+    getPlayer,
+    {
+        onEnter,
+        onExit,
+        onTeleport
+    } = {}
+) {
+    socketHandlers.set(socket.id, {
+        getPlayer,
+        onEnter,
+        onExit,
+        onTeleport
+    });
+
+    socket.on("campusQuiz:join", async () => {
+        const player = getPlayer();
+
+        if (!player) {
+            socket.emit("campusQuiz:error", "Join multiplayer before starting Campus Quiz.");
+            return;
+        }
+
+        if (socket.data.inRlgl) {
+            socket.emit("campusQuiz:error", "Leave Red Light, Green Light before starting Campus Quiz.");
+            return;
+        }
+
+        if (socket.data.inCampusQuiz) return;
+
+        if (distanceToPortal(player.position) > CAMPUS_QUIZ_PORTAL.radius) {
+            socket.emit("campusQuiz:error", "Move into the Campus Quiz portal to start.");
+            return;
+        }
+
+        try {
+            await onEnter?.(player);
+        } catch (error) {
+            console.error("Could not pause campus activity for Campus Quiz:", error.message);
+        }
+
+        await socket.join(CAMPUS_QUIZ_ROOM);
+        socket.data.inCampusQuiz = true;
+
+        const leaderboard = await getCampusQuizLeaderboard(10).catch(() => []);
+
+        socket.emit("campusQuiz:started", {
+            phase: quizState.phase,
+            startingLives: CAMPUS_QUIZ_STARTING_LIVES,
+            questionsPerRound: CAMPUS_QUIZ_QUESTIONS_PER_ROUND,
+            questionTimeMs: CAMPUS_QUIZ_QUESTION_TIME_MS,
+            survivorRewardPoints: CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS,
+            leaderboard
+        });
+
+        if (quizState.phase === "IDLE") {
+            startLobby(io);
+            return;
+        }
+
+        if (quizState.phase === "LOBBY") {
+            resetSocketForRound(socket);
+            teleport(socket, quizSpawn(getQuizSockets(io).length - 1), "join-lobby");
+            socket.emit("campusQuiz:role", "waiting");
+            socket.emit("campusQuiz:phase", "LOBBY");
+
+            const secondsLeft = Math.max(
+                1,
+                Math.ceil(((quizState.lobbyEndsAt ?? Date.now()) - Date.now()) / 1000)
+            );
+            socket.emit("campusQuiz:lobbyCountdown", secondsLeft);
+            emitRoundStatus(io);
+            return;
+        }
+
+        // A player arriving during a live round watches until the next lobby.
+        setSocketSpectator(socket);
+        teleport(socket, spectatorSpawn(getQuizSockets(io).length - 1), "spectator");
+        socket.emit("campusQuiz:role", "spectator");
+        socket.emit("campusQuiz:phase", quizState.phase);
+
+        if (quizState.currentPublicQuestion) {
+            socket.emit("campusQuiz:question", quizState.currentPublicQuestion);
+        }
+
+        emitRoundStatus(io);
+    });
+
+    socket.on("campusQuiz:leaderboardRequest", async () => {
+        socket.emit(
+            "campusQuiz:leaderboard",
+            await getCampusQuizLeaderboard(10).catch(() => [])
+        );
+    });
+
+    socket.on("campusQuiz:leave", async () => {
+        if (!socket.data.inCampusQuiz) return;
+
+        const player = getPlayer();
+        const wasParticipating = Boolean(socket.data.campusQuizParticipating);
+
+        socket.data.inCampusQuiz = false;
+        socket.data.campusQuizParticipating = false;
+        socket.data.campusQuizEliminated = false;
+
+        await socket.leave(CAMPUS_QUIZ_ROOM);
+
+        if (player) {
+            teleport(socket, CAMPUS_QUIZ_RETURN_POSITION, "leave");
+
+            try {
+                await onExit?.(player);
+            } catch (error) {
+                console.error("Could not resume campus activity after Campus Quiz:", error.message);
+            }
+        }
+
+        socket.emit("campusQuiz:left");
+
+        if (wasParticipating) {
+            checkRoundAfterPlayerLeft(io);
+        } else {
+            ensureStopsWhenEmpty(io);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        const wasParticipating = Boolean(socket.data.campusQuizParticipating);
+        socketHandlers.delete(socket.id);
+
+        if (wasParticipating) {
+            setTimeout(() => checkRoundAfterPlayerLeft(io), 0);
+        } else {
+            setTimeout(() => ensureStopsWhenEmpty(io), 0);
+        }
+    });
+}
+
+export async function transferCampusQuizGuestProgress(
+    guestId,
+    userId,
+    playerName
+) {
+    return transferQuizGuestProgress(guestId, userId, playerName);
+}

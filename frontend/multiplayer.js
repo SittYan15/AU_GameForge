@@ -11,6 +11,7 @@ import {
 import { createRlglEffects } from "./effects/rlglEffects.js";
 import { createMissionClient } from "./missions/missionClient.js";
 import { createExplorationClient } from "./exploration/explorationClient.js";
+import { createCampusQuizClient } from "./quiz/quizClient.js";
 
 export const remotePlayers = new Map();
 
@@ -318,11 +319,13 @@ rlglRulesBody.innerHTML = `
     <div>🏁 Cross the finish line to survive and earn the reward.</div>
     <div>🚧 Stay inside the playground; leaving the legal area eliminates you.</div>
 
-    <div style="font-weight:800;color:#7ee787;margin:8px 0 4px;">Tips</div>
-    <div>• Release movement immediately when the lamp turns red.</div>
-    <div>• Sprint during green to cover more distance.</div>
-    <div>• Staying near the center of the lane gives you more room.</div>
-    <div>• Watch the traffic lamp and the 3D timer together.</div>
+    <div class="rlgl-tips">
+        <div style="font-weight:800;color:#7ee787;margin:8px 0 4px;">Tips</div>
+        <div>• Release movement immediately when the lamp turns red.</div>
+        <div>• Sprint during green to cover more distance.</div>
+        <div>• Staying near the center of the lane gives you more room.</div>
+        <div>• Watch the traffic lamp and the 3D timer together.</div>
+    </div>
 `;
 
 rlglRulesPanel.append(
@@ -768,6 +771,23 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     let multiplayerJoined = false;
     let clientInRlgl = false;
+
+    function setFullMinigameState(
+        active,
+        type = "rlgl"
+    ) {
+        window.dispatchEvent(
+            new CustomEvent(
+                "au:minigame-state",
+                {
+                    detail: {
+                        active: Boolean(active),
+                        type
+                    }
+                }
+            )
+        );
+    }
     let rlglRole = "none";
     let rlglPhase = "IDLE";
     let rlglRoundEndsAt = null;
@@ -792,6 +812,13 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     });
 
     const explorationClient = createExplorationClient(socket);
+
+    const campusQuizClient =
+        createCampusQuizClient(
+            scene,
+            localPlayer,
+            socket
+        );
 
     const missionClient =
         createMissionClient(
@@ -898,6 +925,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         localPlayer.setGroundedPosition(position, `rlgl-${reason || "teleport"}`);
         if (reason === "join" || reason === "lobby-reset" || reason === "round-start") {
             clientInRlgl = true;
+            setFullMinigameState(true, "rlgl");
         }
     });
 
@@ -1165,6 +1193,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         rlglActiveWalls?.setActive(false);
         rlglArenaTimer?.hide();
         clientInRlgl = false;
+        setFullMinigameState(false, "rlgl");
         rlglRole = "none";
         rlglPhase = "IDLE";
 
@@ -1272,9 +1301,14 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
 
     return {
         socket,
+        startCampusQuiz() {
+            if (!socket.connected || !multiplayerJoined) return false;
+            return campusQuizClient.requestStart();
+        },
         joinRlgl() {
             if (!socket.connected || !multiplayerJoined) return false;
             clientInRlgl = true;
+            setFullMinigameState(true, "rlgl");
             localPlayer.isLocked = true;
             setRlglMessage("Entering Red Light, Green Light...", "#ffffff");
             socket.emit("rlgl:join");
@@ -1288,6 +1322,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         leaveRlgl() {
             const wasConnected = socket.connected;
             clientInRlgl = false;
+            setFullMinigameState(false, "rlgl");
             rlglRole = "none";
             rlglRoundEndsAt = null;
             if (wasConnected) socket.emit("rlgl:leave");
@@ -1312,6 +1347,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         },
         dispose() {
 
+            campusQuizClient.dispose();
             explorationClient.dispose();
             missionClient.dispose();
             rlglEffects.dispose();

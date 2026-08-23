@@ -10,7 +10,6 @@ import {
     scheduleDynamicMission,
     stopDynamicMissions
 } from "../missions/missionManager.js";
-import { checkCampusExplorationProgress, initializeCampusExploration } from "../exploration/explorationManager.js";
 
 const players = new Map();
 const activePlayerSockets = new Map();
@@ -563,14 +562,11 @@ export default function registerMultiplayerSocket(io) {
             socket.emit("player:spawned", position);
             io.emit("player:joined", publicPlayer(player));
 
-            try {
-                const exploration = await initializeCampusExploration(socket, player);
-                if (exploration.completed) scheduleDynamicMission(io, socket, player);
-            } catch (error) {
-                console.error("Could not initialize campus exploration:", error.message);
-                socket.data.explorationCompleted = false;
-                socket.emit("exploration:error", "Campus exploration progress is temporarily unavailable.");
-            }
+            scheduleDynamicMission(
+                io,
+                socket,
+                player
+            );
         });
 
         socket.on("player:move", (payload = {}) => {
@@ -668,10 +664,11 @@ export default function registerMultiplayerSocket(io) {
             broadcastPlayerPosition(io, player);
 
             if (!socket.data.inRlgl) {
-                void checkCampusExplorationProgress(io, socket, player).then(({ completedNow } = {}) => {
-                    if (completedNow) scheduleDynamicMission(io, socket, player, { minDelayMs: 8_000, maxDelayMs: 15_000 });
-                }).catch((error) => console.error("Campus exploration check failed:", error.message));
-                void checkDynamicMissionProgress(io, socket, player);
+                void checkDynamicMissionProgress(
+                    io,
+                    socket,
+                    player
+                );
             }
         });
 

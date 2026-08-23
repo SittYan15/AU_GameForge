@@ -9,6 +9,8 @@ import {
     PLAYER_NAME_TAG_HEIGHT
 } from "./grounding.js";
 import { createRlglEffects } from "./effects/rlglEffects.js";
+import { createMissionClient } from "./missions/missionClient.js";
+import { createExplorationClient } from "./exploration/explorationClient.js";
 
 export const remotePlayers = new Map();
 
@@ -789,6 +791,15 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
     });
 
+    const explorationClient = createExplorationClient(socket);
+
+    const missionClient =
+        createMissionClient(
+            scene,
+            localPlayer,
+            socket
+        );
+
     socket.on("connect", () => {
         const state = localPlayer.getNetworkState();
         socket.emit("player:join", {
@@ -1301,6 +1312,8 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         },
         dispose() {
 
+            explorationClient.dispose();
+            missionClient.dispose();
             rlglEffects.dispose();
 
             [...remotePlayers.keys()]

@@ -3,14 +3,6 @@ import { getConvertedUserForGuest } from "../models/googleAccountModel.js";
 import { findGuestById, addGuestPoints } from "../models/guestModel.js";
 import { findUserById, addUserPoints, setActiveSessionExpiration } from "../models/userModel.js";
 import { getTopPlayers } from "../models/leaderboardModel.js";
-import {
-    cancelDynamicMissionForMinigame,
-    checkDynamicMissionProgress,
-    resumeDynamicMissionsAfterMinigame,
-    scheduleDynamicMission,
-    stopDynamicMissions
-} from "../missions/missionManager.js";
-import { checkCampusExplorationProgress, initializeCampusExploration } from "../exploration/explorationManager.js";
 
 const players = new Map();
 const activePlayerSockets = new Map();
@@ -562,15 +554,6 @@ export default function registerMultiplayerSocket(io) {
             players.set(socket.id, player);
             socket.emit("player:spawned", position);
             io.emit("player:joined", publicPlayer(player));
-
-            try {
-                const exploration = await initializeCampusExploration(socket, player);
-                if (exploration.completed) scheduleDynamicMission(io, socket, player);
-            } catch (error) {
-                console.error("Could not initialize campus exploration:", error.message);
-                socket.data.explorationCompleted = false;
-                socket.emit("exploration:error", "Campus exploration progress is temporarily unavailable.");
-            }
         });
 
         socket.on("player:move", (payload = {}) => {
@@ -666,13 +649,6 @@ export default function registerMultiplayerSocket(io) {
             player.rotation = { ...payload.rotation };
             socket.data.lastMoveAt = now;
             broadcastPlayerPosition(io, player);
-
-            if (!socket.data.inRlgl) {
-                void checkCampusExplorationProgress(io, socket, player).then(({ completedNow } = {}) => {
-                    if (completedNow) scheduleDynamicMission(io, socket, player, { minDelayMs: 8_000, maxDelayMs: 15_000 });
-                }).catch((error) => console.error("Campus exploration check failed:", error.message));
-                void checkDynamicMissionProgress(io, socket, player);
-            }
         });
 
         socket.on("player:animation", (animation) => {
@@ -747,10 +723,6 @@ export default function registerMultiplayerSocket(io) {
                 socket.emit("rlgl:error", "Join multiplayer before entering the minigame.");
                 return;
             }
-
-            cancelDynamicMissionForMinigame(
-                socket
-            );
 
             if (!socket.data.inRlgl) {
                 await socket.join(RLGL_ROOM);
@@ -856,23 +828,11 @@ export default function registerMultiplayerSocket(io) {
             }
             socket.emit("rlgl:left");
 
-            if (player) {
-                resumeDynamicMissionsAfterMinigame(
-                    io,
-                    socket,
-                    player
-                );
-            }
-
             if (wasActivePlayer) checkRlglRoundStatus(io);
             ensureRlglStopsWhenEmpty(io);
         });
 
         socket.on("disconnect", () => {
-            stopDynamicMissions(
-                socket
-            );
-
             if (socket.data.sessionValidationTimer) clearInterval(socket.data.sessionValidationTimer);
             const wasInRlgl = Boolean(socket.data.inRlgl);
             const wasActivePlayer = wasInRlgl

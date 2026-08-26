@@ -79,3 +79,15 @@ CREATE TABLE IF NOT EXISTS campus_quiz_scores (
 );
 CREATE INDEX IF NOT EXISTS campus_quiz_best_score_idx
     ON campus_quiz_scores (best_score DESC, best_correct DESC, best_duration_ms ASC);
+
+-- Express session storage.
+CREATE TABLE IF NOT EXISTS "session" (
+    "sid" VARCHAR NOT NULL COLLATE "default",
+    "sess" JSON NOT NULL,
+    "expire" TIMESTAMP(6) NOT NULL,
+    CONSTRAINT "session_pkey"
+        PRIMARY KEY ("sid")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire"
+    ON "session" ("expire");

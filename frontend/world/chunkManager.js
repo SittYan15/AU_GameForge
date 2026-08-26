@@ -949,7 +949,7 @@ function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin 
 
 export function initChunkManager(scene, player, BaseUrl) {
 
-    drawDebugZones(scene, buildingsConfig, "VME_Middle_L10");
+    // drawDebugZones(scene, buildingsConfig, "VME_Middle_L10");
 
     scene.onBeforeRenderObservable.add(() => {
         if (!player) return;

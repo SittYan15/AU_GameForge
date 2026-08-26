@@ -281,6 +281,115 @@ export function createCampusQuizArena(scene) {
     let playerStatus = [];
     let leaderboardRows = [];
 
+    function drawQuestionOptionBox(
+        context,
+        option,
+        x,
+        y,
+        width,
+        height,
+        color
+    ) {
+        const floorId =
+            String(option?.floorId || "?");
+
+        const answerText =
+            String(option?.text || "");
+
+        context.fillStyle =
+            "rgba(16, 22, 34, 0.97)";
+
+        context.fillRect(
+            x,
+            y,
+            width,
+            height
+        );
+
+        context.strokeStyle =
+            color;
+
+        context.lineWidth =
+            6;
+
+        context.strokeRect(
+            x,
+            y,
+            width,
+            height
+        );
+
+        // Top color band and option letter.
+        context.fillStyle =
+            color;
+
+        context.fillRect(
+            x,
+            y,
+            width,
+            54
+        );
+
+        context.textAlign =
+            "center";
+
+        context.textBaseline =
+            "middle";
+
+        context.fillStyle =
+            "#ffffff";
+
+        context.font =
+            "bold 34px Arial";
+
+        context.fillText(
+            floorId,
+            x + width / 2,
+            y + 27
+        );
+
+        // Answer text inside the column card.
+        context.fillStyle =
+            "#ffffff";
+
+        context.font =
+            "bold 27px Arial";
+
+        const lines =
+            wrapLines(
+                context,
+                answerText,
+                width - 34,
+                4
+            );
+
+        const lineHeight =
+            31;
+
+        const totalHeight =
+            Math.max(
+                lineHeight,
+                lines.length * lineHeight
+            );
+
+        const firstY =
+            y + 88 +
+            (height - 102) / 2 -
+            totalHeight / 2 +
+            lineHeight / 2;
+
+        lines.forEach(
+            (line, index) => {
+                context.fillText(
+                    line,
+                    x + width / 2,
+                    firstY +
+                        index * lineHeight
+                );
+            }
+        );
+    }
+
     function drawScreen(mode, extra = {}) {
         const context = screenTexture.getContext();
         context.save();
@@ -302,30 +411,143 @@ export function createCampusQuizArena(scene) {
             context.fillStyle = "#d6dded";
             context.fillText("3 lives • Stand on the correct answer floor • Wrong floors will fall", 1024, 390);
         } else if (mode === "question" && currentQuestion) {
-            const remainingMs = Math.max(0, (currentQuestion.deadline ?? Date.now()) - Date.now());
-            context.textAlign = "right";
-            context.fillStyle = remainingMs <= 3000 ? "#ff6b6b" : "#ffd166";
-            context.font = "bold 72px Arial";
-            context.fillText(`${(remainingMs / 1000).toFixed(1)}s`, 1950, 82);
+            const remainingMs =
+                Math.max(
+                    0,
+                    (currentQuestion.deadline ?? Date.now()) -
+                        Date.now()
+                );
 
-            context.textAlign = "left";
-            context.fillStyle = "#93a4c3";
-            context.font = "bold 38px Arial";
+            context.textAlign =
+                "right";
+
+            context.fillStyle =
+                remainingMs <= 3000
+                    ? "#ff6b6b"
+                    : "#ffd166";
+
+            context.font =
+                "bold 72px Arial";
+
             context.fillText(
-                `${currentQuestion.category || "Campus"}  •  Question ${currentQuestion.questionNumber}/${currentQuestion.totalQuestions}`,
-                90,
-                160
+                ((remainingMs / 1000).toFixed(1)) + "s",
+                1950,
+                82
             );
 
-            context.fillStyle = "#ffffff";
-            context.font = "bold 66px Arial";
-            context.textAlign = "center";
-            const lines = wrapLines(context, currentQuestion.question, 1820, 4);
-            drawCenteredLines(context, lines, 1024, 285, 88);
+            context.textAlign =
+                "left";
 
-            context.fillStyle = "#ffd166";
-            context.font = "bold 40px Arial";
-            context.fillText("RUN TO A, B, C OR D BEFORE TIME EXPIRES", 1024, 690);
+            context.fillStyle =
+                "#93a4c3";
+
+            context.font =
+                "bold 34px Arial";
+
+            context.fillText(
+                (currentQuestion.category || "Campus") +
+                    "  •  Question " +
+                    currentQuestion.questionNumber +
+                    "/" +
+                    currentQuestion.totalQuestions,
+                90,
+                145
+            );
+
+            context.fillStyle =
+                "#ffffff";
+
+            context.font =
+                "bold 56px Arial";
+
+            context.textAlign =
+                "center";
+
+            const questionLines =
+                wrapLines(
+                    context,
+                    currentQuestion.question,
+                    1810,
+                    3
+                );
+
+            drawCenteredLines(
+                context,
+                questionLines,
+                1024,
+                220,
+                64
+            );
+
+            const optionColors = {
+                A: "#2f7fe8",
+                B: "#2cb869",
+                C: "#ef7b21",
+                D: "#8b48e8"
+            };
+
+            const optionsByFloor =
+                new Map(
+                    (currentQuestion.options || [])
+                        .map(
+                            (option) => [
+                                option.floorId,
+                                option
+                            ]
+                        )
+                );
+
+            // v2.7.2:
+            // Show A/B/C/D as four vertical columns in one single row.
+            const boxWidth =
+                430;
+
+            const boxHeight =
+                218;
+
+            const gap =
+                28;
+
+            const totalWidth =
+                boxWidth * 4 +
+                gap * 3;
+
+            const startX =
+                Math.round(
+                    (2048 - totalWidth) / 2
+                );
+
+            const boxY =
+                430;
+
+            ["A", "B", "C", "D"].forEach(
+                (floorId, index) => {
+                    drawQuestionOptionBox(
+                        context,
+                        optionsByFloor.get(floorId),
+                        startX + index * (boxWidth + gap),
+                        boxY,
+                        boxWidth,
+                        boxHeight,
+                        optionColors[floorId]
+                    );
+                }
+            );
+
+            context.textAlign =
+                "center";
+
+            context.fillStyle =
+                "#ffd166";
+
+            context.font =
+                "bold 28px Arial";
+
+            context.fillText(
+                "READ THE WALL • RUN TO THE MATCHING A, B, C OR D FLOOR",
+                1024,
+                700
+            );
         } else if (mode === "reveal") {
             context.textAlign = "center";
             context.fillStyle = "#7ee787";
@@ -350,7 +572,7 @@ export function createCampusQuizArena(scene) {
             context.fillText("ENTER THE PURPLE PORTAL TO PLAY", 1024, 285);
             context.fillStyle = "#d6dded";
             context.font = "bold 44px Arial";
-            context.fillText("Choose answers by standing on the floor — no buttons", 1024, 410);
+            context.fillText("Read the answers on the wall, then stand on A, B, C or D", 1024, 410);
         }
 
         // Current-round survival status at the bottom-left.
@@ -375,9 +597,17 @@ export function createCampusQuizArena(scene) {
         screen.visibility = 1;
     }
 
-    function drawFloorLabel(floor, optionText = "", state = "normal") {
-        const context = floor.labelTexture.getContext();
-        const base = floor.baseColor;
+    function drawFloorLabel(
+        floor,
+        optionText = "",
+        state = "normal"
+    ) {
+        const context =
+            floor.labelTexture.getContext();
+
+        const base =
+            floor.baseColor;
+
         const rgb = {
             r: Math.round(base.r * 255),
             g: Math.round(base.g * 255),
@@ -385,25 +615,56 @@ export function createCampusQuizArena(scene) {
         };
 
         context.save();
-        context.fillStyle = state === "wrong"
-            ? "#55151a"
-            : state === "correct"
-                ? "#123f24"
-                : `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-        context.fillRect(0, 0, 1024, 1024);
 
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-        context.fillStyle = "#ffffff";
-        context.font = "bold 230px Arial";
-        context.fillText(floor.id, 512, 230);
+        context.fillStyle =
+            state === "wrong"
+                ? "#55151a"
+                : state === "correct"
+                    ? "#123f24"
+                    : `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
 
-        // v2.6: larger answer text for easier reading from the fixed camera.
-        context.font = "bold 100px Arial";
-        const lines = wrapLines(context, optionText || "WAITING", 900, 6);
-        drawCenteredLines(context, lines, 512, 475, 92);
+        context.fillRect(
+            0,
+            0,
+            1024,
+            1024
+        );
+
+        // v2.7.1:
+        // The floor is only the physical answer TARGET.
+        // Full answer text is displayed on the giant question screen.
+        context.textAlign =
+            "center";
+
+        context.textBaseline =
+            "middle";
+
+        context.fillStyle =
+            "#ffffff";
+
+        context.font =
+            "bold 420px Arial";
+
+        context.fillText(
+            floor.id,
+            512,
+            455
+        );
+
+        context.font =
+            "bold 68px Arial";
+
+        context.fillStyle =
+            "rgba(255,255,255,0.90)";
+
+        context.fillText(
+            "STAND HERE",
+            512,
+            790
+        );
 
         context.restore();
+
         floor.labelTexture.update(true);
     }
 

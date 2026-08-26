@@ -49,7 +49,7 @@ export async function createMainScene(
             await BABYLON.SceneLoader.ImportMeshAsync(
                 "",
                 BaseUrl,
-                "au_campus_v2.0.0.glb",
+                "au_campus_v2.0.1.glb",
                 scene,
                 (event) => {
                     loadingScreen?.updateAssetProgress?.(

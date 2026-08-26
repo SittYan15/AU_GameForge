@@ -405,6 +405,534 @@ const buildingsConfig = [
         container: null,
         status: "UNLOADED"
     },
+    // ==========================================
+    // MSM: Middle
+    // ==========================================
+    {
+        name: "MSM_Mid_L1",
+        filename: "I_MSM_Mid_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-168.742, 1.25, 61.49),
+        size: new BABYLON.Vector3(67, 30, 30),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "MSM_L1",
+        filename: "I_MSM_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-145.56, 1.25, 62.00),
+        size: new BABYLON.Vector3(30, 30, 80),
+        renderMargin: 0,
+        horizontalLoad: 30,
+        horizontalDispose: 35,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "MSE_L1",
+        filename: "I_MSE_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-191.57, 1.25, 62.81),
+        size: new BABYLON.Vector3(35, 30, 80),
+        renderMargin: 0,
+        horizontalLoad: 20,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    // ==========================================
+    // VMES
+    // ==========================================
+    {
+        name: "VMES_Stair_Back",
+        filename: "I_VMES_Stair_Back_v1.0.0.glb",
+        center: new BABYLON.Vector3(-235.48, 50, 93.98),
+        size: new BABYLON.Vector3(35, 100, 30),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_Stair_Front",
+        filename: "I_VMES_Stair_Front_v1.0.0.glb",
+        center: new BABYLON.Vector3(-235.48, 50, 29.801),
+        size: new BABYLON.Vector3(35, 100, 30),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L1",
+        filename: "I_VMES_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 1.25, 61.7549),
+        size: new BABYLON.Vector3(35, 15, 80),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L2",
+        filename: "I_VMES_L2_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 8, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L3",
+        filename: "I_VMES_L3_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 12, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L4",
+        filename: "I_VMES_L4_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 16, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L5",
+        filename: "I_VMES_L5_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 20, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L6",
+        filename: "I_VMES_L6_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 24, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L7",
+        filename: "I_VMES_L7_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 28, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L8",
+        filename: "I_VMES_L8_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 32, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L9",
+        filename: "I_VMES_L9_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 36, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L10",
+        filename: "I_VMES_L10_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 40, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VMES_L11",
+        filename: "I_VMES_L11_v1.0.0.glb",
+        center: new BABYLON.Vector3(-231.744, 44, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    // VME
+    {
+        name: "VME_Stair_Back",
+        filename: "I_VME_Stair_Back_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 50, 93.98),
+        size: new BABYLON.Vector3(35, 100, 30),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Stair_Front",
+        filename: "I_VME_Stair_Front_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 50, 29.801),
+        size: new BABYLON.Vector3(35, 100, 30),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L1",
+        filename: "I_VME_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 1.25, 61.7549),
+        size: new BABYLON.Vector3(35, 15, 80),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L2",
+        filename: "I_VME_L2_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 8, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L3",
+        filename: "I_VME_L3_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 12, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L4",
+        filename: "I_VME_L4_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 16, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L5",
+        filename: "I_VME_L5_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 20, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L6",
+        filename: "I_VME_L6_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 24, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L7",
+        filename: "I_VME_L7_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 28, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L8",
+        filename: "I_VME_L8_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 32, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L9",
+        filename: "I_VME_L9_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 36, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L10",
+        filename: "I_VME_L10_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 40, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_L11",
+        filename: "I_VME_L11_v1.0.0.glb",
+        center: new BABYLON.Vector3(-275.10, 44, 61.7549),
+        size: new BABYLON.Vector3(35, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 0,
+        horizontalDispose: 20,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    // VME Middle
+    {
+        name: "VME_Middle_L1",
+        filename: "I_VME_Mid_L1_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 1.25, 88.33),
+        size: new BABYLON.Vector3(40, 15, 80),
+        renderMargin: 0,
+        horizontalLoad: 15,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L2",
+        filename: "I_VME_Mid_L2_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 8, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L3",
+        filename: "I_VME_Mid_L3_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 12, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L4",
+        filename: "I_VME_Mid_L4_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 16, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L5",
+        filename: "I_VME_Mid_L5_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 20, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L6",
+        filename: "I_VME_Mid_L6_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 24, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L7",
+        filename: "I_VME_Mid_L7_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 28, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L8",
+        filename: "I_VME_Mid_L8_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 32, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L9",
+        filename: "I_VME_Mid_L9_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 36, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L10",
+        filename: "I_VME_Mid_L10_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 40, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
+    {
+        name: "VME_Middle_L11",
+        filename: "I_VME_Mid_L11_v1.0.0.glb",
+        center: new BABYLON.Vector3(-252.57, 44, 88.33),
+        size: new BABYLON.Vector3(40, 12, 80),
+        renderMargin: 0,
+        horizontalLoad: 10,
+        horizontalDispose: 30,
+        verticalLoad: 5,
+        verticalDispose: 20,
+        container: null,
+        status: "UNLOADED"
+    },
 ];
 
 function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin = 0) {
@@ -421,7 +949,7 @@ function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin 
 
 export function initChunkManager(scene, player, BaseUrl) {
 
-    // drawDebugZones(scene, buildingsConfig, "SG_B_EndPoint");
+    drawDebugZones(scene, buildingsConfig, "VME_Middle_L10");
 
     scene.onBeforeRenderObservable.add(() => {
         if (!player) return;
@@ -494,45 +1022,45 @@ export function initChunkManager(scene, player, BaseUrl) {
 // ==========================================
 export function drawDebugZones(scene, configArray, targetName = null) {
     configArray.forEach((chunk) => {
-        
+
         // FILTER: If a target name was provided, skip any chunk that doesn't include it
         if (targetName && !chunk.name.includes(targetName)) {
-            return; 
+            return;
         }
 
         // Helper function to draw clean boxes with floating labels
         const createCleanBox = (name, marginH, marginV, edgeAlpha, edgeThickness, labelText, boxColor, colorHex) => {
-            
+
             // Calculate exact physical dimensions of this specific box
             const width = chunk.size.x + (marginH * 2);
             const height = chunk.size.y + (marginV * 2);
             const depth = chunk.size.z + (marginH * 2);
-            
+
             const box = BABYLON.MeshBuilder.CreateBox(name, {
                 width: width,
                 height: height,
                 depth: depth
             }, scene);
-            
+
             box.position = chunk.center;
             box.isPickable = false;
             box.checkCollisions = false;
 
             // Make the solid faces invisible
             const mat = new BABYLON.StandardMaterial(`${name}_mat`, scene);
-            mat.alpha = 0; 
+            mat.alpha = 0;
             box.material = mat;
 
             // Draw ONLY the 12 outer edges using the provided color
             box.enableEdgesRendering();
             box.edgesWidth = edgeThickness;
             box.edgesColor = new BABYLON.Color4(boxColor.r, boxColor.g, boxColor.b, edgeAlpha);
-            
+
             // ==========================================
             // CREATE THE FLOATING TEXT LABEL
             // ==========================================
             const labelPlane = BABYLON.MeshBuilder.CreatePlane(`${name}_label`, { width: 15, height: 3 }, scene);
-            
+
             // Anchor it exactly to the Top-Left corner of this specific box
             labelPlane.position = new BABYLON.Vector3(
                 chunk.center.x - (width / 2),
@@ -546,25 +1074,25 @@ export function drawDebugZones(scene, configArray, targetName = null) {
             // Draw the text onto a dynamic canvas
             const dt = new BABYLON.DynamicTexture(`${name}_dt`, { width: 1024, height: 256 }, scene, false);
             dt.hasAlpha = true;
-            
+
             // Add a black dropshadow so the text is readable against the bright sky
             dt.getContext().shadowColor = "black";
             dt.getContext().shadowBlur = 6;
             dt.getContext().shadowOffsetX = 3;
             dt.getContext().shadowOffsetY = 3;
-            
+
             // Write the label in the matching color
             dt.drawText(labelText, null, 150, "bold 70px Arial", colorHex, "transparent", true);
 
             // Apply the text to the plane and make it glow
             const labelMat = new BABYLON.StandardMaterial(`${name}_labelMat`, scene);
             labelMat.diffuseTexture = dt;
-            labelMat.emissiveTexture = dt; 
-            labelMat.useAlphaFromDiffuseTexture = true; 
-            labelMat.disableLighting = true; 
+            labelMat.emissiveTexture = dt;
+            labelMat.useAlphaFromDiffuseTexture = true;
+            labelMat.disableLighting = true;
 
             labelPlane.material = labelMat;
-            
+
             return box;
         };
 

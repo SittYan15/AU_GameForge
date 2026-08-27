@@ -5,16 +5,20 @@ import {
 } from "../world/campusRoadRoute.js";
 
 export const CAR_RACE_PORTAL = Object.freeze({
-    ...CAMPUS_ROAD_ROUTE_POINTS[0],
+    // Beside the starting road, not directly on the racing line.
+    x: 105.88,
+    y: 0.00,
+    z: -108.00,
     radius: 4.0
 });
 
 export const CAR_RACE_PORTAL_TRIGGER_RADIUS = 3.2;
 
 export const CAR_RACE_RETURN_POSITION = Object.freeze({
+    // Near the Road Race playground, outside portal range.
     x: 105.88,
     y: 0.50,
-    z: -103.50
+    z: -101.50
 });
 
 export const CAR_RACE_START = CAMPUS_ROAD_ROUTE_POINTS[0];

@@ -1,8 +1,15 @@
 // frontend/racing/carRaceClient.js
 import * as BABYLON from "@babylonjs/core";
 import {
-    createCarPhysicsController
+    PLAYER_COLLIDER_HALF_HEIGHT
+} from "../grounding.js";
+import {
+    createCarPhysicsController,
+    sampleCarSurface
 } from "./carPhysicsController.js";
+import {
+    createCarAudioController
+} from "./carAudioController.js";
 import {
     CAR_RACE_CHECKPOINTS,
     CAR_RACE_START_HEADING
@@ -14,6 +21,22 @@ const ACCELERATION = 13;
 const BRAKE_POWER = 22;
 const COAST_DRAG = 5.5;
 const STEER_RATE = 1.65;
+
+// Race car visual root is not the human capsule center.
+// Wheels use diameter 0.62 and center Y 0.18, so the root must be
+// 0.13 above the road for the tires to touch the surface.
+const CAR_VISUAL_ROOT_GROUND_OFFSET =
+    0.31 - 0.18;
+
+function carVisualRootY(
+    playerCenterY
+) {
+    return (
+        playerCenterY -
+        PLAYER_COLLIDER_HALF_HEIGHT +
+        CAR_VISUAL_ROOT_GROUND_OFFSET
+    );
+}
 
 function colorForId(id = "") {
     const palette = [
@@ -326,8 +349,19 @@ export function createCarRaceClient(
         CAR_RACE_START_HEADING;
     let checkpointIndex = 0;
 
+    let lastHudRefreshAt = 0;
+    const HUD_REFRESH_INTERVAL_MS = 125;
+
     let previousCamera = null;
     let raceCamera = null;
+
+    let visualCarY = null;
+    let visualPitch = 0;
+    let visualRoll = 0;
+
+    let raceCameraAnchor = null;
+    let raceCameraTargetPoint = null;
+    let raceCameraForward = null;
 
     let trafficCar = null;
     let trafficCarWasEnabled = true;
@@ -504,6 +538,84 @@ export function createCarRaceClient(
             }
         );
 
+    const carAudio =
+        createCarAudioController();
+
+    const raceFocusStyle =
+        document.createElement(
+            "style"
+        );
+
+    raceFocusStyle.textContent = `
+        body.au-car-race-active #playerCountStatus,
+        body.au-car-race-active #topPlayersStatus {
+            display: none !important;
+        }
+    `;
+
+    document.head.appendChild(
+        raceFocusStyle
+    );
+
+    const portalEnabledState =
+        new Map();
+
+    const setOtherPortalsHidden =
+        (hidden) => {
+            const portals =
+                scene.metadata
+                    ?.minigamePortals;
+
+            if (!portals) {
+                return;
+            }
+
+            [
+                portals.rlgl,
+                portals.campusQuiz
+            ]
+                .filter(Boolean)
+                .forEach(
+                    (node) => {
+                        if (hidden) {
+                            if (
+                                !portalEnabledState.has(
+                                    node
+                                )
+                            ) {
+                                portalEnabledState.set(
+                                    node,
+                                    node.isEnabled()
+                                );
+                            }
+
+                            node.setEnabled(
+                                false
+                            );
+                        } else {
+                            node.setEnabled(
+                                portalEnabledState.get(
+                                    node
+                                ) ??
+                                    true
+                            );
+                        }
+                    }
+                );
+
+            if (!hidden) {
+                portalEnabledState.clear();
+            }
+        };
+
+    const setRaceUiFocus =
+        (value) => {
+            document.body.classList.toggle(
+                "au-car-race-active",
+                Boolean(value)
+            );
+        };
+
     const suspendInteriorStreaming =
         () => {
             scene.metadata
@@ -550,6 +662,21 @@ export function createCarRaceClient(
                 return;
             }
 
+            const now =
+                performance.now();
+
+            if (
+                !message &&
+                now -
+                    lastHudRefreshAt <
+                    HUD_REFRESH_INTERVAL_MS
+            ) {
+                return;
+            }
+
+            lastHudRefreshAt =
+                now;
+
             hud.style.display =
                 "block";
 
@@ -587,27 +714,89 @@ export function createCarRaceClient(
 
     const placeLocalCar =
         () => {
-            localCar.root.position
-                .copyFrom(
-                    localPlayer.position
+            const deltaSeconds =
+                Math.min(
+                    0.05,
+                    scene
+                        .getEngine()
+                        .getDeltaTime() /
+                    1000
                 );
 
-            localCar.root.position.y +=
-                0.05;
+            const targetY =
+                carVisualRootY(
+                    localPlayer.position.y
+                );
+
+            if (
+                visualCarY === null ||
+                !Number.isFinite(
+                    visualCarY
+                ) ||
+                Math.abs(
+                    targetY -
+                    visualCarY
+                ) >
+                1.5
+            ) {
+                visualCarY =
+                    targetY;
+            } else {
+                visualCarY =
+                    BABYLON.Scalar.Lerp(
+                        visualCarY,
+                        targetY,
+                        1 -
+                            Math.exp(
+                                -12 *
+                                deltaSeconds
+                            )
+                    );
+            }
+
+            localCar.root.position.x =
+                localPlayer.position.x;
+
+            localCar.root.position.y =
+                visualCarY;
+
+            localCar.root.position.z =
+                localPlayer.position.z;
 
             const visualState =
-            carPhysics
-                .getVisualState();
+                carPhysics
+                    .getVisualState();
 
-        localCar.root.rotation.x =
-            visualState.pitch;
+            const rotationBlend =
+                1 -
+                Math.exp(
+                    -8 *
+                    deltaSeconds
+                );
 
-        localCar.root.rotation.y =
-            heading;
+            visualPitch =
+                BABYLON.Scalar.Lerp(
+                    visualPitch,
+                    visualState.pitch,
+                    rotationBlend
+                );
 
-        localCar.root.rotation.z =
-            visualState.roll;
-        };
+            visualRoll =
+                BABYLON.Scalar.Lerp(
+                    visualRoll,
+                    visualState.roll,
+                    rotationBlend
+                );
+
+            localCar.root.rotation.x =
+                visualPitch;
+
+            localCar.root.rotation.y =
+                heading;
+
+            localCar.root.rotation.z =
+                visualRoll;
+        };;;
 
     const hideTraffic =
         () => {
@@ -671,6 +860,23 @@ export function createCarRaceClient(
             raceCamera.minZ = 0.1;
             raceCamera.fov = 0.92;
 
+            raceCameraAnchor =
+                localPlayer.position.clone();
+
+            raceCameraTargetPoint =
+                null;
+
+            raceCameraForward =
+                null;
+
+            visualCarY =
+                carVisualRootY(
+                    localPlayer.position.y
+                );
+
+            visualPitch = 0;
+            visualRoll = 0;
+
             scene.activeCamera =
                 raceCamera;
         };
@@ -703,6 +909,13 @@ export function createCarRaceClient(
             }
 
             previousCamera = null;
+
+            raceCameraAnchor = null;
+            raceCameraTargetPoint = null;
+            raceCameraForward = null;
+            visualCarY = null;
+            visualPitch = 0;
+            visualRoll = 0;
         };
 
     const updateRaceCamera =
@@ -711,59 +924,179 @@ export function createCarRaceClient(
                 return;
             }
 
-            const forward =
+            const deltaSeconds =
+                Math.min(
+                    0.05,
+                    scene
+                        .getEngine()
+                        .getDeltaTime() /
+                    1000
+                );
+
+            const surface =
+                carPhysics
+                    .getSurfaceState();
+
+            const fallbackForward =
                 new BABYLON.Vector3(
                     Math.sin(heading),
                     0,
                     Math.cos(heading)
                 );
 
-            const desiredPosition =
-                localPlayer.position
-                    .subtract(
-                        forward.scale(10.5)
-                    )
-                    .add(
-                        new BABYLON.Vector3(
-                            0,
-                            4.7,
-                            0
-                        )
+            const requestedForward =
+                surface.forward
+                    ?.lengthSquared?.() >
+                0.0001
+                    ? surface.forward
+                    : fallbackForward;
+
+            if (
+                !raceCameraForward ||
+                raceCameraForward
+                    .lengthSquared() <
+                0.0001
+            ) {
+                raceCameraForward =
+                    requestedForward.clone();
+            } else {
+                raceCameraForward =
+                    BABYLON.Vector3.Lerp(
+                        raceCameraForward,
+                        requestedForward,
+                        1 -
+                            Math.exp(
+                                -7 *
+                                deltaSeconds
+                            )
                     );
 
-            const smoothing =
-                1 -
-                Math.exp(
-                    -8 *
-                        scene
-                            .getEngine()
-                            .getDeltaTime() /
-                        1000
-                );
+                if (
+                    raceCameraForward
+                        .lengthSquared() >
+                    0.0001
+                ) {
+                    raceCameraForward
+                        .normalize();
+                }
+            }
+
+            const rawAnchor =
+                localPlayer.position.clone();
+
+            if (
+                !raceCameraAnchor ||
+                BABYLON.Vector3.DistanceSquared(
+                    raceCameraAnchor,
+                    rawAnchor
+                ) >
+                25
+            ) {
+                raceCameraAnchor =
+                    rawAnchor;
+            } else {
+                raceCameraAnchor =
+                    BABYLON.Vector3.Lerp(
+                        raceCameraAnchor,
+                        rawAnchor,
+                        1 -
+                            Math.exp(
+                                -9 *
+                                deltaSeconds
+                            )
+                    );
+            }
+
+            // Keep camera height in world-up. The car follows bridge banking,
+            // but the camera should not shake/roll with every road triangle.
+            const worldUp =
+                BABYLON.Vector3.Up();
+
+            const desiredPosition =
+                raceCameraAnchor
+                    .subtract(
+                        raceCameraForward
+                            .scale(
+                                10.8
+                            )
+                    )
+                    .add(
+                        worldUp.scale(
+                            4.6
+                        )
+                    );
 
             raceCamera.position =
                 BABYLON.Vector3.Lerp(
                     raceCamera.position,
                     desiredPosition,
-                    smoothing
+                    1 -
+                        Math.exp(
+                            -5.5 *
+                            deltaSeconds
+                        )
                 );
 
+            const desiredTarget =
+                raceCameraAnchor
+                    .add(
+                        raceCameraForward
+                            .scale(
+                                6.2
+                            )
+                    )
+                    .add(
+                        worldUp.scale(
+                            1.0
+                        )
+                    );
+
+            if (!raceCameraTargetPoint) {
+                raceCameraTargetPoint =
+                    desiredTarget;
+            } else {
+                raceCameraTargetPoint =
+                    BABYLON.Vector3.Lerp(
+                        raceCameraTargetPoint,
+                        desiredTarget,
+                        1 -
+                            Math.exp(
+                                -7 *
+                                deltaSeconds
+                            )
+                    );
+            }
+
             raceCamera.setTarget(
-                localPlayer.position
-                    .add(
-                        forward.scale(
-                            5.5
-                        )
-                    )
-                    .add(
-                        new BABYLON.Vector3(
-                            0,
-                            1.1,
-                            0
-                        )
-                    )
+                raceCameraTargetPoint
             );
-        };
+
+            const speedRatio =
+                BABYLON.Scalar.Clamp(
+                    Math.abs(speed) /
+                    24,
+                    0,
+                    1
+                );
+
+            const targetFov =
+                BABYLON.Scalar.Lerp(
+                    0.88,
+                    1.02,
+                    speedRatio
+                );
+
+            raceCamera.fov =
+                BABYLON.Scalar.Lerp(
+                    raceCamera.fov,
+                    targetFov,
+                    1 -
+                        Math.exp(
+                            -2.8 *
+                            deltaSeconds
+                        )
+                );
+        };;;
 
     const clearRemoteCars =
         () => {
@@ -814,6 +1147,23 @@ export function createCarRaceClient(
             // All I_*.glb interior building chunks are unnecessary on the
             // outdoor road-racing loop.
             suspendInteriorStreaming();
+
+            scene.metadata =
+                scene.metadata ||
+                {};
+
+            scene.metadata.carRaceActive =
+                true;
+
+            setOtherPortalsHidden(
+                true
+            );
+
+            setRaceUiFocus(
+                true
+            );
+
+            void carAudio.start();
 
             setMinigameFocus(
                 true
@@ -877,6 +1227,21 @@ export function createCarRaceClient(
             );
 
             resumeInteriorStreaming();
+
+            if (scene.metadata) {
+                scene.metadata.carRaceActive =
+                    false;
+            }
+
+            setOtherPortalsHidden(
+                false
+            );
+
+            setRaceUiFocus(
+                false
+            );
+
+            carAudio.stop();
 
             setMinigameFocus(
                 false
@@ -1038,6 +1403,10 @@ export function createCarRaceClient(
 
     const onLobbyCountdown =
         (count) => {
+            carAudio.countdown(
+                count
+            );
+
             updateHud(
                 `Race starts in ${count}`
             );
@@ -1073,6 +1442,12 @@ export function createCarRaceClient(
             checkpointMarker
                 .setCheckpoint(0);
 
+            if (
+                role === "player"
+            ) {
+                carAudio.go();
+            }
+
             updateHud(
                 role === "spectator"
                     ? "Spectating current race"
@@ -1094,6 +1469,8 @@ export function createCarRaceClient(
                     checkpointIndex
                 );
 
+            carAudio.checkpoint();
+
             updateHud(
                 checkpointIndex >=
                     CAR_RACE_CHECKPOINTS.length
@@ -1110,6 +1487,8 @@ export function createCarRaceClient(
             carPhysics.setEnabled(
                 false
             );
+
+            carAudio.finish();
 
             checkpointMarker
                 .root
@@ -1187,8 +1566,9 @@ export function createCarRaceClient(
                     targetPosition:
                         new BABYLON.Vector3(
                             position.x,
-                            position.y +
-                                0.05,
+                            carVisualRootY(
+                                position.y
+                            ),
                             position.z
                         ),
                     targetHeading:
@@ -1196,7 +1576,10 @@ export function createCarRaceClient(
                             data.rotation?.y
                         )
                             ? data.rotation.y
-                            : 0
+                            : 0,
+                    targetPitch: 0,
+                    targetRoll: 0,
+                    lastSurfaceSampleAt: 0
                 };
 
                 remote.visual.root.position
@@ -1218,7 +1601,9 @@ export function createCarRaceClient(
             remote.targetPosition
                 .copyFromFloats(
                     position.x,
-                    position.y + 0.05,
+                    carVisualRootY(
+                                position.y
+                            ),
                     position.z
                 );
 
@@ -1391,6 +1776,45 @@ export function createCarRaceClient(
                         current +
                         difference *
                             smoothing;
+
+                    const surfaceNow =
+                        performance.now();
+
+                    if (
+                        surfaceNow -
+                            remote.lastSurfaceSampleAt >
+                        250
+                    ) {
+                        const remoteSurface =
+                            sampleCarSurface(
+                                scene,
+                                remote.visual.root.position,
+                                remote.visual.root.rotation.y
+                            );
+
+                        remote.targetPitch =
+                            -remoteSurface.pitch;
+
+                        remote.targetRoll =
+                            remoteSurface.roll;
+
+                        remote.lastSurfaceSampleAt =
+                            surfaceNow;
+                    }
+
+                    remote.visual.root.rotation.x =
+                        BABYLON.Scalar.Lerp(
+                            remote.visual.root.rotation.x,
+                            remote.targetPitch,
+                            smoothing
+                        );
+
+                    remote.visual.root.rotation.z =
+                        BABYLON.Scalar.Lerp(
+                            remote.visual.root.rotation.z,
+                            remote.targetRoll,
+                            smoothing
+                        );
                 }
             );
 
@@ -1407,6 +1831,16 @@ export function createCarRaceClient(
             ) {
                 carPhysics.setEnabled(
                     false
+                );
+
+                carAudio.update(
+                    {
+                        speed: 0,
+                        speedRatio: 0,
+                        throttle: 0,
+                        slipAmount: 0,
+                        collisionSeverity: 0
+                    }
                 );
 
                 placeLocalCar();
@@ -1433,6 +1867,10 @@ export function createCarRaceClient(
 
             heading =
                 physicsState.heading;
+
+            carAudio.update(
+                physicsState
+            );
 
             if (
                 localPlayer.characterMesh
@@ -1535,6 +1973,13 @@ export function createCarRaceClient(
 
             localCar.dispose();
             checkpointMarker.dispose();
+
+            carAudio.dispose();
+            raceFocusStyle.remove();
+
+            document.body.classList.remove(
+                "au-car-race-active"
+            );
 
             hud.remove();
             leaveButton.remove();

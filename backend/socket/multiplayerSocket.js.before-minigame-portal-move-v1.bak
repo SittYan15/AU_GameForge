@@ -42,14 +42,6 @@ const RLGL_WAITING_SPAWN = Object.freeze({
     z: -116.79
 });
 
-// Return to the campus immediately beside the RLGL playground,
-// but far enough from the portal to avoid instant re-entry.
-const RLGL_RETURN_POSITION = Object.freeze({
-    x: -574.00,
-    y: 0.30,
-    z: -116.79
-});
-
 
 const RLGL_SPAWN_Y = 0.30;
 const RLGL_CENTER_Z = -116.79;
@@ -980,22 +972,10 @@ export default function registerMultiplayerSocket(io) {
 
             const player = players.get(socket.id);
             if (player) {
-                player.position = {
-                    ...RLGL_RETURN_POSITION
-                };
-
-                socket.data.lastMoveAt =
-                    Date.now();
-
-                socket.emit(
-                    "rlgl:teleport",
-                    {
-                        position:
-                            player.position,
-                        reason:
-                            "leave"
-                    }
-                );
+                const campusReturn = { x: -10, y: 10, z: 15 };
+                player.position = campusReturn;
+                socket.data.lastMoveAt = Date.now();
+                socket.emit("rlgl:teleport", { position: campusReturn, reason: "leave" });
                 broadcastPlayerPosition(io, player);
             }
             socket.emit("rlgl:left");

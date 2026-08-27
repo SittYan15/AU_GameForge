@@ -3,9 +3,10 @@
 import * as BABYLON from "@babylonjs/core";
 
 export const CAMPUS_QUIZ_PORTAL_POSITION = Object.freeze({
-    x: -120.83,
+    // In front of the Campus Quiz waiting/spectator platforms.
+    x: 165.56,
     y: 0.00,
-    z: 6.98
+    z: -20.58
 });
 
 export const CAMPUS_QUIZ_PORTAL_TRIGGER_RADIUS = 2.2;

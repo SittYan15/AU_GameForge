@@ -142,11 +142,12 @@ export async function createMainScene(
         scene
     );
 
+    // RLGL entrance: just outside the waiting/start side of the actual arena.
     portal.position =
         new BABYLON.Vector3(
-            -114.79,
+            -580.00,
             0.00,
-            -0.09
+            -116.79
         );
 
     const portalMat =
@@ -180,6 +181,22 @@ export async function createMainScene(
     // Campus Road Race portal is placed at the first supplied route point.
     const carRacePortal =
         createCarRacePortal(scene);
+
+    scene.metadata =
+        scene.metadata ||
+        {};
+
+    scene.metadata.minigamePortals = {
+        rlgl:
+            portal,
+        campusQuiz:
+            campusQuizPortal.root,
+        carRace:
+            carRacePortal
+    };
+
+    scene.metadata.carRaceActive =
+        false;
 
     let wasInsideCarRacePortal = false;
 
@@ -406,6 +423,12 @@ export async function createMainScene(
         const now = performance.now();
         const multiplayer = window.multiplayerInstance;
 
+        const carRaceActive =
+            Boolean(
+                scene.metadata
+                    ?.carRaceActive
+            );
+
         const insideCampusQuizPortal =
             BABYLON.Vector3.Distance(
                 player.position,
@@ -415,7 +438,8 @@ export async function createMainScene(
         if (
             insideCampusQuizPortal &&
             !wasInsideCampusQuizPortal &&
-            !insideRlgl
+            !insideRlgl &&
+            !carRaceActive
         ) {
             if (multiplayer?.startCampusQuiz?.()) {
                 wasInsideCampusQuizPortal = true;
@@ -451,6 +475,7 @@ export async function createMainScene(
         }
 
         if (!insideRlgl
+            && !carRaceActive
             && now >= portalCooldownUntil
             && BABYLON.Vector3.Distance(player.position, portal.position) < 2) {
             if (multiplayer?.joinRlgl()) {

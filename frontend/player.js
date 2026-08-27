@@ -133,6 +133,20 @@ export const createPlayer = async (
     };
 
     scene.onBeforeRenderObservable.add(() => {
+        // Campus Road Race owns the player capsule while active.
+        //
+        // isLocked only blocks humanoid X/Z input. The old character
+        // controller still applied verticalVelocity + moveWithCollisions(),
+        // which fought the car suspension and could make a bridge ramp feel
+        // like a wall. Completely pause humanoid movement/gravity in race.
+        if (
+            scene.metadata
+                ?.carRaceActive
+        ) {
+            verticalVelocity = 0;
+            return;
+        }
+
         let velocity = BABYLON.Vector3.Zero();
         let isMoving = false;
         let isRunning = inputMap["shift"];

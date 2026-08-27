@@ -3,18 +3,16 @@
 export const CAMPUS_QUIZ_ROOM = "campus_quiz_survival";
 
 export const CAMPUS_QUIZ_PORTAL = Object.freeze({
-    // In front of the Campus Quiz waiting/spectator platforms.
-    x: 165.56,
+    x: -120.83,
     y: 0.00,
-    z: -20.58,
+    z: 6.98,
     radius: 3.0
 });
 
 export const CAMPUS_QUIZ_RETURN_POSITION = Object.freeze({
-    // Near the Quiz playground, outside the portal trigger radius.
-    x: 165.56,
+    x: -114.30,
     y: 0.30,
-    z: -14.58
+    z: 6.98
 });
 
 export const CAMPUS_QUIZ_ARENA = Object.freeze({

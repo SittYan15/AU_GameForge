@@ -32,6 +32,10 @@ export const createCar = (scene, carName, waypoints, playerMesh) => {
     let playerInFront = false;
 
     scene.onBeforeRenderObservable.add(() => {
+        // Campus Road Race disables BlueCruiser locally.
+        // Skip all traffic-car CPU work while disabled.
+        if (!carCollider.isEnabled()) return;
+
         let deltaTime = scene.getAnimationRatio();
         frameCounter++;
 

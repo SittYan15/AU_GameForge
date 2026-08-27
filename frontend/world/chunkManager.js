@@ -947,6 +947,141 @@ function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin 
     );
 }
 
+const ZERO_ZONE_OFFSET =
+    Object.freeze({
+        x: 0,
+        y: 0,
+        z: 0
+    });
+
+function addOffset(
+    value,
+    sharedOffset,
+    zoneOffset
+) {
+    return (
+        value +
+        (sharedOffset ?? 0) +
+        (zoneOffset ?? 0)
+    );
+}
+
+function getChunkZoneBox(
+    chunk,
+    zoneName
+) {
+    // Optional common offsets affect render/load/dispose together.
+    const sharedCenterOffset =
+        chunk.centerOffset ??
+        ZERO_ZONE_OFFSET;
+
+    const sharedSizeOffset =
+        chunk.sizeOffset ??
+        ZERO_ZONE_OFFSET;
+
+    // Optional per-zone offsets let each rectangle move/resize independently.
+    const zone =
+        chunk.zones?.[zoneName] ??
+        {};
+
+    const zoneCenterOffset =
+        zone.centerOffset ??
+        ZERO_ZONE_OFFSET;
+
+    const zoneSizeOffset =
+        zone.sizeOffset ??
+        ZERO_ZONE_OFFSET;
+
+    const center =
+        new BABYLON.Vector3(
+            addOffset(
+                chunk.center.x,
+                sharedCenterOffset.x,
+                zoneCenterOffset.x
+            ),
+            addOffset(
+                chunk.center.y,
+                sharedCenterOffset.y,
+                zoneCenterOffset.y
+            ),
+            addOffset(
+                chunk.center.z,
+                sharedCenterOffset.z,
+                zoneCenterOffset.z
+            )
+        );
+
+    const baseSize =
+        new BABYLON.Vector3(
+            Math.max(
+                0.1,
+                addOffset(
+                    chunk.size.x,
+                    sharedSizeOffset.x,
+                    zoneSizeOffset.x
+                )
+            ),
+            Math.max(
+                0.1,
+                addOffset(
+                    chunk.size.y,
+                    sharedSizeOffset.y,
+                    zoneSizeOffset.y
+                )
+            ),
+            Math.max(
+                0.1,
+                addOffset(
+                    chunk.size.z,
+                    sharedSizeOffset.z,
+                    zoneSizeOffset.z
+                )
+            )
+        );
+
+    let horizontalMargin = 0;
+    let verticalMargin = 0;
+
+    if (zoneName === "render") {
+        horizontalMargin =
+            chunk.renderMargin ?? 0;
+
+        verticalMargin =
+            chunk.renderMargin ?? 0;
+    } else if (
+        zoneName === "load"
+    ) {
+        horizontalMargin =
+            chunk.horizontalLoad ?? 0;
+
+        verticalMargin =
+            chunk.verticalLoad ?? 0;
+    } else if (
+        zoneName === "dispose"
+    ) {
+        horizontalMargin =
+            chunk.horizontalDispose ?? 0;
+
+        verticalMargin =
+            chunk.verticalDispose ?? 0;
+    }
+
+    const size =
+        new BABYLON.Vector3(
+            baseSize.x +
+                horizontalMargin * 2,
+            baseSize.y +
+                verticalMargin * 2,
+            baseSize.z +
+                horizontalMargin * 2
+        );
+
+    return {
+        center,
+        size
+    };
+}
+
 export function initChunkManager(scene, player, BaseUrl) {
     let enabled = true;
     let generation = 0;
@@ -1046,31 +1181,43 @@ export function initChunkManager(scene, player, BaseUrl) {
 
             buildingsConfig.forEach(
                 (chunk) => {
+                    const renderZone =
+                        getChunkZoneBox(
+                            chunk,
+                            "render"
+                        );
+
                     const isInsideRenderBox =
                         isPointInBox(
                             player.position,
-                            chunk.center,
-                            chunk.size,
-                            chunk.renderMargin,
-                            chunk.renderMargin
+                            renderZone.center,
+                            renderZone.size
+                        );
+
+                    const loadZone =
+                        getChunkZoneBox(
+                            chunk,
+                            "load"
                         );
 
                     const isInsideLoadBox =
                         isPointInBox(
                             player.position,
-                            chunk.center,
-                            chunk.size,
-                            chunk.horizontalLoad,
-                            chunk.verticalLoad
+                            loadZone.center,
+                            loadZone.size
+                        );
+
+                    const disposeZone =
+                        getChunkZoneBox(
+                            chunk,
+                            "dispose"
                         );
 
                     const isInsideDisposeBox =
                         isPointInBox(
                             player.position,
-                            chunk.center,
-                            chunk.size,
-                            chunk.horizontalDispose,
-                            chunk.verticalDispose
+                            disposeZone.center,
+                            disposeZone.size
                         );
 
                     if (
@@ -1200,72 +1347,155 @@ export function drawDebugZones(scene, configArray, targetName = null) {
         }
 
         // Helper function to draw clean boxes with floating labels
-        const createCleanBox = (name, marginH, marginV, edgeAlpha, edgeThickness, labelText, boxColor, colorHex) => {
+        const createCleanBox =
+            (
+                name,
+                zoneName,
+                edgeAlpha,
+                edgeThickness,
+                labelText,
+                boxColor,
+                colorHex
+            ) => {
+                const zone =
+                    getChunkZoneBox(
+                        chunk,
+                        zoneName
+                    );
 
-            // Calculate exact physical dimensions of this specific box
-            const width = chunk.size.x + (marginH * 2);
-            const height = chunk.size.y + (marginV * 2);
-            const depth = chunk.size.z + (marginH * 2);
+                const width =
+                    zone.size.x;
 
-            const box = BABYLON.MeshBuilder.CreateBox(name, {
-                width: width,
-                height: height,
-                depth: depth
-            }, scene);
+                const height =
+                    zone.size.y;
 
-            box.position = chunk.center;
-            box.isPickable = false;
-            box.checkCollisions = false;
+                const depth =
+                    zone.size.z;
 
-            // Make the solid faces invisible
-            const mat = new BABYLON.StandardMaterial(`${name}_mat`, scene);
-            mat.alpha = 0;
-            box.material = mat;
+                const box =
+                    BABYLON.MeshBuilder.CreateBox(
+                        name,
+                        {
+                            width,
+                            height,
+                            depth
+                        },
+                        scene
+                    );
 
-            // Draw ONLY the 12 outer edges using the provided color
-            box.enableEdgesRendering();
-            box.edgesWidth = edgeThickness;
-            box.edgesColor = new BABYLON.Color4(boxColor.r, boxColor.g, boxColor.b, edgeAlpha);
+                box.position.copyFrom(
+                    zone.center
+                );
 
-            // ==========================================
-            // CREATE THE FLOATING TEXT LABEL
-            // ==========================================
-            const labelPlane = BABYLON.MeshBuilder.CreatePlane(`${name}_label`, { width: 15, height: 3 }, scene);
+                box.isPickable = false;
+                box.checkCollisions = false;
 
-            // Anchor it exactly to the Top-Left corner of this specific box
-            labelPlane.position = new BABYLON.Vector3(
-                chunk.center.x - (width / 2),
-                chunk.center.y + (height / 2) + 1.5,
-                chunk.center.z - (depth / 2)
-            );
+                const mat =
+                    new BABYLON.StandardMaterial(
+                        `${name}_mat`,
+                        scene
+                    );
 
-            labelPlane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
-            labelPlane.isPickable = false;
+                mat.alpha = 0;
+                box.material = mat;
 
-            // Draw the text onto a dynamic canvas
-            const dt = new BABYLON.DynamicTexture(`${name}_dt`, { width: 1024, height: 256 }, scene, false);
-            dt.hasAlpha = true;
+                box.enableEdgesRendering();
+                box.edgesWidth =
+                    edgeThickness;
 
-            // Add a black dropshadow so the text is readable against the bright sky
-            dt.getContext().shadowColor = "black";
-            dt.getContext().shadowBlur = 6;
-            dt.getContext().shadowOffsetX = 3;
-            dt.getContext().shadowOffsetY = 3;
+                box.edgesColor =
+                    new BABYLON.Color4(
+                        boxColor.r,
+                        boxColor.g,
+                        boxColor.b,
+                        edgeAlpha
+                    );
 
-            // Write the label in the matching color
-            dt.drawText(labelText, null, 150, "bold 70px Arial", colorHex, "transparent", true);
+                const labelPlane =
+                    BABYLON.MeshBuilder.CreatePlane(
+                        `${name}_label`,
+                        {
+                            width: 15,
+                            height: 3
+                        },
+                        scene
+                    );
 
-            // Apply the text to the plane and make it glow
-            const labelMat = new BABYLON.StandardMaterial(`${name}_labelMat`, scene);
-            labelMat.diffuseTexture = dt;
-            labelMat.emissiveTexture = dt;
-            labelMat.useAlphaFromDiffuseTexture = true;
-            labelMat.disableLighting = true;
+                labelPlane.position =
+                    new BABYLON.Vector3(
+                        zone.center.x -
+                            width / 2,
+                        zone.center.y +
+                            height / 2 +
+                            1.5,
+                        zone.center.z -
+                            depth / 2
+                    );
 
-            labelPlane.material = labelMat;
+                labelPlane.billboardMode =
+                    BABYLON.Mesh.BILLBOARDMODE_ALL;
 
-            return box;
-        };
+                labelPlane.isPickable =
+                    false;
+
+                const dt =
+                    new BABYLON.DynamicTexture(
+                        `${name}_dt`,
+                        {
+                            width: 1024,
+                            height: 256
+                        },
+                        scene,
+                        false
+                    );
+
+                dt.hasAlpha = true;
+
+                dt.getContext().shadowColor =
+                    "black";
+
+                dt.getContext().shadowBlur =
+                    6;
+
+                dt.getContext().shadowOffsetX =
+                    3;
+
+                dt.getContext().shadowOffsetY =
+                    3;
+
+                dt.drawText(
+                    labelText,
+                    null,
+                    150,
+                    "bold 70px Arial",
+                    colorHex,
+                    "transparent",
+                    true
+                );
+
+                const labelMat =
+                    new BABYLON.StandardMaterial(
+                        `${name}_labelMat`,
+                        scene
+                    );
+
+                labelMat.diffuseTexture =
+                    dt;
+
+                labelMat.emissiveTexture =
+                    dt;
+
+                labelMat.useAlphaFromDiffuseTexture =
+                    true;
+
+                labelMat.disableLighting =
+                    true;
+
+                labelPlane.material =
+                    labelMat;
+
+                return box;
+            };
 
         // Define our fixed zone colors
         const greenColor = new BABYLON.Color3(0, 1, 0); // Render
@@ -1273,12 +1503,36 @@ export function drawDebugZones(scene, configArray, targetName = null) {
         const redColor = new BABYLON.Color3(1, 0, 0); // Dispose
 
         // 1. Render Box: Green, Thick line
-        createCleanBox(`render_${chunk.name}`, chunk.renderMargin, chunk.renderMargin, 1.0, 10.0, `${chunk.name} [RENDER]`, greenColor, "#00FF00");
+        createCleanBox(
+            `render_${chunk.name}`,
+            "render",
+            1.0,
+            10.0,
+            `${chunk.name} [RENDER]`,
+            greenColor,
+            "#00FF00"
+        );
 
         // 2. Load Box: Yellow, Medium thickness, 40% transparent
-        createCleanBox(`load_${chunk.name}`, chunk.horizontalLoad, chunk.verticalLoad, 0.8, 8.0, `${chunk.name} [LOAD]`, yellowColor, "#FFFF00");
+        createCleanBox(
+            `load_${chunk.name}`,
+            "load",
+            0.8,
+            8.0,
+            `${chunk.name} [LOAD]`,
+            yellowColor,
+            "#FFFF00"
+        );
 
         // 3. Dispose Box: Red, Thin, 15% transparent
-        createCleanBox(`dispose_${chunk.name}`, chunk.horizontalDispose, chunk.verticalDispose, 0.6, 6.0, `${chunk.name} [DISPOSE]`, redColor, "#FF0000");
+        createCleanBox(
+            `dispose_${chunk.name}`,
+            "dispose",
+            0.6,
+            6.0,
+            `${chunk.name} [DISPOSE]`,
+            redColor,
+            "#FF0000"
+        );
     });
 }

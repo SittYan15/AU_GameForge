@@ -16,14 +16,46 @@ export class CustomLoadingScreen {
         this.currentAsset = "";
         this.currentLoaded = 0;
         this.currentTotal = 0;
+
+        this.rateLastLoaded = 0;
+        this.rateLastTime =
+            performance.now();
+        this.smoothedBytesPerSecond = 0;
         this.currentStage = 0;
         this.totalStages = 0;
         this.hideTimer = null;
+
+        this.rateLastLoaded = 0;
+        this.rateLastTime = 0;
+        this.smoothedBytesPerSecond = 0;
     }
 
     formatMB(bytes) {
         const value = Number(bytes) || 0;
         return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    formatDownloadRate(bytesPerSecond) {
+        const value =
+            Math.max(
+                0,
+                Number(bytesPerSecond) || 0
+            );
+
+        const oneMB =
+            1024 * 1024;
+
+        if (value >= oneMB) {
+            return (
+                (value / oneMB).toFixed(1) +
+                " MB/s"
+            );
+        }
+
+        return (
+            (value / 1024).toFixed(0) +
+            " KB/s"
+        );
     }
 
     ensureSpinnerStyle() {
@@ -268,13 +300,13 @@ export class CustomLoadingScreen {
         };
 
         const downloaded = makeMetric("Downloaded");
-        const remaining = makeMetric("Remaining");
+        const remaining = makeMetric("Download rate");
 
         this.sizeText = downloaded.value;
         this.remainingText = remaining.value;
 
         this.sizeText.textContent = "0.0 MB";
-        this.remainingText.textContent = "Calculating...";
+        this.remainingText.textContent = "0 KB/s";
 
         downloadRow.append(
             downloaded.box,
@@ -325,7 +357,7 @@ export class CustomLoadingScreen {
         }
 
         if (this.remainingText) {
-            this.remainingText.textContent = "Calculating...";
+            this.remainingText.textContent = "0 KB/s";
         }
     }
 
@@ -375,6 +407,46 @@ export class CustomLoadingScreen {
 
         if (total > 0) {
             this.currentTotal = total;
+        }
+
+        const rateNow =
+            performance.now();
+
+        const rateElapsedMs =
+            rateNow -
+            this.rateLastTime;
+
+        if (
+            rateElapsedMs >= 200 &&
+            loaded >=
+                this.rateLastLoaded
+        ) {
+            const rawBytesPerSecond =
+                (
+                    loaded -
+                    this.rateLastLoaded
+                ) /
+                (
+                    rateElapsedMs /
+                    1000
+                );
+
+            this.smoothedBytesPerSecond =
+                this.smoothedBytesPerSecond >
+                    0
+                    ? (
+                        this.smoothedBytesPerSecond *
+                            0.72 +
+                        rawBytesPerSecond *
+                            0.28
+                    )
+                    : rawBytesPerSecond;
+
+            this.rateLastLoaded =
+                loaded;
+
+            this.rateLastTime =
+                rateNow;
         }
 
         if (
@@ -429,15 +501,9 @@ export class CustomLoadingScreen {
 
         if (this.remainingText) {
             this.remainingText.textContent =
-                knownTotal
-                    ? this.formatMB(
-                        Math.max(
-                            0,
-                            this.currentTotal -
-                            this.currentLoaded
-                        )
-                    )
-                    : "Size unavailable";
+                this.formatDownloadRate(
+                    this.smoothedBytesPerSecond
+                );
         }
     }
 
@@ -467,7 +533,7 @@ export class CustomLoadingScreen {
 
         if (this.remainingText) {
             this.remainingText.textContent =
-                "0.0 MB";
+                "0 KB/s";
         }
 
         if (this.statusText) {

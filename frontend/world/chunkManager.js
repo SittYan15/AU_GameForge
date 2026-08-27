@@ -948,77 +948,248 @@ function isPointInBox(point, center, size, horizontalMargin = 0, verticalMargin 
 }
 
 export function initChunkManager(scene, player, BaseUrl) {
+    let enabled = true;
+    let generation = 0;
 
-    // drawDebugZones(scene, buildingsConfig, "VME_Middle_L10");
+    const purgeChunk =
+        (chunk) => {
+            if (chunk.container) {
+                chunk.container.dispose();
+                chunk.container = null;
+            }
 
-    scene.onBeforeRenderObservable.add(() => {
-        if (!player) return;
-        buildingsConfig.forEach(chunk => {
-            // Pass the horizontal and vertical margins separately
-            const isInsideRenderBox = isPointInBox(player.position, chunk.center, chunk.size, chunk.renderMargin, chunk.renderMargin);
+            chunk.status =
+                "UNLOADED";
+        };
 
-            const isInsideLoadBox = isPointInBox(player.position, chunk.center, chunk.size,
-                chunk.horizontalLoad, chunk.verticalLoad);
+    const purgeAll =
+        () => {
+            generation += 1;
 
-            const isInsideDisposeBox = isPointInBox(player.position, chunk.center, chunk.size,
-                chunk.horizontalDispose, chunk.verticalDispose);
+            buildingsConfig.forEach(
+                purgeChunk
+            );
+        };
 
-            // 1. DISPOSE
-            if (!isInsideDisposeBox && chunk.status !== "UNLOADED") {
-                if (chunk.status === "IN_RAM" || chunk.status === "IN_SCENE") {
-                    chunk.container.dispose();
-                    chunk.container = null;
-                }
-                chunk.status = "UNLOADED";
-                console.log(`Purged ${chunk.name} from RAM`);
+    const controller = {
+        suspend(
+            {
+                purge = true
+            } = {}
+        ) {
+            enabled = false;
+
+            if (purge) {
+                purgeAll();
+            } else {
+                generation += 1;
+
+                buildingsConfig.forEach(
+                    (chunk) => {
+                        if (
+                            chunk.status ===
+                            "LOADING"
+                        ) {
+                            chunk.status =
+                                "UNLOADED";
+                        }
+                    }
+                );
+            }
+
+            console.log(
+                "[ChunkManager] Interior streaming suspended"
+            );
+        },
+
+        resume() {
+            enabled = true;
+
+            console.log(
+                "[ChunkManager] Interior streaming resumed"
+            );
+        },
+
+        purge:
+            purgeAll,
+
+        isEnabled() {
+            return enabled;
+        },
+
+        getLoadedCount() {
+            return buildingsConfig
+                .filter(
+                    (chunk) =>
+                        chunk.status !==
+                        "UNLOADED"
+                )
+                .length;
+        }
+    };
+
+    scene.metadata =
+        scene.metadata ||
+        {};
+
+    scene.metadata.chunkManager =
+        controller;
+
+    scene.onBeforeRenderObservable.add(
+        () => {
+            if (
+                !player ||
+                !enabled
+            ) {
                 return;
             }
 
-            // 2. LOAD
-            if (isInsideLoadBox && chunk.status === "UNLOADED") {
-                chunk.status = "LOADING";
+            buildingsConfig.forEach(
+                (chunk) => {
+                    const isInsideRenderBox =
+                        isPointInBox(
+                            player.position,
+                            chunk.center,
+                            chunk.size,
+                            chunk.renderMargin,
+                            chunk.renderMargin
+                        );
 
-                BABYLON.SceneLoader.LoadAssetContainerAsync(BaseUrl, chunk.filename, scene)
-                    .then(container => {
-                        if (chunk.status === "UNLOADED") {
-                            container.dispose();
-                        } else {
-                            container.meshes.forEach((mesh) => {
-                                if (mesh.isVisible && mesh.name !== "__root__") {
-                                    mesh.checkCollisions = true;
-                                    markWalkableGround(mesh);
+                    const isInsideLoadBox =
+                        isPointInBox(
+                            player.position,
+                            chunk.center,
+                            chunk.size,
+                            chunk.horizontalLoad,
+                            chunk.verticalLoad
+                        );
+
+                    const isInsideDisposeBox =
+                        isPointInBox(
+                            player.position,
+                            chunk.center,
+                            chunk.size,
+                            chunk.horizontalDispose,
+                            chunk.verticalDispose
+                        );
+
+                    if (
+                        !isInsideDisposeBox &&
+                        chunk.status !==
+                            "UNLOADED"
+                    ) {
+                        purgeChunk(
+                            chunk
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        isInsideLoadBox &&
+                        chunk.status ===
+                            "UNLOADED"
+                    ) {
+                        chunk.status =
+                            "LOADING";
+
+                        const loadGeneration =
+                            generation;
+
+                        BABYLON.SceneLoader
+                            .LoadAssetContainerAsync(
+                                BaseUrl,
+                                chunk.filename,
+                                scene
+                            )
+                            .then(
+                                (container) => {
+                                    if (
+                                        !enabled ||
+                                        loadGeneration !==
+                                            generation ||
+                                        chunk.status ===
+                                            "UNLOADED"
+                                    ) {
+                                        container.dispose();
+
+                                        chunk.status =
+                                            "UNLOADED";
+
+                                        return;
+                                    }
+
+                                    container.meshes
+                                        .forEach(
+                                            (mesh) => {
+                                                if (
+                                                    mesh.isVisible &&
+                                                    mesh.name !==
+                                                        "__root__"
+                                                ) {
+                                                    mesh.checkCollisions =
+                                                        true;
+
+                                                    markWalkableGround(
+                                                        mesh
+                                                    );
+                                                }
+                                            }
+                                        );
+
+                                    chunk.container =
+                                        container;
+
+                                    chunk.status =
+                                        "IN_RAM";
                                 }
-                            });
+                            )
+                            .catch(
+                                (error) => {
+                                    console.error(
+                                        `Failed to load ${chunk.name}:`,
+                                        error
+                                    );
 
-                            chunk.container = container;
-                            chunk.status = "IN_RAM";
-                            console.log(`${chunk.name} is ready in RAM`);
-                        }
-                    }).catch(err => {
-                        console.error(`Failed to load ${chunk.name}:`, err);
-                        chunk.status = "UNLOADED";
-                    });
-            }
+                                    chunk.status =
+                                        "UNLOADED";
+                                }
+                            );
+                    }
 
-            // 3. RENDER
-            if (isInsideRenderBox && chunk.status === "IN_RAM") {
-                chunk.container.addAllToScene();
-                chunk.status = "IN_SCENE";
-                console.log(`Rendered ${chunk.name}`);
-            }
+                    if (
+                        isInsideRenderBox &&
+                        chunk.status ===
+                            "IN_RAM"
+                    ) {
+                        chunk.container
+                            .addAllToScene();
 
-            // 4. HIDE
-            if (!isInsideRenderBox && isInsideDisposeBox && chunk.status === "IN_SCENE") {
-                chunk.container.removeAllFromScene();
-                chunk.status = "IN_RAM";
-                console.log(`Hid ${chunk.name}`);
-            }
-        });
-    });
+                        chunk.status =
+                            "IN_SCENE";
+                    }
+
+                    if (
+                        !isInsideRenderBox &&
+                        isInsideDisposeBox &&
+                        chunk.status ===
+                            "IN_SCENE"
+                    ) {
+                        chunk.container
+                            .removeAllFromScene();
+
+                        chunk.status =
+                            "IN_RAM";
+                    }
+                }
+            );
+        }
+    );
+
+    return controller;
 }
 
-// ==========================================
-// DEBUG: DRAW VISIBLE & SEPARABLE ZONES WITH LABELS (COLOR-CODED)
+
 // ==========================================
 export function drawDebugZones(scene, configArray, targetName = null) {
     configArray.forEach((chunk) => {

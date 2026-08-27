@@ -643,11 +643,6 @@ export function registerCampusQuizSocket(
             return;
         }
 
-        if (socket.data.inCarRace) {
-            socket.emit("campusQuiz:error", "Leave the Campus Road Race before starting Campus Quiz.");
-            return;
-        }
-
         if (socket.data.inCampusQuiz) return;
 
         if (distanceToPortal(player.position) > CAMPUS_QUIZ_PORTAL.radius) {

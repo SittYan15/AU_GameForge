@@ -12,6 +12,7 @@ import { createRlglEffects } from "./effects/rlglEffects.js";
 import { createMissionClient } from "./missions/missionClient.js";
 import { createExplorationClient } from "./exploration/explorationClient.js";
 import { createCampusQuizClient } from "./quiz/quizClient.js";
+import { createCarRaceClient } from "./racing/carRaceClient.js";
 
 export const remotePlayers = new Map();
 
@@ -746,6 +747,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             characterGrounding,
             playerName: data.playerName,
             avatarKey: data.avatarKey || "default_avatar",
+            inCarRace: false,
             nameTag: createNameTag(
                 rootMesh,
                 data.playerName,
@@ -818,6 +820,36 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             scene,
             localPlayer,
             socket
+        );
+
+    const carRaceClient =
+        createCarRaceClient(
+            scene,
+            localPlayer,
+            socket,
+            {
+                setRemotePlayerRacing(
+                    socketId,
+                    active
+                ) {
+                    const remotePlayer =
+                        remotePlayers.get(
+                            socketId
+                        );
+
+                    if (!remotePlayer) {
+                        return;
+                    }
+
+                    remotePlayer.inCarRace =
+                        Boolean(active);
+
+                    if (!active) {
+                        remotePlayer.rootMesh
+                            .setEnabled(true);
+                    }
+                }
+            }
         );
 
     const missionClient =
@@ -1213,6 +1245,24 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     scene.onBeforeRenderObservable.add(() => {
         const smoothing = 1 - Math.exp(-12 * scene.getEngine().getDeltaTime() / 1000);
         remotePlayers.forEach((remotePlayer) => {
+            if (remotePlayer.inCarRace) {
+                remotePlayer.rootMesh
+                    .setEnabled(false);
+
+                remotePlayer.nameTag
+                    .setVisibility(0);
+
+                return;
+            }
+
+            if (
+                !remotePlayer.rootMesh
+                    .isEnabled()
+            ) {
+                remotePlayer.rootMesh
+                    .setEnabled(true);
+            }
+
             remotePlayer.rootMesh.position = BABYLON.Vector3.Lerp(
                 remotePlayer.rootMesh.position,
                 remotePlayer.targetPosition,
@@ -1305,6 +1355,10 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             if (!socket.connected || !multiplayerJoined) return false;
             return campusQuizClient.requestStart();
         },
+        startCarRace() {
+            if (!socket.connected || !multiplayerJoined) return false;
+            return carRaceClient.requestStart();
+        },
         joinRlgl() {
             if (!socket.connected || !multiplayerJoined) return false;
             clientInRlgl = true;
@@ -1347,6 +1401,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         },
         dispose() {
 
+            carRaceClient.dispose();
             campusQuizClient.dispose();
             explorationClient.dispose();
             missionClient.dispose();

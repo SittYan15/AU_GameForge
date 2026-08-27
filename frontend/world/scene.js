@@ -3,6 +3,11 @@ import * as BABYLON from "@babylonjs/core";
 import { createPlayer } from "../player.js";
 import { createNPC } from "../npc.js";
 import { createCar } from "../car.js";
+import { createCampusRoadRoute } from "./campusRoadRoute.js";
+import {
+    CAR_RACE_PORTAL_TRIGGER_RADIUS,
+    createCarRacePortal
+} from "../racing/carRacePortal.js";
 import { markWalkableGround } from "../grounding.js";
 import { createRlglSignal } from "./rlglSignal.js";
 import { createRlglArenaTimer } from "./rlglArenaTimer.js";
@@ -99,24 +104,16 @@ export async function createMainScene(
     ];
     createNPC(scene, "LostStudent", new BABYLON.Vector3(-66.58, 1.53, -6.79), routeTwo);
 
-    const carRoute = [
-        new BABYLON.Vector3(-123.99, -0.00, -6.33),
-        new BABYLON.Vector3(-406.43, -0.00, -4.86),
-        new BABYLON.Vector3(-438.58, 2.63, -3.86),
-        new BABYLON.Vector3(-473.45, -0.01, -4.41),
-        new BABYLON.Vector3(-487.27, -0.02, -7.19),
-        new BABYLON.Vector3(-487.88, -0.02, -68.70),
-        new BABYLON.Vector3(-526.67, -0.02, -80.68),
-        new BABYLON.Vector3(-723.18, -0.02, -79.98),
-        new BABYLON.Vector3(-724.72, -0.02, 79.47),
-        new BABYLON.Vector3(-494.83, -0.02, 78.75),
-        new BABYLON.Vector3(-489.07, -0.02, 5.86),
-        new BABYLON.Vector3(-466.02, 0.17, 4.42),
-        new BABYLON.Vector3(-442.86, 2.73, 3.24),
-        new BABYLON.Vector3(-401.93, 0.00, 5.78),
-        new BABYLON.Vector3(-128.06, 0.00, 6.91)
-    ];
-    createCar(scene, "BlueCruiser", carRoute, player);
+    // BlueCruiser and Campus Road Race now share the extended campus-road loop.
+    const carRoute =
+        createCampusRoadRoute();
+
+    createCar(
+        scene,
+        "BlueCruiser",
+        carRoute,
+        player
+    );
 
     // ==========================================
     // RED LIGHT, GREEN LIGHT ARENA
@@ -179,6 +176,12 @@ export async function createMainScene(
     scene.metadata.campusQuizArena = campusQuizArena;
 
     let wasInsideCampusQuizPortal = false;
+
+    // Campus Road Race portal is placed at the first supplied route point.
+    const carRacePortal =
+        createCarRacePortal(scene);
+
+    let wasInsideCarRacePortal = false;
 
     // Thin overlay so the campus surface is still visible.
     const arenaFloor =
@@ -421,6 +424,30 @@ export async function createMainScene(
 
         if (!insideCampusQuizPortal) {
             wasInsideCampusQuizPortal = false;
+        }
+
+        const insideCarRacePortal =
+            BABYLON.Vector3.Distance(
+                player.position,
+                carRacePortal.position
+            ) < CAR_RACE_PORTAL_TRIGGER_RADIUS;
+
+        if (
+            insideCarRacePortal &&
+            !wasInsideCarRacePortal &&
+            !insideRlgl
+        ) {
+            if (
+                multiplayer?.startCarRace?.()
+            ) {
+                wasInsideCarRacePortal =
+                    true;
+            }
+        }
+
+        if (!insideCarRacePortal) {
+            wasInsideCarRacePortal =
+                false;
         }
 
         if (!insideRlgl

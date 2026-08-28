@@ -24,17 +24,15 @@ export const CAMPUS_QUIZ_ARENA = Object.freeze({
 });
 
 export const CAMPUS_QUIZ_WAITING_SPAWN = Object.freeze({
-    // Center of compact 48x5 starting ground.
     x: 165.56,
     y: 0.30,
-    z: -39.08
+    z: -32.58
 });
 
 export const CAMPUS_QUIZ_SPECTATOR_SPAWN = Object.freeze({
-    // Slightly forward, still safely inside the compact platform.
     x: 165.56,
     y: 0.30,
-    z: -37.58
+    z: -29.58
 });
 
 export const CAMPUS_QUIZ_FLOORS = Object.freeze([

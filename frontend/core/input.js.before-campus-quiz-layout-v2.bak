@@ -32,7 +32,6 @@ export class InputController {
 
         this.setupKeyboard();
         this.setupMobile();
-        this.setupDesktopFullscreen();
 
         this.scene.onPointerDown = (evt) => {
             if (
@@ -150,16 +149,15 @@ export class InputController {
         this.camera.upperBetaLimit =
             1.22;
 
-        // v3: bring the fixed Campus Quiz camera a little closer to the
-        // question wall while keeping all four answer floors in view.
+        // v2.6: slightly closer fixed Campus Quiz camera.
         this.camera.radius =
-            32;
+            36;
 
         this.camera.lowerRadiusLimit =
-            32;
+            36;
 
         this.camera.upperRadiusLimit =
-            32;
+            36;
 
         this.camera.panningSensibility =
             0;
@@ -210,59 +208,6 @@ export class InputController {
         }
     }
 
-
-    setupDesktopFullscreen() {
-        const button =
-            document.getElementById(
-                "desktopFullscreenButton"
-            );
-
-        if (!button) {
-            return;
-        }
-
-        const updateLabel =
-            () => {
-                const active =
-                    Boolean(
-                        document.fullscreenElement ||
-                        document.webkitFullscreenElement ||
-                        document.mozFullScreenElement ||
-                        document.msFullscreenElement
-                    );
-
-                button.textContent =
-                    active
-                        ? "🗗 Exit Full Screen"
-                        : "⛶ Full Screen";
-
-                button.setAttribute(
-                    "aria-pressed",
-                    active
-                        ? "true"
-                        : "false"
-                );
-            };
-
-        button.addEventListener(
-            "click",
-            () => {
-                this.toggleFullScreen();
-            }
-        );
-
-        document.addEventListener(
-            "fullscreenchange",
-            updateLabel
-        );
-
-        document.addEventListener(
-            "webkitfullscreenchange",
-            updateLabel
-        );
-
-        updateLabel();
-    }
 
     setupKeyboard() {
         this.scene.actionManager =

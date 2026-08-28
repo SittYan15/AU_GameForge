@@ -18,8 +18,8 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-const BaseUrl = "./au_campus/";
+const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+// const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
@@ -125,7 +125,7 @@ async function startGame(session) {
                 },
                 onPlayerCountChanged: (count) => {
                     const el = document.getElementById("playerCountText");
-                    if (el) el.textContent = `AU Campus — ${count} players`;
+                    if (el) el.textContent = `Active - ${count}`;
                 },
                 onError: (e) => console.warn(e),
                 onChatHistory: (messages) => {/* Set chat history using UI func */ },

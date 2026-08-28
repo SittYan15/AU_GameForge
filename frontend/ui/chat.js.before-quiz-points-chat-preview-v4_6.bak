@@ -36,148 +36,6 @@ let outsideClickBound =
 let escapeBound =
     false;
 
-let chatPreviewTimer =
-    null;
-
-const chatPreviewEl =
-    document.createElement(
-        "div"
-    );
-
-chatPreviewEl.id =
-    "chatMessagePreview";
-
-Object.assign(
-    chatPreviewEl.style,
-    {
-        position: "fixed",
-        zIndex: "1002",
-        display: "none",
-        maxWidth:
-            "min(360px, calc(100vw - 20px))",
-        padding: "8px 11px",
-        border:
-            "1px solid rgba(255,255,255,.15)",
-        borderRadius: "12px",
-        background:
-            "rgba(20,20,20,.90)",
-        color: "#ffffff",
-        fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        fontSize: "12px",
-        lineHeight: "1.35",
-        boxShadow:
-            "0 5px 16px rgba(0,0,0,.32)",
-        backdropFilter:
-            "blur(10px)",
-        WebkitBackdropFilter:
-            "blur(10px)",
-        pointerEvents: "none",
-        overflow: "hidden",
-        textOverflow: "ellipsis"
-    }
-);
-
-document.body.appendChild(
-    chatPreviewEl
-);
-
-function hideChatPreview() {
-    if (chatPreviewTimer) {
-        window.clearTimeout(
-            chatPreviewTimer
-        );
-
-        chatPreviewTimer =
-            null;
-    }
-
-    chatPreviewEl.style.display =
-        "none";
-}
-
-function positionChatPreview() {
-    if (!chatToggleEl) {
-        return;
-    }
-
-    const rect =
-        chatToggleEl.getBoundingClientRect();
-
-    chatPreviewEl.style.left =
-        `${Math.max(10, rect.left)}px`;
-
-    chatPreviewEl.style.bottom =
-        `${Math.max(
-            10,
-            window.innerHeight -
-                rect.top +
-                8
-        )}px`;
-}
-
-function showChatPreview(
-    message
-) {
-    if (
-        chatState.isOpen ||
-        !message
-    ) {
-        return;
-    }
-
-    const sender =
-        String(
-            message.sender ||
-            "Player"
-        );
-
-    const text =
-        String(
-            message.text ||
-            ""
-        );
-
-    chatPreviewEl.textContent =
-        `${sender}: ${text}`;
-
-    positionChatPreview();
-
-    chatPreviewEl.style.display =
-        "block";
-
-    if (chatPreviewTimer) {
-        window.clearTimeout(
-            chatPreviewTimer
-        );
-    }
-
-    chatPreviewTimer =
-        window.setTimeout(
-            () => {
-                chatPreviewEl.style.display =
-                    "none";
-
-                chatPreviewTimer =
-                    null;
-            },
-            3000
-        );
-}
-
-window.addEventListener(
-    "resize",
-    () => {
-        if (
-            chatPreviewEl.style
-                .display !==
-            "none"
-        ) {
-            positionChatPreview();
-        }
-    }
-);
-
 export function renderChatMessages() {
     if (!chatMessagesEl) {
         return;
@@ -264,10 +122,6 @@ export function addChatMessage(
     }
 
     renderChatMessages();
-
-    showChatPreview(
-        message
-    );
 }
 
 export function setChatOpen(
@@ -278,10 +132,6 @@ export function setChatOpen(
 
     chatState.isOpen =
         nextOpen;
-
-    if (nextOpen) {
-        hideChatPreview();
-    }
 
     if (chatPanelEl) {
         chatPanelEl.classList.toggle(

@@ -164,7 +164,7 @@
         /* ADD THIS INSTEAD: */
         #joystick-zone {
             position: absolute;
-            left: 30px;
+            left: 38px;
             bottom: 10px;
             width: 140px;
             height: 140px;
@@ -320,6 +320,38 @@
             cursor: pointer;
         }
 
+        #desktopFullscreenButton {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1003;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-height: 38px;
+            padding: 0 13px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            background: rgba(20, 20, 20, 0.90);
+            color: #ffffff;
+            font: 700 12px/1 sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.30);
+            backdrop-filter: blur(8px);
+            pointer-events: auto;
+        }
+
+        #desktopFullscreenButton:hover {
+            background: rgba(38, 38, 38, 0.96);
+        }
+
+        @media (max-width: 900px) {
+            #desktopFullscreenButton {
+                display: none !important;
+            }
+        }
+
         #profilePanel {
             position: absolute;
             top: 125px;
@@ -374,21 +406,31 @@
 
         #playerCountStatus {
             position: absolute;
-            top: 15px;
-            left: 15px;
+            top: auto;
+            left: 116px;
             right: auto;
             z-index: 1000;
+            bottom: 20px;
             display: flex;
             align-items: center;
             gap: 9px;
             padding: 10px 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid transparent;
             border-radius: 10px;
-            background: rgba(25, 27, 31, 0.94);
+            background: transparent;
             color: #69f0c0;
             font: 800 17px/1 sans-serif;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: none;
+            backdrop-filter: none;
+            text-shadow: -1px -1px 0 rgba(0,0,0,.98), 1px -1px 0 rgba(0,0,0,.98), -1px 1px 0 rgba(0,0,0,.98), 1px 1px 0 rgba(0,0,0,.98), 0 2px 4px rgba(0,0,0,.9);
+            -webkit-text-stroke: .35px rgba(0,0,0,.92);
             pointer-events: none;
+        }
+
+        #topPlayersStatus,
+        #topPlayersStatus * {
+            text-shadow: -1px -1px 0 rgba(0,0,0,.98), 1px -1px 0 rgba(0,0,0,.98), -1px 1px 0 rgba(0,0,0,.98), 1px 1px 0 rgba(0,0,0,.98), 0 2px 4px rgba(0,0,0,.9);
+            -webkit-text-stroke: .28px rgba(0,0,0,.90);
         }
 
         #playerCountStatus .online-dot {
@@ -503,12 +545,13 @@
         @media (max-width: 900px) {
             #profileButton { top: 58px; right: 10px; }
             #playerCountStatus {
-                top: 12px;
-                left: 10px;
+                top: auto;
+                left: 94px;
                 right: auto;
-                max-width: calc(100vw - 112px);
-                padding: 9px 12px;
-                font-size: 14px;
+                bottom: 10px;
+                max-width: calc(100vw - 190px);
+                padding: 8px 10px;
+                font-size: 13px;
             }
             #profilePanel {
                 top: 118px;
@@ -534,6 +577,268 @@
 
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <style id="auUnifiedUiStyle">
+        /* =====================================================
+           AU GAMEFORGE UNIFIED FLOATING UI v4.3
+           Profile / Chat / Explorer use one visual language.
+           ===================================================== */
+
+        #profileButton,
+        #chatToggle,
+        #campusExplorerToggle {
+            box-sizing: border-box !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            min-height: 38px !important;
+            min-width: 0 !important;
+            padding: 0 12px !important;
+            border: 1px solid rgba(255,255,255,.16) !important;
+            border-radius: 999px !important;
+            background: rgba(20,20,20,.88) !important;
+            color: #ffffff !important;
+            font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,.28) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            cursor: pointer !important;
+            user-select: none !important;
+            pointer-events: auto !important;
+            transition:
+                background .16s ease,
+                border-color .16s ease,
+                transform .16s ease,
+                box-shadow .16s ease !important;
+        }
+
+        #profileButton:hover,
+        #chatToggle:hover,
+        #campusExplorerToggle:hover,
+        #profileButton[aria-expanded="true"],
+        #chatToggle[aria-expanded="true"],
+        #campusExplorerToggle[aria-expanded="true"] {
+            background: rgba(38,38,38,.96) !important;
+            border-color: rgba(255,255,255,.30) !important;
+            box-shadow: 0 5px 16px rgba(0,0,0,.34) !important;
+        }
+
+        #profileButton:active,
+        #chatToggle:active,
+        #campusExplorerToggle:active {
+            transform: scale(.97) !important;
+        }
+
+        #profileButton:focus-visible,
+        #chatToggle:focus-visible,
+        #campusExplorerToggle:focus-visible {
+            outline: 2px solid #69f0c0 !important;
+            outline-offset: 2px !important;
+        }
+
+        #profilePanel,
+        #chatPanel,
+        #campusExplorerPanel {
+            box-sizing: border-box !important;
+            border: 1px solid rgba(255,255,255,.14) !important;
+            border-radius: 16px !important;
+            background:
+                linear-gradient(
+                    160deg,
+                    rgba(24,27,32,.96),
+                    rgba(13,15,18,.96)
+                ) !important;
+            color: #ffffff !important;
+            box-shadow: 0 18px 45px rgba(0,0,0,.40) !important;
+            backdrop-filter: blur(14px) !important;
+            -webkit-backdrop-filter: blur(14px) !important;
+        }
+
+        #chatPanel {
+            overflow: hidden !important;
+        }
+
+        #chatMessages {
+            scrollbar-width: thin;
+        }
+
+        .chatMessage {
+            border: 1px solid rgba(255,255,255,.08) !important;
+            background: rgba(255,255,255,.055) !important;
+            border-radius: 9px !important;
+        }
+
+        #chatForm {
+            background: rgba(255,255,255,.025) !important;
+            border-top: 1px solid rgba(255,255,255,.10) !important;
+        }
+
+        #chatInput {
+            border: 1px solid rgba(255,255,255,.12) !important;
+            background: rgba(255,255,255,.08) !important;
+            color: #ffffff !important;
+        }
+
+        #chatInput::placeholder {
+            color: rgba(255,255,255,.55) !important;
+        }
+
+        #chatInput:focus {
+            border-color: rgba(105,240,192,.65) !important;
+            box-shadow: 0 0 0 2px rgba(105,240,192,.13) !important;
+        }
+
+        #chatSend {
+            border-radius: 9px !important;
+            background: rgba(239,57,53,.92) !important;
+            font-weight: 800 !important;
+        }
+
+        #campusExplorerPanel {
+            padding: 11px 12px !important;
+        }
+
+        .campusExplorerTitle {
+            margin-bottom: 4px;
+            color: #7ee787;
+            font-size: 14px;
+            font-weight: 900;
+            text-shadow: 0 1px 2px #000;
+        }
+
+        .campusExplorerDescription {
+            margin-bottom: 7px;
+            color: #e4e8ef;
+            font-size: 11px;
+            line-height: 1.35;
+            text-shadow: 0 1px 2px #000;
+        }
+
+        .campusExplorerRow {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 4px 0;
+            font-size: 12px;
+            text-shadow: 0 1px 2px #000;
+        }
+
+        .campusExplorerReward {
+            margin-top: 7px;
+            padding-top: 7px;
+            border-top: 1px solid rgba(255,255,255,.10);
+            color: #ffd166;
+            font-size: 11px;
+            font-weight: 800;
+            text-shadow: 0 1px 2px #000;
+        }
+
+        @media (max-width: 900px) {
+            #profileButton,
+            #chatToggle,
+            #campusExplorerToggle {
+                min-height: 36px !important;
+                padding: 0 10px !important;
+                font-size: 11px !important;
+            }
+
+            #chatPanel {
+                border-radius: 14px !important;
+            }
+
+            #campusExplorerPanel {
+                width: min(235px, 56vw) !important;
+                max-width: calc(100vw - 74px) !important;
+                max-height: 48dvh !important;
+                overflow-y: auto !important;
+                padding: 9px 10px !important;
+                border-radius: 14px !important;
+            }
+        }
+    </style>
+
+    <style id="auFullscreenV44">
+        /* Retire the old white mobile m-btn fullscreen control. */
+        #btn-fullscreen {
+            display: none !important;
+        }
+
+        /*
+         * One Full Screen control for PC + mobile.
+         * Uses the same dark glass principle as the PC version.
+         */
+        #desktopFullscreenButton {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1003;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 0 13px;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 10px;
+            background: rgba(20,20,20,.90);
+            color: #fff;
+            font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,.30);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            pointer-events: auto;
+        }
+
+        #desktopFullscreenButton:hover {
+            background: rgba(38,38,38,.96);
+            border-color: rgba(255,255,255,.30);
+        }
+
+        @media (max-width: 900px) {
+            #desktopFullscreenButton {
+                display: inline-flex !important;
+                top: max(8px, env(safe-area-inset-top));
+                right: calc(max(8px, env(safe-area-inset-right)) + 48px);
+                min-height: 36px;
+                height: 36px;
+                padding: 0 10px;
+                border-radius: 9px;
+                font-size: 11px;
+            }
+
+            /* Match the existing minigame-focus rule: hide Full Screen in play. */
+            body.au-minigame-focus #desktopFullscreenButton {
+                display: none !important;
+            }
+        }
+
+        /*
+         * All full-minigame Return buttons use exactly the same placement.
+         * Desktop / PC.
+         */
+        #campusQuizReturnButton,
+        #rlglQuitBtn,
+        #carRaceReturnButton {
+            position: fixed !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: 16px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+        }
+
+        @media (max-width: 900px) {
+            #campusQuizReturnButton,
+            #rlglQuitBtn,
+            #carRaceReturnButton {
+                top: auto !important;
+                right: auto !important;
+                bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+            }
+        }
+    </style>
+
 </head>
 
 <body>
@@ -605,6 +910,10 @@
 
     <button id="chatToggle" class="game-ui" hidden type="button" aria-label="Toggle chat">💬 Chat</button>
 
+    <button id="desktopFullscreenButton" class="game-ui" hidden type="button" aria-label="Toggle full screen">
+        ⛶ Full Screen
+    </button>
+
     <button id="profileButton" class="game-ui" hidden type="button" aria-expanded="false" aria-controls="profilePanel">
         <span class="profile-icon" aria-hidden="true">👤</span>
         <span>Profile</span>
@@ -612,7 +921,7 @@
 
     <div id="playerCountStatus" class="game-ui" hidden aria-live="polite">
         <span class="online-dot" aria-hidden="true"></span>
-        <span id="playerCountText">AU Campus — 0 players</span>
+        <span id="playerCountText">Active - 0</span>
     </div>
 
     <section id="profilePanel" class="game-ui hidden" hidden aria-label="Player session">

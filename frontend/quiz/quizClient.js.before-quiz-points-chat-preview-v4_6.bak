@@ -382,7 +382,7 @@ export function createCampusQuizClient(
             );
         } else if (data.participated) {
             showMessage(
-                `Round over — +${data.pointsEarned || 0} CAMPUS POINTS from your quiz score.`,
+                `Round over — score ${score.toLocaleString()}. Survive next time for +${survivorRewardPoints} points.`,
                 "#c7ccd4",
                 5000
             );

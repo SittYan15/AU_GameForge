@@ -64,8 +64,7 @@ export function createCampusQuizClient(
             left: 16px;
             right: auto;
             z-index: 1200;
-            width: max-content;
-            max-width: calc(100vw - 32px);
+            width: min(290px, calc(100vw - 32px));
             box-sizing: border-box;
             padding: 11px 13px;
             border-radius: 12px;
@@ -82,15 +81,12 @@ export function createCampusQuizClient(
         }
 
         .campusQuizStatRow {
-            display: grid;
-            grid-template-columns: max-content max-content;
+            display: flex;
             align-items: center;
-            justify-content: start;
-            column-gap: 5px;
-            min-width: 0;
-            width: max-content;
-            padding: 0;
-            line-height: 1.25;
+            justify-content: space-between;
+            gap: 16px;
+            min-width: 150px;
+            padding: 1px 0;
         }
 
         .campusQuizStatRow strong {
@@ -100,9 +96,8 @@ export function createCampusQuizClient(
 
         #campusQuizSurvivalMessage {
             position: fixed;
-            top: auto;
+            top: 12%;
             left: 50%;
-            bottom: 72px;
             transform: translateX(-50%);
             z-index: 1300;
             max-width: min(520px, calc(100vw - 24px));
@@ -162,8 +157,7 @@ export function createCampusQuizClient(
     hud.id = "campusQuizSurvivalHud";
 
     const title = document.createElement("div");
-    title.textContent = "";
-    title.style.display = "none";
+    title.textContent = "CAMPUS QUIZ SURVIVAL";
     Object.assign(title.style, {
         color: "#c4a7ff",
         fontSize: "12px",
@@ -382,7 +376,7 @@ export function createCampusQuizClient(
             );
         } else if (data.participated) {
             showMessage(
-                `Round over — +${data.pointsEarned || 0} CAMPUS POINTS from your quiz score.`,
+                `Round over — score ${score.toLocaleString()}. Survive next time for +${survivorRewardPoints} points.`,
                 "#c7ccd4",
                 5000
             );

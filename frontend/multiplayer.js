@@ -66,20 +66,21 @@ leaderboardPanel.hidden = true;
 leaderboardPanel.setAttribute("aria-label", "Top players by points");
 Object.assign(leaderboardPanel.style, {
     position: "absolute",
-    top: "68px",
+    top: "15px",
     left: "15px",
     zIndex: "999",
-    width: "240px",
-    maxWidth: "calc(100vw - 30px)",
+    width: "auto",
+    maxWidth: "min(310px, calc(100vw - 30px))",
     boxSizing: "border-box",
     padding: "10px 12px",
-    border: "1px solid rgba(255,255,255,0.10)",
+    border: "1px solid transparent",
     borderRadius: "10px",
-    background: "rgba(25,27,31,0.92)",
+    background: "transparent",
     color: "white",
     fontFamily: "sans-serif",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.30)",
-    backdropFilter: "blur(8px)",
+    boxShadow: "none",
+    backdropFilter: "none",
+    textShadow: "-1px -1px 0 rgba(0,0,0,.98), 1px -1px 0 rgba(0,0,0,.98), -1px 1px 0 rgba(0,0,0,.98), 1px 1px 0 rgba(0,0,0,.98), 0 2px 4px rgba(0,0,0,.9)",
     pointerEvents: "none"
 });
 
@@ -117,9 +118,11 @@ function renderLeaderboard(players = [], currentPlayerName = "") {
         const isCurrentPlayer = player.playerName === currentPlayerName;
         Object.assign(row.style, {
             display: "grid",
-            gridTemplateColumns: "26px minmax(0,1fr) auto",
+            gridTemplateColumns: "26px auto auto",
             alignItems: "center",
-            gap: "6px",
+            justifyContent: "start",
+            columnGap: "4px",
+            rowGap: "0",
             minHeight: "24px",
             padding: "2px 0",
             fontSize: "12px",
@@ -133,7 +136,7 @@ function renderLeaderboard(players = [], currentPlayerName = "") {
 
         const name = document.createElement("span");
         name.textContent = player.playerName || "Player";
-        Object.assign(name.style, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+        Object.assign(name.style, { maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
 
         const points = document.createElement("span");
         const score = Number.isFinite(player.points) ? player.points : 0;
@@ -285,7 +288,7 @@ Object.assign(
         fontSize: "13px",
         lineHeight: "1.4",
         boxShadow: "0 6px 20px rgba(0,0,0,0.36)",
-        backdropFilter: "blur(8px)",
+        backdropFilter: "none",
         pointerEvents: "none",
         display: "none"
     }
@@ -314,19 +317,8 @@ const rlglRulesBody =
     document.createElement("div");
 
 rlglRulesBody.innerHTML = `
-    <div style="font-weight:800;color:#ffd166;margin-bottom:4px;">Rules</div>
-    <div>🟢 <b>Green:</b> move or sprint toward the finish.</div>
-    <div>🔴 <b>Red:</b> stop completely — moving can eliminate you.</div>
-    <div>🏁 Cross the finish line to survive and earn the reward.</div>
-    <div>🚧 Stay inside the playground; leaving the legal area eliminates you.</div>
-
-    <div class="rlgl-tips">
-        <div style="font-weight:800;color:#7ee787;margin:8px 0 4px;">Tips</div>
-        <div>• Release movement immediately when the lamp turns red.</div>
-        <div>• Sprint during green to cover more distance.</div>
-        <div>• Staying near the center of the lane gives you more room.</div>
-        <div>• Watch the traffic lamp and the 3D timer together.</div>
-    </div>
+    <div class="rlgl-simple-rule rlgl-red-rule">🔴 <b>RED</b> — STOP</div>
+    <div class="rlgl-simple-rule rlgl-green-rule">🟢 <b>GREEN</b> — RUN</div>
 `;
 
 rlglRulesPanel.append(
@@ -337,6 +329,328 @@ rlglRulesPanel.append(
 document.body.appendChild(
     rlglRulesPanel
 );
+
+// ------------------------------------------------------------
+// v4.7 RLGL focused HUD
+// ------------------------------------------------------------
+const rlglStatusStyle =
+    document.createElement(
+        "style"
+    );
+
+rlglStatusStyle.id =
+    "rlglStatusStyleV47";
+
+rlglStatusStyle.textContent = `
+    /* Top Players is replaced by the live RLGL participant board. */
+    body.au-minigame-focus[data-minigame="rlgl"] #topPlayersStatus {
+        display: none !important;
+    }
+
+    #rlglRulesPanel {
+        top: 50% !important;
+        right: 16px !important;
+        bottom: auto !important;
+        left: auto !important;
+        transform: translateY(-50%) !important;
+        width: max-content !important;
+        min-width: 176px !important;
+        max-width: min(220px, calc(100vw - 32px)) !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 12px 14px !important;
+        text-align: left !important;
+    }
+
+    #rlglRulesPanel .rlgl-rules-title {
+        margin-bottom: 8px !important;
+        font-size: 14px !important;
+    }
+
+    #rlglRulesPanel .rlgl-simple-rule {
+        padding: 5px 0;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .02em;
+        white-space: nowrap;
+    }
+
+    #rlglRulesPanel .rlgl-red-rule {
+        color: #ff7b7b;
+    }
+
+    #rlglRulesPanel .rlgl-green-rule {
+        color: #7ee787;
+    }
+
+    #rlglPlayersStatus {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 1054;
+        display: none;
+        min-width: 0;
+        max-width: min(300px, calc(100vw - 32px));
+        box-sizing: border-box;
+        padding: 7px 0;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        background: transparent;
+        color: #fff;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        text-shadow:
+            -1px -1px 0 rgba(0,0,0,.96),
+             1px -1px 0 rgba(0,0,0,.96),
+            -1px  1px 0 rgba(0,0,0,.96),
+             1px  1px 0 rgba(0,0,0,.96),
+             0 2px 4px rgba(0,0,0,.90);
+        pointer-events: none;
+    }
+
+    #rlglPlayersStatus .rlgl-player-title {
+        margin-bottom: 6px;
+        color: #ffd166;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: .05em;
+    }
+
+    #rlglPlayersStatus .rlgl-player-row {
+        display: grid;
+        grid-template-columns: max-content max-content;
+        align-items: center;
+        justify-content: start;
+        gap: 4px;
+        min-height: 21px;
+        padding: 0;
+        font-size: 12px;
+    }
+
+    #rlglPlayersStatus .rlgl-player-name {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 700;
+    }
+
+    #rlglPlayersStatus .rlgl-player-state {
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .03em;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 900px) {
+        #rlglPlayersStatus {
+            top: max(8px, env(safe-area-inset-top));
+            left: max(8px, env(safe-area-inset-left));
+            min-width: 170px;
+            max-width: 40vw;
+            max-height: 44dvh;
+            overflow-y: auto;
+            padding: 7px 9px;
+            border-radius: 10px;
+        }
+
+        #rlglPlayersStatus .rlgl-player-title {
+            margin-bottom: 4px;
+            font-size: 10px;
+        }
+
+        #rlglPlayersStatus .rlgl-player-row {
+            gap: 3px;
+            min-height: 19px;
+            font-size: 10.5px;
+        }
+
+        #rlglPlayersStatus .rlgl-player-state {
+            font-size: 9px;
+        }
+
+        #rlglRulesPanel {
+            top: 50% !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: translateY(-50%) !important;
+            width: auto !important;
+            min-width: 145px !important;
+            max-width: 31vw !important;
+            padding: 8px 10px !important;
+        }
+
+        #rlglRulesPanel .rlgl-rules-title {
+            margin-bottom: 5px !important;
+            font-size: 11px !important;
+        }
+
+        #rlglRulesPanel .rlgl-simple-rule {
+            padding: 3px 0;
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+        #rlglPlayersStatus {
+            max-width: 36vw;
+            max-height: 40dvh;
+        }
+
+        #rlglRulesPanel {
+            max-width: 28vw !important;
+            min-width: 132px !important;
+        }
+    }
+`;
+
+document.head.appendChild(
+    rlglStatusStyle
+);
+
+const rlglPlayersPanel =
+    document.createElement(
+        "aside"
+    );
+
+rlglPlayersPanel.id =
+    "rlglPlayersStatus";
+
+rlglPlayersPanel.setAttribute(
+    "aria-label",
+    "Red Light Green Light player status"
+);
+
+document.body.appendChild(
+    rlglPlayersPanel
+);
+
+function renderRlglPlayerStatus(
+    payload = {}
+) {
+    const rows =
+        Array.isArray(
+            payload.players
+        )
+            ? payload.players
+            : [];
+
+    if (!rows.length) {
+        rlglPlayersPanel.style.display =
+            "none";
+
+        rlglPlayersPanel.replaceChildren();
+
+        return;
+    }
+
+    const playingCount =
+        rows.filter(
+            (row) =>
+                row.status ===
+                "PLAYING"
+        ).length;
+
+    const title =
+        document.createElement(
+            "div"
+        );
+
+    title.className =
+        "rlgl-player-title";
+
+    title.textContent =
+        payload.phase === "ACTIVE"
+            ? `🚦 RLGL PLAYERS • ${playingCount} PLAYING`
+            : `🚦 RLGL PLAYERS • ${rows.length}`;
+
+    const fragment =
+        document.createDocumentFragment();
+
+    fragment.appendChild(
+        title
+    );
+
+    const colors = {
+        PLAYING: "#7ee787",
+        WAITING: "#ffd166",
+        FINISHED: "#69f0c0",
+        OUT: "#ff7b7b",
+        SPECTATING: "#c7ccd4"
+    };
+
+    const labels = {
+        PLAYING: "🟢 PLAYING",
+        WAITING: "⏳ WAITING",
+        FINISHED: "✓ FINISHED",
+        OUT: "💀 OUT",
+        SPECTATING: "👁 WATCHING"
+    };
+
+    rows.forEach(
+        (row) => {
+            const line =
+                document.createElement(
+                    "div"
+                );
+
+            line.className =
+                "rlgl-player-row";
+
+            const name =
+                document.createElement(
+                    "span"
+                );
+
+            name.className =
+                "rlgl-player-name";
+
+            name.textContent =
+                row.playerName ||
+                "Player";
+
+            const status =
+                document.createElement(
+                    "span"
+                );
+
+            status.className =
+                "rlgl-player-state";
+
+            const key =
+                row.status ||
+                "WAITING";
+
+            status.textContent =
+                labels[key] ||
+                key;
+
+            status.style.color =
+                colors[key] ||
+                "#ffffff";
+
+            line.append(
+                name,
+                status
+            );
+
+            fragment.appendChild(
+                line
+            );
+        }
+    );
+
+    rlglPlayersPanel.replaceChildren(
+        fragment
+    );
+
+    rlglPlayersPanel.style.display =
+        "block";
+}
+
 
 function setRlglRulesVisible(visible) {
     rlglRulesPanel.style.display =
@@ -356,6 +670,8 @@ function setRlglMessage(text, color = "#ffffff", emphasized = false) {
 }
 
 function clearRlglUi() {
+    rlglPlayersPanel.style.display = "none";
+    rlglPlayersPanel.replaceChildren();
     setRlglRulesVisible(false);
     setRlglMessage("");
     rlglTimerUi.textContent = "";
@@ -944,6 +1260,14 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     socket.on("chat:history", (messages) => handlers.onChatHistory?.(messages));
     socket.on("chat:message", (message) => handlers.onChatMessage?.(message));
     socket.on("leaderboard:updated", updateLeaderboard);
+    socket.on(
+        "rlgl:players",
+        (payload) => {
+            renderRlglPlayerStatus(
+                payload || {}
+            );
+        }
+    );
 
     socket.on("rlgl:error", (message) => {
         handlers.onError?.(new Error(message));
@@ -1015,6 +1339,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             rlglTimerUi.style.display = "none";
             rlglQuitBtn.style.display = "block";
         } else if (phase === "ACTIVE") {
+            // v4.8: hide lobby reminder once actual gameplay starts.
             setRlglRulesVisible(false);
             rlglActiveWalls?.setActive(true);
             rlglQuitBtn.style.display = rlglRole === "spectator" ? "block" : "none";

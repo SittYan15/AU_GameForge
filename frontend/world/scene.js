@@ -132,17 +132,23 @@ export async function createMainScene(
     const RLGL_FINISH_LINE_X = -731.5;
     const RLGL_FINISH_TRIGGER_X = -729.5;
 
-    // Keep the existing campus portal as the minigame entrance.
-    const portal = BABYLON.MeshBuilder.CreateCylinder(
-        "rlgl_portal",
-        {
-            diameter: 4,
-            height: 0.2
-        },
-        scene
-    );
+    // ==========================================
+    // RED LIGHT, GREEN LIGHT PORTAL
+    // v4.9: upgraded to match the visual language
+    // of the Campus Road Race portal.
+    // ==========================================
+    const portal =
+        BABYLON.MeshBuilder.CreateCylinder(
+            "rlgl_portal",
+            {
+                diameter: 5.6,
+                height: 0.18,
+                tessellation: 48
+            },
+            scene
+        );
 
-    // RLGL entrance: just outside the waiting/start side of the actual arena.
+    // Keep the existing authoritative entrance location.
     portal.position =
         new BABYLON.Vector3(
             -580.00,
@@ -150,20 +156,245 @@ export async function createMainScene(
             -116.79
         );
 
+    portal.position.y +=
+        0.09;
+
+    portal.checkCollisions =
+        false;
+
+    portal.isPickable =
+        false;
+
     const portalMat =
         new BABYLON.StandardMaterial(
-            "portalMat",
+            "rlgl_portal_material",
             scene
+        );
+
+    portalMat.diffuseColor =
+        new BABYLON.Color3(
+            0.02,
+            0.72,
+            0.88
         );
 
     portalMat.emissiveColor =
         new BABYLON.Color3(
-            0,
-            1,
-            1
+            0.00,
+            0.42,
+            0.58
         );
 
-    portal.material = portalMat;
+    portalMat.alpha =
+        0.82;
+
+    portal.material =
+        portalMat;
+
+    const rlglPortalRing =
+        BABYLON.MeshBuilder.CreateTorus(
+            "rlgl_portal_ring",
+            {
+                diameter: 5.0,
+                thickness: 0.28,
+                tessellation: 48
+            },
+            scene
+        );
+
+    rlglPortalRing.parent =
+        portal;
+
+    rlglPortalRing.position.y =
+        2.31;
+
+    rlglPortalRing.rotation.x =
+        Math.PI / 2;
+
+    rlglPortalRing.checkCollisions =
+        false;
+
+    rlglPortalRing.isPickable =
+        false;
+
+    const rlglPortalRingMaterial =
+        new BABYLON.StandardMaterial(
+            "rlgl_portal_ring_material",
+            scene
+        );
+
+    rlglPortalRingMaterial.emissiveColor =
+        new BABYLON.Color3(
+            0.05,
+            0.95,
+            1.00
+        );
+
+    rlglPortalRingMaterial.diffuseColor =
+        new BABYLON.Color3(
+            0.02,
+            0.50,
+            0.66
+        );
+
+    rlglPortalRing.material =
+        rlglPortalRingMaterial;
+
+    const rlglPortalBeacon =
+        BABYLON.MeshBuilder.CreateSphere(
+            "rlgl_portal_beacon",
+            {
+                diameter: 0.7,
+                segments: 16
+            },
+            scene
+        );
+
+    rlglPortalBeacon.parent =
+        portal;
+
+    rlglPortalBeacon.position.y =
+        4.71;
+
+    rlglPortalBeacon.material =
+        rlglPortalRingMaterial;
+
+    rlglPortalBeacon.isPickable =
+        false;
+
+    rlglPortalBeacon.checkCollisions =
+        false;
+
+    const rlglPortalLabelTexture =
+        new BABYLON.DynamicTexture(
+            "rlgl_portal_label_texture",
+            {
+                width: 1024,
+                height: 256
+            },
+            scene,
+            false
+        );
+
+    rlglPortalLabelTexture.hasAlpha =
+        true;
+
+    const rlglPortalLabelContext =
+        rlglPortalLabelTexture
+            .getContext();
+
+    rlglPortalLabelContext.clearRect(
+        0,
+        0,
+        1024,
+        256
+    );
+
+    rlglPortalLabelContext.fillStyle =
+        "rgba(12,14,18,.88)";
+
+    rlglPortalLabelContext.fillRect(
+        0,
+        0,
+        1024,
+        256
+    );
+
+    rlglPortalLabelContext.strokeStyle =
+        "#31dff2";
+
+    rlglPortalLabelContext.lineWidth =
+        14;
+
+    rlglPortalLabelContext.strokeRect(
+        7,
+        7,
+        1010,
+        242
+    );
+
+    rlglPortalLabelContext.textAlign =
+        "center";
+
+    rlglPortalLabelContext.textBaseline =
+        "middle";
+
+    rlglPortalLabelContext.fillStyle =
+        "#ffffff";
+
+    rlglPortalLabelContext.font =
+        "bold 78px Arial";
+
+    rlglPortalLabelContext.fillText(
+        "🚦  RED LIGHT GREEN LIGHT",
+        512,
+        128
+    );
+
+    rlglPortalLabelTexture.update(
+        true
+    );
+
+    const rlglPortalLabelMaterial =
+        new BABYLON.StandardMaterial(
+            "rlgl_portal_label_material",
+            scene
+        );
+
+    rlglPortalLabelMaterial.diffuseTexture =
+        rlglPortalLabelTexture;
+
+    rlglPortalLabelMaterial.emissiveTexture =
+        rlglPortalLabelTexture;
+
+    rlglPortalLabelMaterial.disableLighting =
+        true;
+
+    rlglPortalLabelMaterial.backFaceCulling =
+        false;
+
+    const rlglPortalLabel =
+        BABYLON.MeshBuilder.CreatePlane(
+            "rlgl_portal_label",
+            {
+                width: 9.0,
+                height: 2.25,
+                sideOrientation:
+                    BABYLON.Mesh.DOUBLESIDE
+            },
+            scene
+        );
+
+    rlglPortalLabel.parent =
+        portal;
+
+    rlglPortalLabel.position.y =
+        6.41;
+
+    rlglPortalLabel.material =
+        rlglPortalLabelMaterial;
+
+    rlglPortalLabel.billboardMode =
+        BABYLON.Mesh.BILLBOARDMODE_Y;
+
+    rlglPortalLabel.isPickable =
+        false;
+
+    scene.onBeforeRenderObservable.add(
+        () => {
+            rlglPortalRing.rotation.z +=
+                0.012 *
+                scene.getAnimationRatio();
+
+            rlglPortalBeacon.position.y =
+                4.71 +
+                Math.sin(
+                    performance.now() *
+                        0.0025
+                ) *
+                    0.18;
+        }
+    );
 
     // Campus Quiz portal.
     // Default location: CL Plaza (0, 1.73, 0).

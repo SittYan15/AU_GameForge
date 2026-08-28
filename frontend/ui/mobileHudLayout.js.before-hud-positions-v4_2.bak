@@ -22,11 +22,9 @@ style.textContent = `
 
         /* Compact connection/player-count badge. */
         #playerCountStatus {
-            top: auto !important;
-            left: 94px !important;
-            right: auto !important;
-            bottom: max(10px, env(safe-area-inset-bottom)) !important;
-            max-width: 150px !important;
+            top: max(8px, env(safe-area-inset-top)) !important;
+            left: max(8px, env(safe-area-inset-left)) !important;
+            max-width: 205px !important;
             gap: 6px !important;
             padding: 7px 9px !important;
             border-radius: 9px !important;
@@ -42,7 +40,7 @@ style.textContent = `
 
         /* Smaller leaderboard while freely exploring the campus. */
         #topPlayersStatus {
-            top: max(8px, env(safe-area-inset-top)) !important;
+            top: calc(max(8px, env(safe-area-inset-top)) + 39px) !important;
             left: max(8px, env(safe-area-inset-left)) !important;
             width: 184px !important;
             max-width: 38vw !important;
@@ -85,12 +83,10 @@ style.textContent = `
 
         /* Campus Explorer: compact button at the left-middle. */
         #campusExplorerDock {
+            left: max(10px, env(safe-area-inset-left)) !important;
             top: 50% !important;
-            right: max(10px, env(safe-area-inset-right)) !important;
-            left: auto !important;
             transform: translateY(-50%) !important;
             max-height: 76dvh !important;
-            align-items: flex-end !important;
         }
 
         #campusExplorerToggle {
@@ -119,7 +115,6 @@ style.textContent = `
         body.au-minigame-focus #profileButton,
         body.au-minigame-focus #profilePanel,
         body.au-minigame-focus #btn-fullscreen,
-        body.au-minigame-focus #desktopFullscreenButton,
         body.au-minigame-focus #chatToggle,
         body.au-minigame-focus #chatPanel,
         body.au-minigame-focus #fpsCounter {
@@ -134,15 +129,15 @@ style.textContent = `
            RLGL mobile layout
            ----------------------------------------------------- */
         body.au-minigame-focus #rlglQuitBtn {
-            top: auto !important;
-            right: auto !important;
-            bottom: calc(12px + env(safe-area-inset-bottom)) !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
+            top: max(8px, env(safe-area-inset-top)) !important;
+            right: max(8px, env(safe-area-inset-right)) !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
             padding: 8px 11px !important;
             font-size: 12px !important;
             border-radius: 9px !important;
-            max-width: 170px !important;
+            max-width: 150px !important;
         }
 
         body.au-minigame-focus #rlglRulesPanel {
@@ -170,35 +165,9 @@ style.textContent = `
         }
 
         /* -----------------------------------------------------
-           Campus Road Race mobile layout
-           ----------------------------------------------------- */
-        body.au-minigame-focus #carRaceHud {
-            top: max(8px, env(safe-area-inset-top)) !important;
-            left: max(8px, env(safe-area-inset-left)) !important;
-            right: auto !important;
-            transform: none !important;
-            min-width: 0 !important;
-            width: auto !important;
-            max-width: min(300px, 58vw) !important;
-            padding: 7px 10px !important;
-            text-align: left !important;
-        }
-
-        /* -----------------------------------------------------
            Campus Quiz Survival mobile layout
            ----------------------------------------------------- */
         body.au-minigame-focus #campusQuizReturnButton {
-            top: auto !important;
-            right: auto !important;
-            bottom: calc(12px + env(safe-area-inset-bottom)) !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            padding: 8px 11px !important;
-            font-size: 12px !important;
-            border-radius: 9px !important;
-        }
-
-        body.au-minigame-focus #carRaceReturnButton {
             top: auto !important;
             right: auto !important;
             bottom: calc(12px + env(safe-area-inset-bottom)) !important;
@@ -213,7 +182,7 @@ style.textContent = `
             top: max(8px, env(safe-area-inset-top)) !important;
             left: max(8px, env(safe-area-inset-left)) !important;
             right: auto !important;
-            width: auto !important;
+            width: 190px !important;
             max-width: 36vw !important;
             padding: 7px 9px !important;
             border-radius: 10px !important;
@@ -234,10 +203,6 @@ style.textContent = `
         }
 
         body.au-minigame-focus #campusQuizSurvivalMessage {
-            top: auto !important;
-            bottom: calc(62px + env(safe-area-inset-bottom)) !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
             max-width: 58vw !important;
             padding: 8px 11px !important;
             font-size: 14px !important;
@@ -281,7 +246,7 @@ style.textContent = `
         }
 
         body.au-minigame-focus #campusQuizSurvivalHud {
-            width: auto !important;
+            width: 176px !important;
         }
     }
 `;

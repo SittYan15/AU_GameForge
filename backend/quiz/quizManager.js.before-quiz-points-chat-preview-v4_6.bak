@@ -298,20 +298,7 @@ async function finishRound(io) {
             const livesRemaining = Math.max(0, socket.data.campusQuizLives ?? 0);
 
             let resultSaved = false;
-
-            const pointsEarned =
-                participated
-                    ? score +
-                        (
-                            survived
-                                ? CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS
-                                : 0
-                        )
-                    : 0;
-
-            let rewardSaved =
-                pointsEarned === 0;
-
+            let rewardSaved = !survived;
             let totalPoints = null;
 
             if (player && participated) {
@@ -326,33 +313,18 @@ async function finishRound(io) {
                     console.error("Could not save Campus Quiz survival result:", error.message);
                 }
 
-                if (pointsEarned > 0) {
+                if (survived) {
                     try {
                         const account = player.accountType === "user"
-                            ? await addUserPoints(
-                                player.userId,
-                                pointsEarned
-                            )
-                            : await addGuestPoints(
-                                player.guestCode,
-                                pointsEarned
-                            );
+                            ? await addUserPoints(player.userId, CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS)
+                            : await addGuestPoints(player.guestCode, CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS);
 
-                        rewardSaved =
-                            Boolean(account);
-
-                        totalPoints =
-                            account?.points ??
-                            null;
-
-                        anySurvivorReward ||=
-                            rewardSaved;
+                        rewardSaved = Boolean(account);
+                        totalPoints = account?.points ?? null;
+                        anySurvivorReward ||= rewardSaved;
                     } catch (error) {
                         rewardSaved = false;
-                        console.error(
-                            "Could not save Campus Quiz global points:",
-                            error.message
-                        );
+                        console.error("Could not save Campus Quiz survivor reward:", error.message);
                     }
                 }
             }
@@ -364,7 +336,6 @@ async function finishRound(io) {
                 score,
                 correctCount,
                 livesRemaining,
-                pointsEarned,
                 resultSaved,
                 rewardSaved,
                 totalPoints
@@ -388,8 +359,8 @@ async function finishRound(io) {
             correctCount: result.correctCount,
             totalQuestions: quizState.questionIds.length,
             livesRemaining: result.livesRemaining,
-            pointsEarned: result.rewardSaved
-                ? result.pointsEarned
+            pointsEarned: result.survived && result.rewardSaved
+                ? CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS
                 : 0,
             rewardSaved: result.rewardSaved,
             resultSaved: result.resultSaved,

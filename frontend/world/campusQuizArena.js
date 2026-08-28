@@ -87,13 +87,16 @@ export function createCampusQuizArena(scene) {
     const safePlatform = BABYLON.MeshBuilder.CreateBox(
         "campus_quiz_safe_platform",
         {
-            width: 54,
+            // Compact start ground: just large enough for waiting players.
+            width: 48,
             height: 0.6,
-            depth: 9
+            depth: 5
         },
         scene
     );
-    safePlatform.position.copyFromFloats(ARENA.x, ARENA.y, ARENA.z + 16);
+    // v3: bring the starting/safe platform closer to the answer floors.
+    // This reduces the empty run-up gap from about 6 units to about 2.
+    safePlatform.position.copyFromFloats(ARENA.x, ARENA.y, ARENA.z + 9.5);
     safePlatform.material = safeMaterial;
     safePlatform.checkCollisions = true;
     safePlatform.isPickable = true;
@@ -265,11 +268,17 @@ export function createCampusQuizArena(scene) {
             {
                 width: 0.8,
                 height: 5,
-                depth: 39
+                depth: 31
             },
             scene
         );
-        wall.position.copyFromFloats(ARENA.x + offset, ARENA.y + 2.2, ARENA.z + 5);
+
+        // Shorter side boundary for the more compact playground.
+        wall.position.copyFromFloats(
+            ARENA.x + offset,
+            ARENA.y + 2.2,
+            ARENA.z + 1
+        );
         wall.material = sideWallMaterial;
         wall.checkCollisions = true;
         markNonGround(wall, "quiz-boundary");

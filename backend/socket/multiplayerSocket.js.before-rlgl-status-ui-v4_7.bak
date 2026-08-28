@@ -119,71 +119,6 @@ function getRlglSockets(io) {
         .filter(Boolean);
 }
 
-function emitRlglPlayerStatus(io) {
-    const rows =
-        getRlglSockets(io)
-            .map((socket) => {
-                const player =
-                    players.get(
-                        socket.id
-                    );
-
-                if (!player) {
-                    return null;
-                }
-
-                let status =
-                    "WAITING";
-
-                if (
-                    socket.data
-                        .hasFinished
-                ) {
-                    status =
-                        "FINISHED";
-                } else if (
-                    socket.data
-                        .isEliminated
-                ) {
-                    status =
-                        "OUT";
-                } else if (
-                    rlglState.phase ===
-                        "ACTIVE" &&
-                    socket.data
-                        .isPlaying
-                ) {
-                    status =
-                        "PLAYING";
-                } else if (
-                    rlglState.phase ===
-                    "ACTIVE"
-                ) {
-                    status =
-                        "SPECTATING";
-                }
-
-                return {
-                    socketId:
-                        socket.id,
-                    playerName:
-                        player.playerName,
-                    status
-                };
-            })
-            .filter(Boolean);
-
-    io.to(RLGL_ROOM).emit(
-        "rlgl:players",
-        {
-            phase:
-                rlglState.phase,
-            players:
-                rows
-        }
-    );
-}
-
 function getRlglSpawn(
     index,
     x,
@@ -336,7 +271,6 @@ function eliminateRlglPlayer(io, socket, reason) {
         }
     );
 
-    emitRlglPlayerStatus(io);
     checkRlglRoundStatus(io);
 }
 
@@ -356,7 +290,6 @@ function toggleRlglLight(io) {
     });
 
     io.to(RLGL_ROOM).emit("rlgl:state", rlglState.isRedLight);
-    emitRlglPlayerStatus(io);
 
     const delay = rlglState.isRedLight
         ? Math.random() * 2000 + 3000
@@ -402,7 +335,6 @@ function endRlglRound(io) {
     });
 
     io.to(RLGL_ROOM).emit("rlgl:phase", "FINISHED");
-    emitRlglPlayerStatus(io);
 
     if (ensureRlglStopsWhenEmpty(io)) return;
     rlglRestartTimer = setTimeout(() => startRlglLobby(io), RLGL_RESULTS_DURATION_MS);
@@ -445,7 +377,6 @@ function startRlglGame(io) {
 
     io.to(RLGL_ROOM).emit("rlgl:phase", "ACTIVE");
     io.to(RLGL_ROOM).emit("rlgl:state", false);
-    emitRlglPlayerStatus(io);
     io.to(RLGL_ROOM).emit("rlgl:round_started", {
         roundId: rlglState.roundId,
         endsAt: rlglState.roundEndsAt
@@ -477,12 +408,10 @@ function startRlglLobby(io) {
 
     let count = RLGL_LOBBY_SECONDS;
     io.to(RLGL_ROOM).emit("rlgl:lobby_countdown", count);
-    emitRlglPlayerStatus(io);
     rlglLobbyInterval = setInterval(() => {
         count -= 1;
         if (count > 0) {
             io.to(RLGL_ROOM).emit("rlgl:lobby_countdown", count);
-    emitRlglPlayerStatus(io);
             return;
         }
         clearInterval(rlglLobbyInterval);
@@ -1003,7 +932,6 @@ export default function registerMultiplayerSocket(io) {
                 || !isAtRlglFinish(player.position)) return;
 
             socket.data.hasFinished = true;
-            emitRlglPlayerStatus(io);
             socket.data.rlglRedAnchor = null;
 
             let rewardSaved = false;

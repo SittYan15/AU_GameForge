@@ -1,0 +1,342 @@
+// frontend/exploration/explorationClient.js
+export function createExplorationClient(socket) {
+    let state = null;
+    let minigameActive = false;
+    let panelOpen = false;
+
+    const dock =
+        document.createElement("div");
+
+    dock.id =
+        "campusExplorerDock";
+
+    Object.assign(
+        dock.style,
+        {
+            position: "fixed",
+            top: "50%",
+            right: "16px",
+            left: "auto",
+            transform: "translateY(-50%)",
+            zIndex: "997",
+            display: "none",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: "8px",
+            maxHeight: "72dvh",
+            pointerEvents: "none"
+        }
+    );
+
+    const toggleButton =
+        document.createElement("button");
+
+    toggleButton.id =
+        "campusExplorerToggle";
+
+    toggleButton.type =
+        "button";
+
+    toggleButton.setAttribute(
+        "aria-expanded",
+        "false"
+    );
+
+    toggleButton.setAttribute(
+        "aria-controls",
+        "campusExplorerPanel"
+    );
+
+    Object.assign(
+        toggleButton.style,
+        {
+            minHeight: "40px",
+            padding: "8px 12px",
+            border: "1px solid rgba(255,255,255,.22)",
+            borderRadius: "999px",
+            background: "rgba(18,20,24,.78)",
+            color: "#ffffff",
+            fontFamily: "system-ui, sans-serif",
+            fontSize: "12px",
+            fontWeight: "900",
+            cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(0,0,0,.30)",
+            backdropFilter: "blur(7px)",
+            pointerEvents: "auto",
+            whiteSpace: "nowrap",
+            textShadow: "0 1px 2px #000"
+        }
+    );
+
+    const panel =
+        document.createElement("aside");
+
+    panel.id =
+        "campusExplorerPanel";
+
+    panel.setAttribute(
+        "aria-label",
+        "Campus Explorer progress"
+    );
+
+    Object.assign(
+        panel.style,
+        {
+            position: "static",
+            width: "260px",
+            maxWidth:
+                "min(60vw, calc(100vw - 32px))",
+            maxHeight: "52dvh",
+            overflowY: "auto",
+            boxSizing: "border-box",
+            padding: "10px 12px",
+            borderRadius: "12px",
+            border:
+                "1px solid rgba(255,255,255,.16)",
+            background:
+                "rgba(18,20,24,.88)",
+            color: "white",
+            fontFamily:
+                "system-ui, sans-serif",
+            boxShadow:
+                "0 6px 18px rgba(0,0,0,.30)",
+            backdropFilter: "blur(8px)",
+            pointerEvents: "none",
+            display: "none"
+        }
+    );
+
+    dock.append(
+        toggleButton,
+        panel
+    );
+
+    document.body.appendChild(
+        dock
+    );
+
+    const toast =
+        document.createElement("div");
+
+    Object.assign(
+        toast.style,
+        {
+            position: "fixed",
+            top: "12%",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: "1101",
+            padding: "11px 16px",
+            borderRadius: "11px",
+            background:
+                "rgba(12,14,17,0.94)",
+            color: "white",
+            fontFamily:
+                "system-ui, sans-serif",
+            fontWeight: "800",
+            textAlign: "center",
+            pointerEvents: "none",
+            display: "none"
+        }
+    );
+
+    document.body.appendChild(
+        toast
+    );
+
+    function showToast(
+        text,
+        color = "#fff",
+        ms = 2800
+    ) {
+        toast.textContent = text;
+        toast.style.color = color;
+        toast.style.display = "block";
+
+        window.setTimeout(
+            () => {
+                toast.style.display =
+                    "none";
+            },
+            ms
+        );
+    }
+
+    function explorationIncomplete() {
+        return (
+            Boolean(state) &&
+            state.completed !== true &&
+            Number(state.totalCount) > 0
+        );
+    }
+
+    function render() {
+        if (
+            !explorationIncomplete() ||
+            minigameActive
+        ) {
+            dock.style.display = "none";
+            panel.style.display = "none";
+
+            toggleButton.setAttribute(
+                "aria-expanded",
+                "false"
+            );
+
+            return;
+        }
+
+        dock.style.display = "flex";
+
+        toggleButton.textContent =
+            `🧭 Explorer ${state.visitedCount}/${state.totalCount}`;
+
+        toggleButton.setAttribute(
+            "aria-expanded",
+            panelOpen
+                ? "true"
+                : "false"
+        );
+
+        panel.style.display =
+            panelOpen
+                ? "block"
+                : "none";
+
+        if (!panelOpen) {
+            return;
+        }
+
+        const rows =
+            (state.locations || [])
+                .map(
+                    (location) =>
+                        `<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;color:${location.visited ? '#7ee787' : '#f4f7fb'};text-shadow:0 1px 2px #000"><span>${location.title}</span><span>${location.visited ? '✓' : '○'}</span></div>`
+                )
+                .join("");
+
+        panel.innerHTML = `
+            <div style="font-size:14px;font-weight:900;color:#7ee787;margin-bottom:4px;text-shadow:0 1px 2px #000">🧭 Campus Explorer ${state.visitedCount}/${state.totalCount}</div>
+            <div style="font-size:11px;color:#e4e8ef;margin-bottom:7px;text-shadow:0 1px 2px #000">Visit every main area to unlock Dynamic Pop-Up Missions.</div>
+            ${rows}
+            <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.18);font-size:11px;font-weight:800;color:#ffd166;text-shadow:0 1px 2px #000">Reward: +${state.rewardPoints} points • Missions LOCKED</div>`;
+    }
+
+    toggleButton.addEventListener(
+        "click",
+        () => {
+            if (
+                !explorationIncomplete() ||
+                minigameActive
+            ) {
+                return;
+            }
+
+            panelOpen =
+                !panelOpen;
+
+            render();
+        }
+    );
+
+    const onMinigameState =
+        (event) => {
+            minigameActive =
+                event.detail?.active ===
+                true;
+
+            if (minigameActive) {
+                panelOpen = false;
+            }
+
+            render();
+        };
+
+    const onState =
+        (next) => {
+            state = next;
+
+            if (state?.completed) {
+                panelOpen = false;
+            }
+
+            render();
+        };
+
+    const onVisited =
+        (data = {}) => {
+            showToast(
+                `✓ Discovered: ${data.title} (${data.visitedCount}/${data.totalCount})`,
+                "#7ee787"
+            );
+        };
+
+    const onCompleted =
+        (data = {}) => {
+            panelOpen = false;
+
+            if (state) {
+                state = {
+                    ...state,
+                    completed: true,
+                    visitedCount:
+                        state.totalCount
+                };
+            }
+
+            render();
+
+            showToast(
+                `🏆 CAMPUS EXPLORER COMPLETE +${data.pointsEarned || 0} POINTS — Dynamic Missions Unlocked!`,
+                "#ffd166",
+                4200
+            );
+        };
+
+    window.addEventListener(
+        "au:minigame-state",
+        onMinigameState
+    );
+
+    socket.on(
+        "exploration:state",
+        onState
+    );
+
+    socket.on(
+        "exploration:visited",
+        onVisited
+    );
+
+    socket.on(
+        "exploration:completed",
+        onCompleted
+    );
+
+    return {
+        dispose() {
+            window.removeEventListener(
+                "au:minigame-state",
+                onMinigameState
+            );
+
+            socket.off(
+                "exploration:state",
+                onState
+            );
+
+            socket.off(
+                "exploration:visited",
+                onVisited
+            );
+
+            socket.off(
+                "exploration:completed",
+                onCompleted
+            );
+
+            dock.remove();
+            toast.remove();
+        }
+    };
+}

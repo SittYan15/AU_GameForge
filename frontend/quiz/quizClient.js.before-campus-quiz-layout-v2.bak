@@ -64,45 +64,24 @@ export function createCampusQuizClient(
             left: 16px;
             right: auto;
             z-index: 1200;
-            width: max-content;
-            max-width: calc(100vw - 32px);
+            width: min(290px, calc(100vw - 32px));
             box-sizing: border-box;
             padding: 11px 13px;
             border-radius: 12px;
-            border: 1px solid transparent;
-            background: transparent;
+            border: 1px solid rgba(255,255,255,.15);
+            background: rgba(15,18,25,.90);
             color: #fff;
             font-family: system-ui, sans-serif;
-            box-shadow: none;
-            backdrop-filter: none;
-            text-shadow: -1px -1px 0 rgba(0,0,0,.95), 1px -1px 0 rgba(0,0,0,.95), -1px 1px 0 rgba(0,0,0,.95), 1px 1px 0 rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.9);
-            text-shadow: 0 2px 4px rgba(0,0,0,.88);
+            box-shadow: 0 6px 20px rgba(0,0,0,.34);
+            backdrop-filter: blur(8px);
             pointer-events: none;
             display: none;
         }
 
-        .campusQuizStatRow {
-            display: grid;
-            grid-template-columns: max-content max-content;
-            align-items: center;
-            justify-content: start;
-            column-gap: 5px;
-            min-width: 0;
-            width: max-content;
-            padding: 0;
-            line-height: 1.25;
-        }
-
-        .campusQuizStatRow strong {
-            color: #ffffff;
-            font-variant-numeric: tabular-nums;
-        }
-
         #campusQuizSurvivalMessage {
             position: fixed;
-            top: auto;
+            top: 12%;
             left: 50%;
-            bottom: 72px;
             transform: translateX(-50%);
             z-index: 1300;
             max-width: min(520px, calc(100vw - 24px));
@@ -122,11 +101,8 @@ export function createCampusQuizClient(
 
         #campusQuizReturnButton {
             position: fixed;
-            top: auto;
-            right: auto;
-            bottom: 16px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 16px;
+            right: 16px;
             z-index: 1301;
             padding: 10px 15px;
             border-radius: 10px;
@@ -149,10 +125,8 @@ export function createCampusQuizClient(
 
             #campusQuizReturnButton {
                 top: auto;
-                right: auto;
+                right: 12px;
                 bottom: calc(12px + env(safe-area-inset-bottom));
-                left: 50%;
-                transform: translateX(-50%);
             }
         }
     `;
@@ -162,8 +136,7 @@ export function createCampusQuizClient(
     hud.id = "campusQuizSurvivalHud";
 
     const title = document.createElement("div");
-    title.textContent = "";
-    title.style.display = "none";
+    title.textContent = "CAMPUS QUIZ SURVIVAL";
     Object.assign(title.style, {
         color: "#c4a7ff",
         fontSize: "12px",
@@ -201,16 +174,15 @@ export function createCampusQuizClient(
         hearts.textContent = `${"♥".repeat(Math.max(0, lives))}${"♡".repeat(Math.max(0, 3 - lives))}`;
         hearts.style.color = lives > 1 ? "#ff6b81" : "#ff3b30";
 
-        const questionValue =
-            currentQuestionNumber > 0
-                ? `${currentQuestionNumber}/${totalQuestions}`
-                : "-/-";
+        const questionStatus = currentQuestionNumber > 0
+            ? `Q ${currentQuestionNumber}/${totalQuestions}`
+            : phase === "LOBBY"
+                ? "Waiting for round"
+                : role === "spectator"
+                    ? "Spectating"
+                    : "Ready";
 
-        status.innerHTML = `
-            <div class="campusQuizStatRow"><span>Q</span><strong>${questionValue}</strong></div>
-            <div class="campusQuizStatRow"><span>Score</span><strong>${score.toLocaleString()}</strong></div>
-            <div class="campusQuizStatRow"><span>Correct</span><strong>${correctCount}</strong></div>
-        `;
+        status.textContent = `${questionStatus} • Score ${score.toLocaleString()} • Correct ${correctCount}`;
     }
 
     function showMessage(text, color = "#ffffff", duration = 2400) {
@@ -382,7 +354,7 @@ export function createCampusQuizClient(
             );
         } else if (data.participated) {
             showMessage(
-                `Round over — +${data.pointsEarned || 0} CAMPUS POINTS from your quiz score.`,
+                `Round over — score ${score.toLocaleString()}. Survive next time for +${survivorRewardPoints} points.`,
                 "#c7ccd4",
                 5000
             );

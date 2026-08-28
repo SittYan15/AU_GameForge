@@ -397,14 +397,14 @@ export function createCarRaceClient(
         hud.style,
         {
             position: "fixed",
-            top: "58px",
-            left: "50%",
+            top: "16px",
+            left: "16px",
             transform:
-                "translateX(-50%)",
+                "none",
             zIndex: "1055",
-            minWidth: "290px",
+            minWidth: "0",
             maxWidth:
-                "calc(100vw - 30px)",
+                "min(330px, calc(100vw - 32px))",
             padding: "9px 14px",
             boxSizing: "border-box",
             border:
@@ -415,7 +415,7 @@ export function createCarRaceClient(
             color: "#fff",
             fontFamily:
                 "system-ui, sans-serif",
-            textAlign: "center",
+            textAlign: "left",
             boxShadow:
                 "0 4px 18px rgba(0,0,0,.38)",
             pointerEvents: "none",
@@ -540,6 +540,175 @@ export function createCarRaceClient(
 
     const carAudio =
         createCarAudioController();
+    // --------------------------------------------------------
+    // v4.5: recover the race car if it falls below the map.
+    // --------------------------------------------------------
+    const RACE_FALL_RECOVERY_Y =
+        -6.0;
+
+    const RACE_RECOVERY_COOLDOWN_MS =
+        1400;
+
+    const SAFE_POSITION_SAMPLE_MS =
+        180;
+
+    let lastSafeRacePosition =
+        null;
+
+    let lastSafeRaceHeading =
+        CAR_RACE_START_HEADING;
+
+    let lastSafePositionAt =
+        0;
+
+    let lastRecoveryAt =
+        -Infinity;
+
+    const raceRecoveryObserver =
+        scene.onBeforeRenderObservable.add(
+            () => {
+                if (
+                    !active ||
+                    phase !== "ACTIVE" ||
+                    role !== "player" ||
+                    finished
+                ) {
+                    if (!active) {
+                        lastSafeRacePosition =
+                            null;
+                    }
+
+                    return;
+                }
+
+                const now =
+                    performance.now();
+
+                const y =
+                    Number(
+                        localPlayer
+                            ?.position
+                            ?.y
+                    );
+
+                if (!Number.isFinite(y)) {
+                    return;
+                }
+
+                const physicsState =
+                    carPhysics
+                        .getLastState
+                        ?.();
+
+                if (
+                    physicsState
+                        ?.grounded &&
+                    y >
+                        RACE_FALL_RECOVERY_Y +
+                            3 &&
+                    now -
+                        lastSafePositionAt >=
+                        SAFE_POSITION_SAMPLE_MS
+                ) {
+                    lastSafeRacePosition =
+                        localPlayer
+                            .position
+                            .clone();
+
+                    lastSafeRaceHeading =
+                        heading;
+
+                    lastSafePositionAt =
+                        now;
+                }
+
+                if (
+                    y >=
+                        RACE_FALL_RECOVERY_Y ||
+                    now -
+                        lastRecoveryAt <
+                        RACE_RECOVERY_COOLDOWN_MS
+                ) {
+                    return;
+                }
+
+                lastRecoveryAt =
+                    now;
+
+                const fallbackIndex =
+                    Math.max(
+                        0,
+                        Math.min(
+                            CAR_RACE_CHECKPOINTS.length -
+                                1,
+                            checkpointIndex -
+                                1
+                        )
+                    );
+
+                const fallback =
+                    CAR_RACE_CHECKPOINTS[
+                        fallbackIndex
+                    ] ||
+                    CAR_RACE_CHECKPOINTS[0];
+
+                const recoveryPosition =
+                    lastSafeRacePosition
+                        ? lastSafeRacePosition
+                            .clone()
+                        : new BABYLON.Vector3(
+                            fallback.x,
+                            fallback.y +
+                                PLAYER_COLLIDER_HALF_HEIGHT,
+                            fallback.z
+                        );
+
+                // Spawn a little above the known-good surface so suspension
+                // settles naturally instead of intersecting the road.
+                recoveryPosition.y +=
+                    0.45;
+
+                localPlayer.position
+                    .copyFrom(
+                        recoveryPosition
+                    );
+
+                heading =
+                    lastSafeRacePosition
+                        ? lastSafeRaceHeading
+                        : CAR_RACE_START_HEADING;
+
+                speed = 0;
+
+                visualCarY =
+                    carVisualRootY(
+                        localPlayer.position.y
+                    );
+
+                visualPitch = 0;
+                visualRoll = 0;
+
+                carPhysics.reset?.(
+                    {
+                        nextHeading:
+                            heading,
+                        keepVelocity:
+                            false
+                    }
+                );
+
+                lastSafeRacePosition =
+                    recoveryPosition
+                        .clone();
+
+                lastSafePositionAt =
+                    now;
+
+                updateHud(
+                    "Recovered to the road"
+                );
+            }
+        );
 
     const raceFocusStyle =
         document.createElement(
@@ -1970,6 +2139,12 @@ export function createCarRaceClient(
 
             deactivate();
             clearRemoteCars();
+
+            scene
+                .onBeforeRenderObservable
+                .remove(
+                    raceRecoveryObserver
+                );
 
             localCar.dispose();
             checkpointMarker.dispose();

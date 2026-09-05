@@ -1258,7 +1258,10 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         remotePlayer.nameTag.textBlock.text = playerName;
     });
     socket.on("chat:history", (messages) => handlers.onChatHistory?.(messages));
-    socket.on("chat:message", (message) => handlers.onChatMessage?.(message));
+    socket.on("chat:message", (message) => handlers.onChatMessage?.({
+        ...message,
+        isOwnMessage: message?.senderSocketId === socket.id
+    }));
     socket.on("leaderboard:updated", updateLeaderboard);
     socket.on(
         "rlgl:players",

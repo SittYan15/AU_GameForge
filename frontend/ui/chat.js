@@ -36,8 +36,8 @@ let outsideClickBound =
 let escapeBound =
     false;
 
-let chatPreviewTimer =
-    null;
+const chatPreviewTimers =
+    new Map();
 
 const chatPreviewEl =
     document.createElement(
@@ -53,28 +53,11 @@ Object.assign(
         position: "fixed",
         zIndex: "1002",
         display: "none",
+        flexDirection: "column",
+        gap: "8px",
         maxWidth:
             "min(360px, calc(100vw - 20px))",
-        padding: "8px 11px",
-        border:
-            "1px solid rgba(255,255,255,.15)",
-        borderRadius: "12px",
-        background:
-            "rgba(20,20,20,.90)",
-        color: "#ffffff",
-        fontFamily:
-            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        fontSize: "12px",
-        lineHeight: "1.35",
-        boxShadow:
-            "0 5px 16px rgba(0,0,0,.32)",
-        backdropFilter:
-            "blur(10px)",
-        WebkitBackdropFilter:
-            "blur(10px)",
-        pointerEvents: "none",
-        overflow: "hidden",
-        textOverflow: "ellipsis"
+        pointerEvents: "none"
     }
 );
 
@@ -83,17 +66,78 @@ document.body.appendChild(
 );
 
 function hideChatPreview() {
-    if (chatPreviewTimer) {
-        window.clearTimeout(
-            chatPreviewTimer
-        );
+    chatPreviewTimers.forEach(
+        (timer) => {
+            window.clearTimeout(
+                timer
+            );
+        }
+    );
 
-        chatPreviewTimer =
-            null;
-    }
+    chatPreviewTimers.clear();
+
+    chatPreviewEl.replaceChildren();
 
     chatPreviewEl.style.display =
         "none";
+}
+
+function createChatPreview(
+    message
+) {
+    const preview =
+        document.createElement(
+            "div"
+        );
+
+    Object.assign(
+        preview.style,
+        {
+            padding: "8px 11px",
+            border:
+                "1px solid rgba(255,255,255,.15)",
+            borderRadius: "12px",
+            background:
+                "rgba(20,20,20,.90)",
+            color: "#ffffff",
+            fontFamily:
+                "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            fontSize: "12px",
+            lineHeight: "1.35",
+            boxShadow:
+                "0 5px 16px rgba(0,0,0,.32)",
+            backdropFilter:
+                "blur(10px)",
+            WebkitBackdropFilter:
+                "blur(10px)",
+            opacity: "1",
+            transition: "opacity 160ms ease"
+        }
+    );
+
+    const sender =
+        document.createElement(
+            "strong"
+        );
+
+    sender.textContent =
+        String(
+            message.sender ||
+            "Player"
+        );
+
+    const text =
+        document.createElement(
+            "div"
+        );
+
+    text.textContent =
+        `${String(message.text || "")}`;
+
+    preview.appendChild(sender);
+    preview.appendChild(text);
+
+    return preview;
 }
 
 function positionChatPreview() {
@@ -111,8 +155,8 @@ function positionChatPreview() {
         `${Math.max(
             10,
             window.innerHeight -
-                rect.top +
-                8
+            rect.top +
+            8
         )}px`;
 }
 
@@ -121,57 +165,62 @@ function showChatPreview(
 ) {
     if (
         chatState.isOpen ||
-        !message
+        !message ||
+        !message.senderSocketId ||
+        message.isOwnMessage
     ) {
         return;
     }
 
-    const sender =
-        String(
-            message.sender ||
-            "Player"
+    const preview =
+        createChatPreview(
+            message
         );
-
-    const text =
-        String(
-            message.text ||
-            ""
-        );
-
-    chatPreviewEl.textContent =
-        `${sender}: ${text}`;
 
     positionChatPreview();
 
     chatPreviewEl.style.display =
-        "block";
+        "flex";
 
-    if (chatPreviewTimer) {
-        window.clearTimeout(
-            chatPreviewTimer
-        );
-    }
+    chatPreviewEl.appendChild(
+        preview
+    );
 
-    chatPreviewTimer =
+    const timer =
         window.setTimeout(
             () => {
-                chatPreviewEl.style.display =
-                    "none";
+                preview.style.opacity =
+                    "0";
 
-                chatPreviewTimer =
-                    null;
+                window.setTimeout(
+                    () => {
+                        preview.remove();
+                        chatPreviewTimers.delete(
+                            preview
+                        );
+
+                        if (!chatPreviewEl.childElementCount) {
+                            chatPreviewEl.style.display =
+                                "none";
+                        }
+                    },
+                    160
+                );
             },
-            3000
+            5000
         );
+
+    chatPreviewTimers.set(
+        preview,
+        timer
+    );
 }
 
 window.addEventListener(
     "resize",
     () => {
         if (
-            chatPreviewEl.style
-                .display !==
-            "none"
+            chatPreviewEl.childElementCount
         ) {
             positionChatPreview();
         }
@@ -352,7 +401,7 @@ function handleChatEscape(
 ) {
     if (
         event.key ===
-            "Escape" &&
+        "Escape" &&
         chatState.isOpen
     ) {
         setChatOpen(

@@ -926,6 +926,7 @@ export default function registerMultiplayerSocket(io) {
             const message = {
                 id: `${Date.now()}-${socket.id}`,
                 sender: player.playerName,
+                senderSocketId: socket.id,
                 text,
                 timestamp: Date.now()
             };

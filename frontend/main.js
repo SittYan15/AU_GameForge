@@ -83,9 +83,9 @@ async function startGame(session) {
     engine.resize();
     engine.displayLoadingUI();
     const startupHeartbeat = session.accountType === "user"
-        ? window.setInterval(() => { void keepSessionAlive().catch(() => {}); }, 1000)
+        ? window.setInterval(() => { void keepSessionAlive().catch(() => { }); }, 1000)
         : null;
-    if (session.accountType === "user") void keepSessionAlive().catch(() => {});
+    if (session.accountType === "user") void keepSessionAlive().catch(() => { });
 
     try {
         setStartupStage("Creating main scene");

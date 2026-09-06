@@ -494,6 +494,10 @@ async function finishPlayer(
         }
     );
 
+    if (result.pointsEarned > 0) {
+        socket.emit("player:pointsUpdated", { points: totalPoints });
+    }
+
     io.to(
         CAR_RACE_ROOM
     ).emit(

@@ -9,6 +9,6 @@ router.post("/signup", signup);
 router.post("/signup-guest", requireGuestSession, signupGuest);
 router.post("/google", googleLogin);
 router.post("/google/upgrade-guest", requireGuestSession, upgradeGuest);
-router.post("/logout", logout);
+router.post("/logout", requireSession, logout);
 router.post("/heartbeat", requireSession, heartbeat);
 export default router;

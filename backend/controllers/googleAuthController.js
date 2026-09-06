@@ -62,10 +62,14 @@ export async function upgradeGuest(req, res, next) {
 }
 
 export async function logout(req, res, next) {
+    const { accountType, userId, sessionId } = req.session;
     try {
-        if (req.session?.accountType === "user") {
-            const cleared = await clearActiveSession(req.session.userId, req.session.sessionId);
-            if (cleared) disconnectUserSession(req.session.userId, req.session.sessionId);
+        if (accountType === "user") {
+            const cleared = await clearActiveSession(userId, sessionId);
+            if (!cleared) {
+                return res.status(401).json({ error: "This login session is no longer active. Please log in again." });
+            }
+            disconnectUserSession(userId, sessionId);
         }
     } catch (error) {
         return next(error);

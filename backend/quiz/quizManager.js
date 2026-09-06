@@ -381,6 +381,9 @@ async function finishRound(io) {
     io.to(CAMPUS_QUIZ_ROOM).emit("campusQuiz:phase", "FINISHED");
 
     for (const result of results) {
+        if (result.rewardSaved && Number.isSafeInteger(result.totalPoints)) {
+            result.socket.emit("player:pointsUpdated", { points: result.totalPoints });
+        }
         result.socket.emit("campusQuiz:finished", {
             survived: result.survived,
             participated: result.participated,

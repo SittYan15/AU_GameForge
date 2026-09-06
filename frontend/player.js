@@ -39,14 +39,16 @@ export const createPlayer = async (
     camera.angularSensibility = 1500;
 
     let characterMesh = null;
-    let idleAnim, walkAnim, runAnim, currentAnim;
+    let idleAnim, walkAnim, runAnim, jumpAnim, currentAnim;
 
     const transitionTo = (newAnim) => {
         if (!newAnim || currentAnim === newAnim) return;
         if (currentAnim) currentAnim.stop();
         newAnim.start(true, 1.0, newAnim.from, newAnim.to, false);
         currentAnim = newAnim;
-        const animationName = newAnim === runAnim ? "run" : newAnim === walkAnim ? "walk" : "idle";
+        const animationName = newAnim === jumpAnim
+            ? "jump"
+            : newAnim === runAnim ? "run" : newAnim === walkAnim ? "walk" : "idle";
         player.networkAnimation = animationName;
         onAnimationChanged(animationName);
     };
@@ -98,6 +100,7 @@ export const createPlayer = async (
     idleAnim = charResult.animationGroups.find(a => a.name.includes("idle"));
     walkAnim = charResult.animationGroups.find(a => a.name.includes("walk"));
     runAnim = charResult.animationGroups.find(a => a.name.includes("run"));
+    jumpAnim = charResult.animationGroups.find(a => a.name.toLowerCase().includes("jump"));
 
     if (idleAnim) {
         idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, false);
@@ -200,7 +203,9 @@ export const createPlayer = async (
             characterMesh.rotation.y = Math.atan2(velocity.x, velocity.z);
         }
 
-        if (characterMesh && hit.hit) {
+        if (characterMesh && !hit.hit && jumpAnim) {
+            transitionTo(jumpAnim);
+        } else if (characterMesh && hit.hit) {
             if (!isMoving) transitionTo(idleAnim);
             else if (!isRunning) transitionTo(walkAnim);
             else transitionTo(runAnim);

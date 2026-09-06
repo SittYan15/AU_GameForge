@@ -66,6 +66,7 @@ export async function checkCampusExplorationProgress(io, socket, player) {
             dynamicMissionsUnlocked: true
         });
         if (reward.newlyCompleted) {
+            socket.emit("player:pointsUpdated", { points: reward.totalPoints });
             try { io.emit("leaderboard:updated", await getTopPlayers(5)); }
             catch (error) { console.error("Could not refresh leaderboard after exploration:", error.message); }
         }

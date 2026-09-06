@@ -29,7 +29,7 @@ const MAX_PLAYER_NAME_LENGTH = 50;
 const MAX_SPEED_UNITS_PER_SECOND = 30;
 const MOVEMENT_TOLERANCE = 3;
 const MIN_SPAWN_SEPARATION = 3;
-const VALID_ANIMATIONS = new Set(["idle", "walk", "run"]);
+const VALID_ANIMATIONS = new Set(["idle", "walk", "run", "jump"]);
 
 const RLGL_ROOM = "rlgl_minigame";
 const RLGL_LOBBY_SECONDS = 15;
@@ -900,14 +900,22 @@ export default function registerMultiplayerSocket(io) {
         socket.on("player:profileUpdate", async () => {
             const player = players.get(socket.id);
             const guestSession = socket.request.session;
-            if (!player || player.accountType !== "guest"
-                || guestSession?.accountType !== "guest"
-                || guestSession.guestId !== player.guestId) return;
+            if (!player) return;
             try {
-                const guest = await findGuestById(player.guestId);
-                if (!guest || guest.convertedToUserId) return;
-                player.playerName = guest.playerName.slice(0, MAX_PLAYER_NAME_LENGTH);
-                player.avatarKey = guest.avatarKey;
+                let profile;
+                if (player.accountType === "guest") {
+                    if (guestSession?.accountType !== "guest" || guestSession.guestId !== player.guestId) return;
+                    profile = await findGuestById(player.guestId);
+                    if (!profile || profile.convertedToUserId) return;
+                } else {
+                    if (socket.data.authUserId !== player.userId || !socket.data.authSessionId) return;
+                    profile = await findUserById(player.userId);
+                    if (!profile || profile.activeSessionId !== socket.data.authSessionId
+                        || !profile.activeSessionExpiresAt
+                        || new Date(profile.activeSessionExpiresAt) <= new Date()) return;
+                }
+                player.playerName = profile.playerName.slice(0, MAX_PLAYER_NAME_LENGTH);
+                player.avatarKey = profile.avatarKey;
                 io.emit("player:profileUpdated", {
                     socketId: socket.id,
                     playerName: player.playerName,
@@ -1024,6 +1032,7 @@ export default function registerMultiplayerSocket(io) {
                 rewardSaved,
                 totalPoints
             });
+            if (rewardSaved) socket.emit("player:pointsUpdated", { points: totalPoints });
             if (rewardSaved) void broadcastLeaderboard(io);
 
             const announcement = rewardSaved

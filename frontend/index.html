@@ -353,13 +353,15 @@
         }
 
         #profilePanel {
-            position: absolute;
-            top: 125px;
+            position: fixed;
+            top: 0;
             right: 20px;
+            bottom: auto;
             left: auto;
             z-index: 1001;
             width: min(320px, calc(100vw - 40px));
-            max-height: calc(100dvh - 150px);
+            max-height: calc(100vh - 100px);
+            max-height: calc(100dvh - 100px);
             padding: 16px;
             box-sizing: border-box;
             border: 1px solid rgba(255, 255, 255, 0.14);
@@ -443,9 +445,11 @@
         }
 
         #closeProfileButton {
-            position: absolute;
+            position: sticky;
             top: 10px;
-            right: 10px;
+            float: right;
+            z-index: 2;
+            margin-bottom: -32px;
             width: 32px;
             height: 32px;
             padding: 0;
@@ -492,14 +496,15 @@
         .auth-divider { text-align: center; color: #aaa; margin: 2px 0; }
         #sessionExitButton { width: 100%; margin-top: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 8px; color: #cfd3da; background: transparent; cursor: pointer; }
         #profileMessage { min-height: 16px; color: #ffd180; margin-top: 5px; font-size: 12px; }
-        #guestProfileForm { display: grid; gap: 6px; margin-top: 12px; }
-        #guestProfileForm label { color: #d7d9de; font-size: 12px; font-weight: 700; }
-        #guestProfileForm input, #guestProfileForm select, #guestProfileForm textarea {
+        #profileEditForm { display: grid; gap: 6px; margin-top: 12px; }
+        #profileEditForm label { color: #d7d9de; font-size: 12px; font-weight: 700; }
+        #profileEditForm input, #profileEditForm select, #profileEditForm textarea {
             width: 100%; box-sizing: border-box; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 8px 10px;
             font: inherit;
         }
-        #guestProfileForm textarea { min-height: 52px; resize: vertical; }
-        #saveGuestProfileButton { border: 0; border-radius: 9px; padding: 9px; background: linear-gradient(135deg, #f0443f, #d92f2b); color: white; font-weight: 700; cursor: pointer; }
+        #profileEditForm textarea { min-height: 52px; resize: vertical; }
+        #saveProfileButton { border: 0; border-radius: 9px; padding: 9px; background: linear-gradient(135deg, #f0443f, #d92f2b); color: white; font-weight: 700; cursor: pointer; }
+        #profilePanel.registered-profile .profile-stats { grid-template-columns: 1fr; }
         #guestCreateAccountButton { width: 100%; border: 1px solid rgba(239,57,53,.55); border-radius: 9px; padding: 9px; background: rgba(239,57,53,.12); color: #ff7773; font-weight: 800; cursor: pointer; }
         #guestPasswordSignupForm { display: grid; gap: 8px; margin-top: 10px; }
         #guestPasswordSignupForm[hidden] { display: none; }
@@ -554,10 +559,9 @@
                 font-size: 13px;
             }
             #profilePanel {
-                top: 118px;
+                bottom: auto;
                 right: 10px;
                 width: min(330px, calc(100vw - 20px));
-                max-height: calc(100dvh - 130px);
             }
 
             #chatToggle {
@@ -571,6 +575,14 @@
                 width: auto;
                 bottom: 58px;
                 max-height: 220px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            #profilePanel {
+                left: 16px;
+                right: 16px;
+                width: auto;
             }
         }
     </style>
@@ -936,19 +948,19 @@
             <div id="profileEmail" class="profile-row" data-label="Email"></div>
             <div id="profilePoints" class="profile-row" data-label="Points"></div>
         </div>
-        <form id="guestProfileForm" hidden>
-            <label for="guestPlayerName">Player Name</label>
-            <input id="guestPlayerName" type="text" minlength="3" maxlength="24" required />
-            <label for="guestAvatarKey">Avatar</label>
-            <select id="guestAvatarKey">
+        <form id="profileEditForm">
+            <label for="profilePlayerName">Player Name</label>
+            <input id="profilePlayerName" type="text" minlength="3" maxlength="24" required />
+            <label for="profileAvatarKey">Avatar</label>
+            <select id="profileAvatarKey">
                 <option value="default_avatar">Default Avatar</option>
                 <option value="student_blue">Student Blue</option>
                 <option value="student_red">Student Red</option>
                 <option value="student_green">Student Green</option>
             </select>
-            <label for="guestBio">Bio</label>
-            <textarea id="guestBio" maxlength="160" placeholder="Tell other players about yourself"></textarea>
-            <button id="saveGuestProfileButton" type="submit">Save Profile</button>
+            <label for="profileBio">Bio</label>
+            <textarea id="profileBio" maxlength="160" placeholder="Tell other players about yourself"></textarea>
+            <button id="saveProfileButton" type="submit">Save Profile</button>
         </form>
         <div>Multiplayer: <span id="multiplayerStatus">Connecting...</span></div>
         <div id="guestUpgrade" hidden>

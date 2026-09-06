@@ -1,7 +1,8 @@
 import { findGuestById } from "../models/guestModel.js";
 import { getUserProfile } from "../models/googleAccountModel.js";
 import { createAccessToken } from "../middleware/authToken.js";
-import { setActiveSessionExpiration } from "../models/userModel.js";
+import { publicUser, setActiveSessionExpiration, updateUserProfile } from "../models/userModel.js";
+import { ALLOWED_AVATARS } from "../config/guestProfile.js";
 
 export async function getProfile(req, res, next) {
     try {
@@ -33,6 +34,43 @@ export async function getProfile(req, res, next) {
             points: guest.points,
             avatarKey: guest.avatarKey,
             bio: guest.bio
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+export async function updateProfile(req, res, next) {
+    try {
+        const allowedFields = new Set(["playerName", "avatar", "bio"]);
+        const suppliedFields = Object.keys(req.body || {});
+        if (suppliedFields.some((field) => !allowedFields.has(field))) {
+            return res.status(400).json({ error: "Only playerName, avatar, and bio can be updated." });
+        }
+
+        const playerName = typeof req.body?.playerName === "string" ? req.body.playerName.trim() : "";
+        const avatarKey = typeof req.body?.avatar === "string" ? req.body.avatar : "";
+        const bio = typeof req.body?.bio === "string" ? req.body.bio.trim() : "";
+        if (playerName.length < 3 || playerName.length > 24
+            || !/^[\p{L}\p{N} _-]+$/u.test(playerName)) {
+            return res.status(400).json({
+                error: "Player name must be 3–24 characters using letters, numbers, spaces, underscores, or hyphens."
+            });
+        }
+        if (!ALLOWED_AVATARS.includes(avatarKey)) {
+            return res.status(400).json({ error: "Invalid avatar selection." });
+        }
+        if (bio.length > 160 || /[<>]/.test(bio)) {
+            return res.status(400).json({ error: "Bio must be plain text with at most 160 characters." });
+        }
+
+        const user = await updateUserProfile(req.session.userId, playerName, avatarKey, bio);
+        if (!user) return res.status(404).json({ error: "User profile not found." });
+        return res.status(200).json({
+            ...publicUser(user),
+            accountType: "user",
+            accountProvider: user.googleSub ? "google" : "password",
+            userId: user.id
         });
     } catch (error) {
         return next(error);

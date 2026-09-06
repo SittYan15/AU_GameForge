@@ -803,6 +803,7 @@ export async function loginUser(username, password) {
     markTabAuthenticated();
     return {
         accountType: "user",
+        username: user.username || null,
         userId: user.id,
         guestId: null,
         guestCode: null,
@@ -824,6 +825,7 @@ export async function signupUser(username, password) {
     markTabAuthenticated();
     return {
         accountType: "user",
+        username: user.username || null,
         userId: user.id,
         guestId: null,
         guestCode: null,
@@ -846,6 +848,7 @@ export async function upgradeGuestWithPassword(username, password) {
     return {
         accountType: "user",
         accountProvider: "password",
+        username: user.username || null,
         userId: user.id,
         guestId: null,
         guestCode: null,
@@ -865,6 +868,18 @@ export async function updateGuestProfile(profile) {
         body: JSON.stringify({
             playerName: profile.playerName,
             avatarKey: profile.avatarKey,
+            bio: profile.bio
+        })
+    });
+}
+
+export async function updateUserProfile(profile, token) {
+    return request("/api/profile", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+            playerName: profile.playerName,
+            avatar: profile.avatarKey,
             bio: profile.bio
         })
     });
@@ -1233,7 +1248,9 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     socket.on("player:moved", ({ socketId, position, rotation }) => {
         const remotePlayer = remotePlayers.get(socketId);
         if (!remotePlayer || !isVector3(position) || !isVector3(rotation)) return;
-        remotePlayer.targetPosition.copyFrom(groundNetworkPosition(scene, position, "movement-update", socketId));
+        // Movement packets contain the authoritative capsule position, including
+        // airborne Y. Grounding this value would erase jumps on remote clients.
+        remotePlayer.targetPosition.copyFromFloats(position.x, position.y, position.z);
         remotePlayer.targetRotation.copyFromFloats(rotation.x, rotation.y, rotation.z);
     });
     socket.on("player:animationChanged", ({ socketId, animation }) => {
@@ -1256,6 +1273,13 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         remotePlayer.playerName = playerName;
         remotePlayer.avatarKey = avatarKey;
         remotePlayer.nameTag.textBlock.text = playerName;
+    });
+    socket.on("player:pointsUpdated", ({ points } = {}) => {
+        if (!Number.isSafeInteger(points) || points < 0) return;
+        session.points = points;
+        window.dispatchEvent(new CustomEvent("profile:points-updated", {
+            detail: { points }
+        }));
     });
     socket.on("chat:history", (messages) => handlers.onChatHistory?.(messages));
     socket.on("chat:message", (message) => handlers.onChatMessage?.({
@@ -1720,6 +1744,11 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             if (socket.connected) socket.emit("player:identityUpdate");
         },
         updateProfile(profile) {
+            Object.assign(session, {
+                playerName: profile.playerName,
+                avatarKey: profile.avatarKey,
+                bio: profile.bio
+            });
             if (socket.connected) {
                 socket.emit("player:profileUpdate", {
                     playerName: profile.playerName,

@@ -12,6 +12,7 @@ function toProfile(row) {
         userId: row.id,
         guestId: null,
         guestCode: null,
+        username: row.username,
         playerName: row.player_name,
         email: row.email,
         profilePictureUrl: row.profile_picture_url,

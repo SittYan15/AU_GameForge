@@ -183,6 +183,8 @@ export async function checkDynamicMissionProgress(io, socket, player) {
         totalPoints
     });
 
+    if (rewardSaved) socket.emit("player:pointsUpdated", { points: totalPoints });
+
     if (rewardSaved) void broadcastLeaderboard(io);
 
     scheduleDynamicMission(io, socket, player, {

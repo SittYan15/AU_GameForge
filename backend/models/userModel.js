@@ -158,6 +158,20 @@ export async function addUserPoints(userId, pointsToAdd) {
     return toUser(result.rows[0]);
 }
 
+export async function updateUserProfile(userId, playerName, avatarKey, bio) {
+    const result = await pool.query(
+        `UPDATE users
+         SET player_name = $1, avatar_key = $2, bio = $3,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4
+         RETURNING id, username, player_name, points, email, google_sub,
+                   profile_picture_url, avatar_key, bio, active_session_id,
+                   active_session_expires_at, created_at, updated_at`,
+        [playerName, avatarKey, bio, userId]
+    );
+    return toUser(result.rows[0]);
+}
+
 export function publicUser(user) {
     if (!user) return null;
     const {

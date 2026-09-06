@@ -18,8 +18,8 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-// const BaseUrl = "./au_campus/";
+// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
@@ -43,6 +43,17 @@ window.addEventListener("auth:session-replaced", (event) => {
     currentSession = null;
     clearTabAuthentication();
     releaseGameTab();
+    window.location.reload();
+});
+
+window.addEventListener("auth:logged-out", () => {
+    multiplayer?.dispose();
+    multiplayer = null;
+    currentSession = null;
+    clearTabAuthentication();
+    releaseGameTab();
+    document.getElementById("profilePanel")?.classList.add("hidden");
+    document.getElementById("profileButton")?.setAttribute("aria-expanded", "false");
     window.location.reload();
 });
 

@@ -1,14 +1,48 @@
 // ui/profile.js
-import { getProfile, upgradeGuestWithPassword, updateGuestProfile, upgradeGuestWithGoogle, clearSavedGuest, logoutSession } from "../multiplayer.js";
+import { getProfile, upgradeGuestWithPassword, updateGuestProfile, updateUserProfile, upgradeGuestWithGoogle, clearSavedGuest, logoutSession } from "../multiplayer.js";
 import { disableGoogleAutoSelect, renderGoogleButton } from "../googleIdentity.js";
 
 const profileButton = document.getElementById("profileButton");
 const profilePanel = document.getElementById("profilePanel");
 const closeProfileButton = document.getElementById("closeProfileButton");
 
+export function updateProfilePoints(points) {
+    if (!Number.isSafeInteger(points) || points < 0) return;
+    const pointsElement = document.getElementById("profilePoints");
+    if (pointsElement) pointsElement.textContent = points;
+}
+
+window.addEventListener("profile:points-updated", (event) => {
+    updateProfilePoints(event.detail?.points);
+});
+
+function positionProfilePanel() {
+    if (!profileButton || !profilePanel) return;
+    const gap = 12;
+    const edgeGap = 16;
+    const rect = profileButton.getBoundingClientRect();
+    const top = Math.round(rect.bottom + gap);
+
+    profilePanel.style.top = `${top}px`;
+    profilePanel.style.bottom = "auto";
+    profilePanel.style.maxHeight = `${Math.max(160, window.innerHeight - top - edgeGap)}px`;
+
+    if (window.innerWidth <= 600) {
+        profilePanel.style.left = `${edgeGap}px`;
+        profilePanel.style.right = `${edgeGap}px`;
+        profilePanel.style.width = "auto";
+        return;
+    }
+
+    profilePanel.style.left = "auto";
+    profilePanel.style.right = `${Math.max(edgeGap, Math.round(window.innerWidth - rect.right))}px`;
+    profilePanel.style.width = "";
+}
+
 export function setProfileOpen(open) {
     profilePanel?.classList.toggle("hidden", !open);
     profileButton?.setAttribute("aria-expanded", String(open));
+    if (open) positionProfilePanel();
 }
 
 profileButton?.addEventListener("click", (event) => {
@@ -17,6 +51,15 @@ profileButton?.addEventListener("click", (event) => {
 });
 
 closeProfileButton?.addEventListener("click", () => setProfileOpen(false));
+
+window.addEventListener("resize", () => {
+    if (!profilePanel?.classList.contains("hidden")) positionProfilePanel();
+});
+
+window.addEventListener("orientationchange", () => {
+    if (profilePanel?.classList.contains("hidden")) return;
+    window.requestAnimationFrame(positionProfilePanel);
+});
 
 document.addEventListener("click", (event) => {
     if (!profilePanel || profilePanel.classList.contains("hidden")) return;
@@ -196,44 +239,43 @@ export function renderProfilePanel(profile) {
     const guestCode = document.getElementById("profileGuestCode");
     const email = document.getElementById("profileEmail");
     const upgrade = document.getElementById("guestUpgrade");
-    const guestForm = document.getElementById("guestProfileForm");
+    const profileForm = document.getElementById("profileEditForm");
     const exitButton = document.getElementById("sessionExitButton");
     const passwordSignupForm = document.getElementById("guestPasswordSignupForm");
 
-    document.getElementById("guestInfo").textContent = profile.playerName;
-    const accountLabel = profile.accountType === "guest"
-        ? "Guest Account"
-        : profile.accountProvider === "google" ? "Google Account" : "Registered User";
+    const isGuest = profile.accountType === "guest";
+    document.getElementById("guestInfo").textContent = isGuest
+        ? profile.playerName
+        : profile.username || profile.email || profile.playerName;
+    const accountLabel = isGuest ? "Guest Account" : "Registered User";
     document.getElementById("profileAccountType").textContent = accountLabel;
     document.getElementById("profilePoints").textContent = profile.points;
-    guestCode.textContent = profile.accountType === "guest" ? profile.guestCode : "";
-    guestCode.hidden = profile.accountType !== "guest";
-    email.textContent = profile.accountType === "user" && profile.email ? `Email: ${profile.email}` : "";
-    email.hidden = profile.accountType !== "user" || !profile.email;
-    picture.style.display = profile.profilePictureUrl ? "block" : "none";
-    if (profile.profilePictureUrl) picture.src = profile.profilePictureUrl;
-    upgrade.hidden = profile.accountType !== "guest";
+    profilePanel?.classList.toggle("registered-profile", !isGuest);
+    guestCode.textContent = isGuest ? profile.guestCode : "";
+    guestCode.hidden = !isGuest;
+    email.hidden = true;
+    picture.style.display = "none";
+    upgrade.hidden = !isGuest;
     passwordSignupForm.hidden = true;
-    guestForm.hidden = profile.accountType !== "guest";
-    if (profile.accountType === "guest") {
-        document.getElementById("guestPlayerName").value = profile.playerName;
-        document.getElementById("guestAvatarKey").value = profile.avatarKey || "default_avatar";
-        document.getElementById("guestBio").value = profile.bio || "";
-    }
-    exitButton.textContent = profile.accountType === "guest" ? "Leave Guest Session" : "Logout";
+    profileForm.hidden = false;
+    document.getElementById("profilePlayerName").value = profile.playerName;
+    document.getElementById("profileAvatarKey").value = profile.avatarKey || "default_avatar";
+    document.getElementById("profileBio").value = profile.bio || "";
+    exitButton.textContent = isGuest ? "Leave Guest Session" : "Logout";
 }
 
 export async function setupProfile(session, multiplayerInstance) {
     let currentSession = session;
     const profileMessage = document.getElementById("profileMessage");
     const exitButton = document.getElementById("sessionExitButton");
-    const guestProfileForm = document.getElementById("guestProfileForm");
+    const profileEditForm = document.getElementById("profileEditForm");
     const createAccountButton = document.getElementById("guestCreateAccountButton");
     const passwordSignupForm = document.getElementById("guestPasswordSignupForm");
     const cancelSignupButton = document.getElementById("cancelGuestSignupButton");
     try {
         const profile = await getProfile();
-        currentSession = { ...session, ...profile, token: session.token };
+        Object.assign(session, profile, { token: session.token });
+        currentSession = session;
     } catch {
         currentSession = session;
     }
@@ -265,7 +307,8 @@ export async function setupProfile(session, multiplayerInstance) {
         submitButton.disabled = true;
         profileMessage.textContent = "Creating your account...";
         try {
-            currentSession = await upgradeGuestWithPassword(username, password);
+            Object.assign(session, await upgradeGuestWithPassword(username, password));
+            currentSession = session;
             clearSavedGuest();
             multiplayerInstance.updateIdentity()
             renderProfilePanel(currentSession);
@@ -277,28 +320,31 @@ export async function setupProfile(session, multiplayerInstance) {
         }
     });
 
-    guestProfileForm.addEventListener("submit", async (event) => {
+    profileEditForm.onsubmit = async (event) => {
         event.preventDefault();
-        if (currentSession.accountType !== "guest") return;
-        const saveButton = document.getElementById("saveGuestProfileButton");
+        const saveButton = document.getElementById("saveProfileButton");
         saveButton.disabled = true;
         profileMessage.textContent = "Saving profile...";
         try {
-            const updated = await updateGuestProfile({
-                playerName: document.getElementById("guestPlayerName").value,
-                avatarKey: document.getElementById("guestAvatarKey").value,
-                bio: document.getElementById("guestBio").value
-            });
-            currentSession = { ...currentSession, ...updated };
+            const values = {
+                playerName: document.getElementById("profilePlayerName").value,
+                avatarKey: document.getElementById("profileAvatarKey").value,
+                bio: document.getElementById("profileBio").value
+            };
+            const updated = currentSession.accountType === "guest"
+                ? await updateGuestProfile(values)
+                : await updateUserProfile(values, currentSession.token);
+            Object.assign(currentSession, updated);
             renderProfilePanel(currentSession);
             multiplayerInstance.updateProfile(currentSession);
-            profileMessage.textContent = "Profile saved.";
+            profileMessage.textContent = "Profile saved successfully";
         } catch (error) {
+            console.error("Profile update failed:", error);
             profileMessage.textContent = error.message;
         } finally {
             saveButton.disabled = false;
         }
-    });
+    };
 
     if (currentSession.accountType === "guest") {
         try {
@@ -321,9 +367,10 @@ export async function setupProfile(session, multiplayerInstance) {
                         upgraded = await upgradeGuestWithGoogle(credential, true);
                     }
 
-                    currentSession = upgraded;
+                    Object.assign(session, upgraded);
+                    currentSession = session;
                     clearSavedGuest();
-                    multiplayer.updateIdentity();
+                    multiplayerInstance.updateIdentity();
                     renderProfilePanel(currentSession);
                     profileMessage.textContent = "Progress saved to your Google account.";
                 } catch (error) {
@@ -336,18 +383,22 @@ export async function setupProfile(session, multiplayerInstance) {
         }
     }
 
-    exitButton.addEventListener("click", async () => {
+    // Assign one handler because setupProfile can run again after an in-place
+    // account upgrade. This cannot accumulate duplicate logout requests.
+    exitButton.onclick = async () => {
         exitButton.disabled = true;
         profileMessage.textContent = "Ending session...";
         try {
             await logoutSession();
             if (currentSession.accountType === "guest") clearSavedGuest();
             disableGoogleAutoSelect();
-            multiplayer?.dispose();
-            window.location.reload();
+            currentSession = null;
+            setProfileOpen(false);
+            window.dispatchEvent(new Event("auth:logged-out"));
         } catch (error) {
+            console.error("Logout failed:", error);
             exitButton.disabled = false;
-            profileMessage.textContent = error.message;
+            profileMessage.textContent = `Logout failed: ${error.message}`;
         }
-    });
+    };
 }

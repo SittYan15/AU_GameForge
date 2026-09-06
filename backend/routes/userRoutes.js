@@ -1,6 +1,4 @@
 import { Router } from "express";
-import { updateUserPoints } from "../controllers/userController.js";
-import { requireUser } from "../middleware/authToken.js";
 import { getTopPlayers } from "../models/leaderboardModel.js";
 
 const router = Router();
@@ -14,6 +12,8 @@ router.get("/leaderboard", async (_req, res, next) => {
     }
 });
 
-router.patch("/:userId/points", requireUser, updateUserPoints);
+router.patch("/:userId/points", (_req, res) => {
+    res.status(403).json({ error: "Points are awarded by server-controlled game systems." });
+});
 
 export default router;

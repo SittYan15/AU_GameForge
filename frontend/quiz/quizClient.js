@@ -1,21 +1,30 @@
 // frontend/quiz/quizClient.js
 
+const quizClients = new WeakMap();
+
 export function createCampusQuizClient(
     scene,
     localPlayer,
     socket
 ) {
+    if (quizClients.has(socket)) return quizClients.get(socket);
+
     let active = false;
     let joinPending = false;
     let role = "none";
     let phase = "IDLE";
     let lives = 3;
+    let wrongCount = 0;
     let score = 0;
     let correctCount = 0;
-    let totalQuestions = 8;
+    let totalQuestions = 15;
     let currentQuestionNumber = 0;
-    let survivorRewardPoints = 50;
+    let currentRoundId = null;
+    let currentQuestionId = null;
+    let lastResultQuestionNumber = 0;
+    let finishedRoundId = null;
     let messageTimer = null;
+    let replayPending = false;
 
     const arena = scene.metadata?.campusQuizArena ?? null;
 
@@ -98,7 +107,8 @@ export function createCampusQuizClient(
             font-variant-numeric: tabular-nums;
         }
 
-        #campusQuizSurvivalMessage {
+        #campusQuizSurvivalMessage,
+        #campusQuizResult {
             position: fixed;
             top: auto;
             left: 50%;
@@ -115,9 +125,33 @@ export function createCampusQuizClient(
             font-size: clamp(16px, 2.2vw, 24px);
             font-weight: 900;
             text-align: center;
+            white-space: pre-line;
             box-shadow: 0 8px 28px rgba(0,0,0,.42);
             pointer-events: none;
             display: none;
+        }
+
+        #campusQuizResult {
+            top: 50%;
+            bottom: auto;
+            transform: translate(-50%, -50%);
+            width: min(360px, calc(100vw - 24px));
+            max-height: calc(100dvh - 80px);
+            overflow-y: auto;
+            pointer-events: auto;
+        }
+
+        #campusQuizPlayAgain {
+            display: block;
+            width: 100%;
+            margin-top: 16px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,.22);
+            background: #6d43b5;
+            color: white;
+            font: 700 16px system-ui, sans-serif;
+            cursor: pointer;
         }
 
         #campusQuizReturnButton {
@@ -172,6 +206,7 @@ export function createCampusQuizClient(
         marginBottom: "5px"
     });
 
+    // Keep the existing child positions used by mobileHudLayout.js.
     const hearts = document.createElement("div");
     Object.assign(hearts.style, {
         fontSize: "23px",
@@ -197,19 +232,36 @@ export function createCampusQuizClient(
     returnButton.textContent = "Return to Campus";
     document.body.appendChild(returnButton);
 
+    const resultPanel = document.createElement("section");
+    resultPanel.id = "campusQuizResult";
+    resultPanel.setAttribute("aria-label", "Quiz result");
+    resultPanel.setAttribute("aria-live", "polite");
+    const resultSummary = document.createElement("div");
+    const playAgainButton = document.createElement("button");
+    playAgainButton.id = "campusQuizPlayAgain";
+    playAgainButton.textContent = "Play Again";
+    resultPanel.append(resultSummary, playAgainButton);
+    document.body.appendChild(resultPanel);
+    playAgainButton.addEventListener("click", () => {
+        if (!active || !socket.connected || replayPending || finishedRoundId === null) return;
+        replayPending = true;
+        playAgainButton.disabled = true;
+        socket.emit("campusQuiz:playAgain", { roundId: finishedRoundId });
+    });
+
     function updateHud() {
         hearts.textContent = `${"♥".repeat(Math.max(0, lives))}${"♡".repeat(Math.max(0, 3 - lives))}`;
         hearts.style.color = lives > 1 ? "#ff6b81" : "#ff3b30";
-
         const questionValue =
             currentQuestionNumber > 0
-                ? `${currentQuestionNumber}/${totalQuestions}`
-                : "-/-";
+                ? `${currentQuestionNumber} / ${totalQuestions}`
+                : `0 / ${totalQuestions}`;
 
         status.innerHTML = `
-            <div class="campusQuizStatRow"><span>Q</span><strong>${questionValue}</strong></div>
-            <div class="campusQuizStatRow"><span>Score</span><strong>${score.toLocaleString()}</strong></div>
+            <div class="campusQuizStatRow"><span>Question</span><strong>${questionValue}</strong></div>
+            <div class="campusQuizStatRow"><span>Score</span><strong>${score.toLocaleString()} / 100</strong></div>
             <div class="campusQuizStatRow"><span>Correct</span><strong>${correctCount}</strong></div>
+            <div class="campusQuizStatRow"><span>Wrong</span><strong>${wrongCount}</strong></div>
         `;
     }
 
@@ -238,6 +290,12 @@ export function createCampusQuizClient(
             isActive
         );
 
+        if (!isActive) {
+            window.clearTimeout(messageTimer);
+            message.style.display = "none";
+            resultPanel.style.display = "none";
+        }
+
         hud.style.display =
             isActive
                 ? "block"
@@ -250,13 +308,20 @@ export function createCampusQuizClient(
     }
 
     const onStarted = (data = {}) => {
+        if (active) return;
+        resultPanel.style.display = "none";
         joinPending = false;
         active = true;
         role = "waiting";
         phase = data.phase || "LOBBY";
         lives = Number(data.startingLives) || 3;
-        totalQuestions = Number(data.questionsPerRound) || 8;
-        survivorRewardPoints = Number(data.survivorRewardPoints) || 50;
+        wrongCount = 0;
+        totalQuestions = Number(data.questionsPerRound) || 15;
+        currentRoundId = data.roundId ?? null;
+        currentQuestionId = null;
+        lastResultQuestionNumber = 0;
+        finishedRoundId = null;
+        replayPending = false;
         score = 0;
         correctCount = 0;
         currentQuestionNumber = 0;
@@ -286,6 +351,18 @@ export function createCampusQuizClient(
         phase = nextPhase || "IDLE";
 
         if (phase === "LOBBY") {
+            replayPending = false;
+            playAgainButton.disabled = false;
+            resultPanel.style.display = "none";
+            score = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            currentQuestionNumber = 0;
+            currentQuestionId = null;
+            lastResultQuestionNumber = 0;
+            finishedRoundId = null;
+            window.clearTimeout(messageTimer);
+            message.style.display = "none";
             localPlayer.isLocked = false;
         }
 
@@ -303,10 +380,16 @@ export function createCampusQuizClient(
     };
 
     const onRoundStarted = (data = {}) => {
+        if (currentRoundId !== null && data.roundId <= currentRoundId) return;
+        currentRoundId = data.roundId;
+        currentQuestionId = null;
+        currentQuestionNumber = 0;
+        lastResultQuestionNumber = 0;
+        finishedRoundId = null;
         role = "player";
         lives = Number(data.startingLives) || 3;
+        wrongCount = 0;
         totalQuestions = Number(data.totalQuestions) || totalQuestions;
-        survivorRewardPoints = Number(data.survivorRewardPoints) || survivorRewardPoints;
         score = 0;
         correctCount = 0;
         localPlayer.isLocked = false;
@@ -315,6 +398,9 @@ export function createCampusQuizClient(
     };
 
     const onQuestion = (data = {}) => {
+        if (data.roundId !== currentRoundId || data.id === currentQuestionId ||
+            Number(data.questionNumber) < currentQuestionNumber) return;
+        currentQuestionId = data.id;
         currentQuestionNumber = Number(data.questionNumber) || currentQuestionNumber;
         totalQuestions = Number(data.totalQuestions) || totalQuestions;
         arena?.setQuestion?.(data);
@@ -327,11 +413,16 @@ export function createCampusQuizClient(
     };
 
     const onReveal = (data = {}) => {
+        if (data.roundId !== currentRoundId || data.questionId !== currentQuestionId) return;
         arena?.reveal?.(data);
     };
 
     const onLifeResult = (data = {}) => {
+        if (data.roundId !== currentRoundId || data.questionId !== currentQuestionId ||
+            Number(data.questionNumber) <= lastResultQuestionNumber) return;
+        lastResultQuestionNumber = Number(data.questionNumber);
         lives = Math.max(0, Number(data.livesRemaining) || 0);
+        wrongCount = Number(data.wrongCount) || 0;
         score = Number(data.score) || 0;
         correctCount = Number(data.correctCount) || 0;
 
@@ -367,28 +458,29 @@ export function createCampusQuizClient(
     };
 
     const onFinished = (data = {}) => {
-        score = Number(data.score) || score;
-        correctCount = Number(data.correctCount) || correctCount;
-        lives = Math.max(0, Number(data.livesRemaining) || lives);
+        if (data.roundId !== currentRoundId || finishedRoundId === data.roundId) return;
+        finishedRoundId = data.roundId;
+        score = Number(data.score) || 0;
+        correctCount = Number(data.correctCount) || 0;
+        wrongCount = Number(data.wrongCount) || 0;
+        totalQuestions = Number(data.totalQuestions) || totalQuestions;
         arena?.setLeaderboard?.(data.leaderboard || []);
+        arena?.setPlayerStatus?.(data.standings || []);
         arena?.setFinished?.();
         localPlayer.isLocked = true;
 
-        if (data.survived) {
-            showMessage(
-                `🏆 SURVIVED! +${data.pointsEarned || 0} CAMPUS POINTS`,
-                "#ffd166",
-                5200
-            );
-        } else if (data.participated) {
-            showMessage(
-                `Round over — +${data.pointsEarned || 0} CAMPUS POINTS from your quiz score.`,
-                "#c7ccd4",
-                5000
-            );
-        } else {
-            showMessage("Round over — next round begins soon", "#c7ccd4", 4200);
-        }
+        window.clearTimeout(messageTimer);
+        message.style.display = "none";
+        const ranking = data.playerCount > 1 && data.rank
+            ? `\nRank: ${data.rank} of ${data.playerCount}` : "";
+        const saveStatus = data.rewardSaved === false
+            ? "\nPoints could not be saved." : "";
+        resultSummary.textContent = data.participated
+            ? `Correct: ${correctCount} / ${totalQuestions}\nFinal Score: ${score} / 100${ranking}${saveStatus}`
+            : "Round complete. Play Again to join the next quiz.";
+        replayPending = false;
+        playAgainButton.disabled = false;
+        resultPanel.style.display = "block";
 
         updateHud();
     };
@@ -415,6 +507,12 @@ export function createCampusQuizClient(
         role = "none";
         phase = "IDLE";
         lives = 3;
+        wrongCount = 0;
+        currentRoundId = null;
+        currentQuestionId = null;
+        lastResultQuestionNumber = 0;
+        finishedRoundId = null;
+        replayPending = false;
         score = 0;
         correctCount = 0;
         currentQuestionNumber = 0;
@@ -449,7 +547,7 @@ export function createCampusQuizClient(
         if (active && socket.connected) socket.emit("campusQuiz:leave");
     });
 
-    return {
+    const client = {
         requestStart() {
             if (!socket.connected || active || joinPending) return false;
             joinPending = true;
@@ -466,6 +564,7 @@ export function createCampusQuizClient(
         },
 
         dispose() {
+            quizClients.delete(socket);
             if (messageTimer) window.clearTimeout(messageTimer);
 
             document.body.classList.remove(
@@ -494,8 +593,11 @@ export function createCampusQuizClient(
 
             hud.remove();
             message.remove();
+            resultPanel.remove();
             returnButton.remove();
             style.remove();
         }
     };
+    quizClients.set(socket, client);
+    return client;
 }

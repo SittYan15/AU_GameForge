@@ -1,6 +1,7 @@
 // backend/models/quizModel.js
 
 import pool from "../config/db.js";
+import { readFile } from "node:fs/promises";
 
 function getIdentity(player) {
     if (player?.accountType === "user" && Number.isSafeInteger(player.userId)) {
@@ -26,13 +27,14 @@ export async function saveCampusQuizResult(
         score,
         correctCount,
         durationMs
-    }
+    },
+    executor = pool
 ) {
     const identity = getIdentity(player);
 
     if (!identity) return null;
 
-    const result = await pool.query(
+    const result = await executor.query(
         `INSERT INTO campus_quiz_scores (
             account_type,
             account_id,
@@ -91,6 +93,71 @@ export async function saveCampusQuizResult(
     );
 
     return result.rows[0] ?? null;
+}
+
+// Applied on backend startup as well as included in schema.sql for new installs.
+export async function initializeCampusQuizAwards() {
+    const sql = await readFile(new URL("../migrations/008_campus_quiz_awards.sql", import.meta.url), "utf8");
+    await pool.query(sql);
+}
+
+export async function awardCampusQuizResult(player, { roundKey, score, correctCount, durationMs }) {
+    const identity = getIdentity(player);
+    if (!identity || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(roundKey ?? "") ||
+        !Number.isInteger(score) || score < 0 || score > 100 ||
+        !Number.isInteger(correctCount) || correctCount < 0 || correctCount > 15 ||
+        !Number.isSafeInteger(durationMs) || durationMs < 1) {
+        throw new Error("Invalid Campus Quiz result.");
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+        let accountType = identity.accountType;
+        let accountId = identity.accountId;
+        // Lock the guest row just as account conversion does. Credit either the
+        // unconverted guest or the destination user, never an abandoned guest.
+        if (accountType === "guest") {
+            const guest = await client.query(
+                "SELECT converted_to_user_id FROM guest_users WHERE id = $1 FOR UPDATE", [accountId]
+            );
+            if (!guest.rows[0]) throw new Error("Quiz guest account no longer exists.");
+            if (guest.rows[0].converted_to_user_id) {
+                accountType = "user";
+                accountId = guest.rows[0].converted_to_user_id;
+            }
+        }
+
+        const claim = await client.query(
+            `INSERT INTO campus_quiz_awards (round_key, account_type, account_id, score, correct_count)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (round_key, account_type, account_id) DO NOTHING
+             RETURNING score`,
+            [roundKey, identity.accountType, identity.accountId, score, correctCount]
+        );
+        // Table choice is server-derived, never client-supplied.
+        const table = accountType === "user" ? "users" : "guest_users";
+        let account;
+        if (claim.rowCount === 1) {
+            account = await client.query(
+                `UPDATE ${table} SET points = points + $1, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $2 RETURNING points`, [score, accountId]
+            );
+            if (!account.rows[0]) throw new Error("Quiz account no longer exists.");
+            await saveCampusQuizResult({
+                ...player, accountType, userId: accountId, guestId: accountId
+            }, { score, correctCount, durationMs }, client);
+        } else {
+            account = await client.query(`SELECT points FROM ${table} WHERE id = $1`, [accountId]);
+        }
+        await client.query("COMMIT");
+        return { awarded: claim.rowCount === 1, totalPoints: account.rows[0]?.points ?? null };
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
 }
 
 export async function getCampusQuizLeaderboard(limit = 10) {

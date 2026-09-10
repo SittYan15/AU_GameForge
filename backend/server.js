@@ -12,6 +12,7 @@ import profileRoutes from "./routes/profileRoutes.js";
 import errorHandler from "./middleware/errorHandler.js";
 import { requireTrustedOrigin } from "./middleware/sessionAuth.js";
 import pool from "./config/db.js";
+import { initializeCampusQuizAwards } from "./models/quizModel.js";
 import registerMultiplayerSocket from "./socket/multiplayerSocket.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -59,6 +60,7 @@ const io = new Server(httpServer, {
 });
 
 io.engine.use(sessionMiddleware);
+await initializeCampusQuizAwards();
 registerMultiplayerSocket(io);
 
 httpServer.listen(PORT, () => {

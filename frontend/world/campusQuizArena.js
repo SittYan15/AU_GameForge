@@ -409,7 +409,7 @@ export function createCampusQuizArena(scene) {
         context.textBaseline = "middle";
         context.fillStyle = "#b79cff";
         context.font = "bold 56px Arial";
-        context.fillText("CAMPUS QUIZ SURVIVAL", 90, 72);
+        context.fillText("CAMPUS QUIZ", 90, 72);
 
         if (mode === "waiting") {
             context.textAlign = "center";
@@ -418,7 +418,7 @@ export function createCampusQuizArena(scene) {
             context.fillText(`NEXT ROUND IN ${extra.count ?? "..."}`, 1024, 265);
             context.font = "bold 46px Arial";
             context.fillStyle = "#d6dded";
-            context.fillText("3 lives • Stand on the correct answer floor • Wrong floors will fall", 1024, 390);
+            context.fillText("15 questions • 100 points total • Stand on A, B, C or D", 1024, 390);
         } else if (mode === "question" && currentQuestion) {
             const remainingMs =
                 Math.max(
@@ -457,7 +457,7 @@ export function createCampusQuizArena(scene) {
                 (currentQuestion.category || "Campus") +
                     "  •  Question " +
                     currentQuestion.questionNumber +
-                    "/" +
+                    " / " +
                     currentQuestion.totalQuestions,
                 90,
                 145
@@ -573,7 +573,7 @@ export function createCampusQuizArena(scene) {
             context.fillText("ROUND OVER", 1024, 245);
             context.fillStyle = "#ffffff";
             context.font = "bold 48px Arial";
-            context.fillText("Survivors earn campus points • New round starts soon", 1024, 385);
+            context.fillText("Quiz score earns campus points • Choose Play Again for a new quiz", 1024, 385);
         } else {
             context.textAlign = "center";
             context.fillStyle = "#ffffff";
@@ -584,7 +584,7 @@ export function createCampusQuizArena(scene) {
             context.fillText("Read the answers on the wall, then stand on A, B, C or D", 1024, 410);
         }
 
-        // Current-round survival status at the bottom-left.
+        // Current-round scores at the bottom-left.
         if (playerStatus.length > 0 && mode !== "question") {
             context.textAlign = "left";
             context.font = "bold 28px Arial";
@@ -592,7 +592,7 @@ export function createCampusQuizArena(scene) {
             const summary = playerStatus
                 .filter((player) => player.participating)
                 .slice(0, 6)
-                .map((player) => `${player.playerName}: ${"♥".repeat(Math.max(0, player.lives))}`)
+                .map((player) => `${player.playerName}: ${player.score ?? 0} pts`)
                 .join("   ");
             context.fillText(summary, 90, 720);
         }

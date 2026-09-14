@@ -66,7 +66,7 @@ function answer(player, correct = true) {
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-test('each player draws 10 unique questions with private answer maps and fresh replay sets', () => {
+test('each player draws 15 unique questions with private answer maps and fresh replay sets', () => {
     const h = harness(), a = h.add('a'), b = h.add('b');
     const original = JSON.stringify(questions);
     let previous = [];
@@ -74,8 +74,8 @@ test('each player draws 10 unique questions with private answer maps and fresh r
         h.startLobby(h.io); h.startRound(h.io);
         for (const [index, p] of [a, b].entries()) {
             const state = p.s.data.campusQuizQuestions;
-            assert.equal(state.questionIds.length, 10);
-            assert.equal(new Set(state.questionIds).size, 10);
+            assert.equal(state.questionIds.length, 15);
+            assert.equal(new Set(state.questionIds).size, 15);
             const set = [...state.questionIds].sort().join(',');
             assert.notEqual(set, previous[index]); previous[index] = set;
             const payload = p.s.events.filter(e => e.event === 'campusQuiz:question').at(-1).data;
@@ -96,143 +96,63 @@ test('each player draws 10 unique questions with private answer maps and fresh r
     assert.notEqual([...a.s.data.campusQuizQuestions.questionIds].sort().join(','), previousSet);
 });
 
-test('10 questions award 10 points per correct answer and persist partial scores once', async () => {
-    const h = harness(), perfect = h.add('perfect'), eight = h.add('eight'), early = h.add('early');
+test('only 15 correct earns 100 once; life loss preserves lists and other players progress', async () => {
+    const h = harness(), good = h.add('good'), mixed = h.add('mixed'), bad = h.add('bad');
     h.startLobby(h.io); h.startRound(h.io);
     const spectator = h.add('spectator');
-    const lists = [perfect, eight, early].map(p => [...p.s.data.campusQuizQuestions.questionIds]);
-
-    for (let i = 0; i < 10; i++) {
-        for (const [index, p] of [perfect, eight, early].entries()) {
+    const lists = [good, mixed, bad].map(p => [...p.s.data.campusQuizQuestions.questionIds]);
+    for (let i = 0; i < 15; i++) {
+        for (const [index, p] of [good, mixed, bad].entries()) {
             assert.deepEqual([...p.s.data.campusQuizQuestions.questionIds], lists[index]);
             if (p.s.data.campusQuizEliminated) continue;
-
             const q = p.s.data.campusQuizQuestions.currentPublicQuestion;
-            assert.equal(q.questionNumber, i + 1);
-            assert.equal(q.totalQuestions, 10);
-            assert.equal(q.points, 10);
-
-            if (p === perfect) {
-                answer(p, true);
-            } else if (p === eight) {
-                answer(p, i < 8);
-            } else {
-                // Two correct, then three wrong -> elimination after question 5.
-                answer(p, i < 2);
-            }
+            assert.equal(q.questionNumber, i + 1); assert.equal(q.totalQuestions, 15);
+            answer(p, p === good || (p === mixed && i !== 0));
         }
-
         const q = h.quizState.currentQuestion;
         h.evaluateQuestion(h.io, h.quizState.roundId - 1, q.id);
         assert.equal(h.quizState.phase, 'QUESTION');
-        h.evaluateQuestion(h.io);
-        h.evaluateQuestion(h.io);
-
-        assert.equal(
-            perfect.s.data.campusQuizScore,
-            Math.min((i + 1) * 10, 100)
-        );
-
-        if (i < 8) {
-            assert.equal(
-                eight.s.data.campusQuizScore,
-                (i + 1) * 10
-            );
-        } else {
-            assert.equal(
-                eight.s.data.campusQuizScore,
-                80
-            );
-        }
-
-        if (i < 2) {
-            assert.equal(
-                early.s.data.campusQuizScore,
-                (i + 1) * 10
-            );
-        } else {
-            assert.equal(
-                early.s.data.campusQuizScore,
-                20
-            );
-        }
-
+        h.evaluateQuestion(h.io); h.evaluateQuestion(h.io);
+        assert.equal(good.s.data.campusQuizScore, 0);
+        assert.equal(mixed.s.data.campusQuizScore, 0);
+        assert.equal(good.s.data.campusQuizLives, 3);
+        assert.equal(mixed.s.data.campusQuizLives, 2);
+        assert.equal(bad.s.data.campusQuizLives, Math.max(0, 2 - i));
+        assert.equal(bad.s.data.campusQuizAnsweredQuestions.size, Math.min(i + 1, 3));
+        assert.equal(bad.s.data.campusQuizEliminated, i >= 2);
         next(h);
-
-        if (i < 9 && h.quizState.phase !== 'FINISHED') {
+        if (i < 14) {
             assert.equal(h.quizState.phase, 'QUESTION');
             h.evaluateQuestion(h.io, h.quizState.roundId, q.id);
             assert.equal(h.quizState.phase, 'QUESTION');
         }
     }
-
-    await h.finishRound(h.io);
-    await settle();
-    await h.finishRound(h.io);
-
+    await h.finishRound(h.io); await settle(); await h.finishRound(h.io);
     assert.equal(h.quizState.phase, 'FINISHED');
-
-    assert.deepEqual(
-        h.rewards,
-        [
-            { id: 'perfect', points: 100 },
-            { id: 'eight', points: 80 },
-            { id: 'early', points: 20 }
-        ]
-    );
-
-    assert.equal(
-        perfect.s.events.filter(e => e.event === 'campusQuiz:lifeResult').length,
-        10
-    );
-
-    assert.equal(
-        early.s.events.filter(e => e.event === 'campusQuiz:question').length,
-        5
-    );
-
-    assert.equal(
-        spectator.s.events.filter(e => e.event === 'campusQuiz:lifeResult').length,
-        0
-    );
-
-    assert.ok(
-        early.s.events.some(
-            e =>
-                e.event === 'campusQuiz:teleport' &&
-                e.data.reason === 'eliminated'
-        )
-    );
-
-    const expected = new Map([
-        ['perfect', 100],
-        ['eight', 80],
-        ['early', 20]
-    ]);
-
-    for (const p of [perfect, eight, early]) {
+    assert.deepEqual(h.rewards, [{ id: 'good', points: 100 }]);
+    assert.equal(good.s.events.filter(e => e.event === 'campusQuiz:lifeResult').length, 15);
+    assert.equal(bad.s.events.filter(e => e.event === 'campusQuiz:question').length, 3);
+    assert.equal(spectator.s.events.filter(e => e.event === 'campusQuiz:lifeResult').length, 0);
+    assert.ok(bad.s.events.some(e => e.event === 'campusQuiz:teleport' && e.data.reason === 'eliminated'));
+    for (const p of [good, mixed, bad]) {
         const results = p.s.events.filter(e => e.event === 'campusQuiz:finished');
         assert.equal(results.length, 1);
-        assert.equal(results[0].data.pointsEarned, expected.get(p.s.id));
-        assert.equal(results[0].data.score, expected.get(p.s.id));
+        assert.equal(results[0].data.pointsEarned, p === good ? 100 : 0);
+        assert.equal(results[0].data.completed, p === good);
     }
-
-    perfect.s.data.inCampusQuiz = true;
-    const replay = perfect.s.handlers.get('campusQuiz:playAgain');
-    replay({ roundId: h.quizState.roundId - 1 });
-    assert.equal(h.quizState.phase, 'FINISHED');
-    replay({ roundId: h.quizState.roundId });
-    replay({ roundId: h.quizState.roundId });
+    good.s.data.inCampusQuiz = true;
+    const replay = good.s.handlers.get('campusQuiz:playAgain');
+    replay({ roundId: h.quizState.roundId - 1 }); assert.equal(h.quizState.phase, 'FINISHED');
+    replay({ roundId: h.quizState.roundId }); replay({ roundId: h.quizState.roundId });
     assert.equal(h.quizState.phase, 'LOBBY');
-
     h.startRound(h.io);
-    assert.equal(perfect.s.data.campusQuizScore, 0);
-    assert.equal(early.s.data.campusQuizLives, 3);
-    assert.equal(early.s.data.campusQuizAnsweredQuestions.size, 0);
-    assert.notDeepEqual([...perfect.s.data.campusQuizQuestions.questionIds], lists[0]);
+    assert.equal(good.s.data.campusQuizScore, 0);
+    assert.equal(bad.s.data.campusQuizLives, 3);
+    assert.equal(bad.s.data.campusQuizAnsweredQuestions.size, 0);
+    assert.notDeepEqual([...good.s.data.campusQuizQuestions.questionIds], lists[0]);
 });
 
-test('three wrong or missing answers end the round early and keep only earned correct-answer points', async () => {
+test('three wrong or missing answers end the round early with zero reward', async () => {
     const h = harness(), a = h.add('a');
     h.startLobby(h.io); h.startRound(h.io);
     const list = a.s.data.campusQuizQuestions.questionIds;
@@ -249,13 +169,12 @@ test('three wrong or missing answers end the round early and keep only earned co
     assert.equal(result.completed, false);
 });
 
-test('an explicitly finished partial round persists earned points once and registration is idempotent', async () => {
+test('an interrupted round cannot earn points and registration is idempotent', async () => {
     const h = harness(), a = h.add('a');
     h.registerCampusQuizSocket(h.io, a.s, () => a.player);
     assert.equal(a.s.handlers.size, 5);
     h.startLobby(h.io); h.startRound(h.io);
     answer(a); h.evaluateQuestion(h.io);
-    assert.equal(a.s.data.campusQuizScore, 10);
     await h.finishRound(h.io);
-    assert.deepEqual(h.rewards, [{ id: 'a', points: 10 }]);
+    assert.equal(h.rewards.length, 0);
 });

@@ -13,6 +13,7 @@ import errorHandler from "./middleware/errorHandler.js";
 import { requireTrustedOrigin } from "./middleware/sessionAuth.js";
 import pool from "./config/db.js";
 import { initializeCampusQuizAwards } from "./models/quizModel.js";
+import { initializeNewPlayerTutorial } from "./models/tutorialModel.js";
 import registerMultiplayerSocket from "./socket/multiplayerSocket.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -61,6 +62,7 @@ const io = new Server(httpServer, {
 
 io.engine.use(sessionMiddleware);
 await initializeCampusQuizAwards();
+await initializeNewPlayerTutorial();
 registerMultiplayerSocket(io);
 
 httpServer.listen(PORT, () => {

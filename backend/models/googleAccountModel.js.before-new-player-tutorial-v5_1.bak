@@ -1,7 +1,7 @@
 import pool from "../config/db.js";
 
 const USER_COLUMNS = `id, username, player_name, points, email, google_sub,
-                      profile_picture_url, avatar_key, bio, tutorial_completed, active_session_id,
+                      profile_picture_url, avatar_key, bio, active_session_id,
                       active_session_expires_at, created_at, updated_at`;
 
 function toProfile(row) {
@@ -18,8 +18,7 @@ function toProfile(row) {
         profilePictureUrl: row.profile_picture_url,
         points: row.points,
         avatarKey: row.avatar_key,
-        bio: row.bio,
-        tutorialCompleted: row.tutorial_completed === true
+        bio: row.bio
     };
 }
 
@@ -90,7 +89,7 @@ export async function upgradeGuestToGoogle(googleProfile, guestId, mergeConfirme
     try {
         await client.query("BEGIN");
         const guestResult = await client.query(
-            `SELECT id, guest_code, player_name, points, avatar_key, bio, tutorial_completed, converted_to_user_id
+            `SELECT id, guest_code, player_name, points, avatar_key, bio, converted_to_user_id
              FROM guest_users WHERE id = $1 FOR UPDATE`,
             [guestId]
         );
@@ -153,12 +152,11 @@ export async function upgradeGuestToGoogle(googleProfile, guestId, mergeConfirme
         } else {
             userResult = await client.query(
                 `INSERT INTO users
-                    (google_sub, email, player_name, profile_picture_url, points, avatar_key, bio, tutorial_completed)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    (google_sub, email, player_name, profile_picture_url, points, avatar_key, bio)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  RETURNING ${USER_COLUMNS}`,
                 [googleProfile.googleSub, googleProfile.email, guest.player_name,
-                    googleProfile.profilePictureUrl, guest.points, guest.avatar_key, guest.bio,
-                    guest.tutorial_completed]
+                    googleProfile.profilePictureUrl, guest.points, guest.avatar_key, guest.bio]
             );
         }
         user = userResult.rows[0];
@@ -194,7 +192,7 @@ export async function getUserProfile(userId) {
 export async function getConvertedUserForGuest(guestId) {
     const result = await pool.query(
         `SELECT u.id, u.username, u.player_name, u.points, u.email, u.google_sub,
-                u.profile_picture_url, u.avatar_key, u.bio, u.tutorial_completed, u.created_at, u.updated_at
+                u.profile_picture_url, u.avatar_key, u.bio, u.created_at, u.updated_at
          FROM guest_users g
          JOIN users u ON u.id = g.converted_to_user_id
          WHERE g.id = $1 AND g.converted_at IS NOT NULL`,

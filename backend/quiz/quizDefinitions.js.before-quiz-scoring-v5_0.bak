@@ -47,13 +47,12 @@ export const CAMPUS_QUIZ_FLOORS = Object.freeze([
 ]);
 
 export const CAMPUS_QUIZ_LOBBY_SECONDS = 10;
-export const CAMPUS_QUIZ_QUESTIONS_PER_ROUND = 10;
+export const CAMPUS_QUIZ_QUESTIONS_PER_ROUND = 15;
 export const CAMPUS_QUIZ_QUESTION_TIME_MS = 12_000;
 export const CAMPUS_QUIZ_REVEAL_TIME_MS = 3_000;
 export const CAMPUS_QUIZ_RESULTS_TIME_MS = 7_000;
 export const CAMPUS_QUIZ_STARTING_LIVES = 3;
 export const CAMPUS_QUIZ_MAX_SCORE = 100;
-export const CAMPUS_QUIZ_SCORE_PER_CORRECT = 10;
 export const CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS = 0;
 
 export const CAMPUS_QUIZ_QUESTIONS = Object.freeze([

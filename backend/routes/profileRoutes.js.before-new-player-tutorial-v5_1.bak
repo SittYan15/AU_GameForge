@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { completeTutorial, getProfile, updateProfile } from "../controllers/profileController.js";
+import { getProfile, updateProfile } from "../controllers/profileController.js";
 import { requireSession } from "../middleware/sessionAuth.js";
 import { requireUser } from "../middleware/authToken.js";
 
 const router = Router();
 router.get("/", requireSession, getProfile);
-router.post("/tutorial/complete", requireSession, completeTutorial);
 router.put("/", requireSession, requireUser, updateProfile);
 export default router;

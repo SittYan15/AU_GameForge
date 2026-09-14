@@ -6,20 +6,28 @@ import "@babylonjs/loaders/glTF";
 import { initAuth } from "./ui/auth.js";
 import { setupChat, addChatMessage } from "./ui/chat.js";
 import { setupProfile } from "./ui/profile.js";
+import { showNewPlayerTutorial } from "./ui/tutorial.js";
 import "./ui/mobileHudLayout.js";
 import { initEngine } from "./core/engine.js";
 import { InputController } from "./core/input.js";
+import { ELEVATORS, ELEVATOR_DEBUG } from "./elevators/elevatorConfig.js";
+import { createElevatorSystem } from "./elevators/elevatorSystem.js";
 
 // World Systems
 import { createMainScene } from "./world/scene.js";
 import { initChunkManager } from "./world/chunkManager.js";
-import { clearTabAuthentication, createMultiplayer, keepSessionAlive } from "./multiplayer.js";
+import {
+    clearTabAuthentication,
+    completeMovementTutorial,
+    createMultiplayer,
+    keepSessionAlive
+} from "./multiplayer.js";
 import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-const BaseUrl = "./au_campus/";
+const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+// const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
@@ -122,6 +130,16 @@ async function startGame(session) {
         // Pass inputMapRef directly into the controller
         const inputController = new InputController(scene, camera, player, headNode, inputMapRef);
 
+        setStartupStage("Initializing elevators");
+        createElevatorSystem(
+            scene,
+            player,
+            ELEVATORS,
+            {
+                debug: ELEVATOR_DEBUG
+            }
+        );
+
         setStartupStage("Starting chunk manager");
         initChunkManager(scene, player, BaseUrl);
 
@@ -160,6 +178,25 @@ async function startGame(session) {
             scene.render();
             if (fpsElement) fpsElement.innerHTML = engine.getFps().toFixed(0) + " FPS";
         });
+
+        // Only accounts created after the tutorial feature is installed have
+        // tutorialCompleted=false. Existing users/guests are migrated to true.
+        if (session.tutorialCompleted === false) {
+            showNewPlayerTutorial({
+                player,
+                onComplete: async () => {
+                    await completeMovementTutorial();
+
+                    session.tutorialCompleted =
+                        true;
+
+                    if (currentSession) {
+                        currentSession.tutorialCompleted =
+                            true;
+                    }
+                }
+            });
+        }
 
     } catch (error) {
         if (startupHeartbeat) clearInterval(startupHeartbeat);

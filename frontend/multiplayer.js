@@ -760,6 +760,12 @@ export async function keepSessionAlive() {
     return request("/api/auth/heartbeat", { method: "POST" });
 }
 
+export async function completeMovementTutorial() {
+    return request("/api/profile/tutorial/complete", {
+        method: "POST"
+    });
+}
+
 export function clearSavedGuest() {
     localStorage.removeItem(STORAGE_KEY);
 }
@@ -791,7 +797,8 @@ function toGuestSession(guest) {
         playerName: guest.playerName,
         points: guest.points,
         avatarKey: guest.avatarKey || "default_avatar",
-        bio: guest.bio || ""
+        bio: guest.bio || "",
+        tutorialCompleted: guest.tutorialCompleted !== false
     };
 }
 
@@ -813,6 +820,7 @@ export async function loginUser(username, password) {
         bio: user.bio || "",
         email: user.email || null,
         profilePictureUrl: user.profilePictureUrl || null,
+        tutorialCompleted: user.tutorialCompleted !== false,
         token: user.token
     };
 }
@@ -835,6 +843,7 @@ export async function signupUser(username, password) {
         bio: user.bio || "",
         email: user.email || null,
         profilePictureUrl: user.profilePictureUrl || null,
+        tutorialCompleted: user.tutorialCompleted !== false,
         token: user.token
     };
 }
@@ -858,6 +867,7 @@ export async function upgradeGuestWithPassword(username, password) {
         bio: user.bio || "",
         email: user.email || null,
         profilePictureUrl: user.profilePictureUrl || null,
+        tutorialCompleted: user.tutorialCompleted !== false,
         token: user.token
     };
 }

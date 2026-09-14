@@ -17,7 +17,7 @@ export function createCampusQuizClient(
     let wrongCount = 0;
     let score = 0;
     let correctCount = 0;
-    let totalQuestions = 10;
+    let totalQuestions = 15;
     let currentQuestionNumber = 0;
     let currentRoundId = null;
     let currentQuestionId = null;
@@ -316,7 +316,7 @@ export function createCampusQuizClient(
         phase = data.phase || "LOBBY";
         lives = Number(data.startingLives) || 3;
         wrongCount = 0;
-        totalQuestions = Number(data.questionsPerRound) || 10;
+        totalQuestions = Number(data.questionsPerRound) || 15;
         currentRoundId = data.roundId ?? null;
         currentQuestionId = null;
         lastResultQuestionNumber = 0;

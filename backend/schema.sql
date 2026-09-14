@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     bio VARCHAR(160) NOT NULL DEFAULT '',
     active_session_id UUID,
     active_session_expires_at TIMESTAMPTZ,
+    tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT users_auth_method_check CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL)
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS guest_users (
     bio VARCHAR(160) NOT NULL DEFAULT '',
     converted_to_user_id INTEGER REFERENCES users(id),
     converted_at TIMESTAMPTZ,
+    tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT guest_conversion_pair_check CHECK (

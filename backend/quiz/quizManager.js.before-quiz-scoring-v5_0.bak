@@ -19,7 +19,6 @@ import {
     CAMPUS_QUIZ_RETURN_POSITION,
     CAMPUS_QUIZ_ROOM,
     CAMPUS_QUIZ_MAX_SCORE,
-    CAMPUS_QUIZ_SCORE_PER_CORRECT,
     CAMPUS_QUIZ_SPECTATOR_SPAWN,
     CAMPUS_QUIZ_STARTING_LIVES,
     CAMPUS_QUIZ_SURVIVOR_REWARD_POINTS,
@@ -56,7 +55,7 @@ function selectQuestions(previousIds = []) {
 
 if (CAMPUS_QUIZ_QUESTIONS.length < CAMPUS_QUIZ_QUESTIONS_PER_ROUND ||
     new Set(CAMPUS_QUIZ_QUESTIONS.map(question => question.id)).size !== CAMPUS_QUIZ_QUESTIONS.length) {
-    throw new Error("Campus Quiz needs at least 10 questions with unique IDs.");
+    throw new Error("Campus Quiz needs at least 15 questions with unique IDs.");
 }
 
 let lobbyInterval = null;
@@ -251,7 +250,7 @@ function buildPublicQuestion(question, state) {
             floorId: floorIds[index],
             text: option.text
         })),
-        points: CAMPUS_QUIZ_SCORE_PER_CORRECT,
+        points: 0,
         maxScore: CAMPUS_QUIZ_MAX_SCORE,
         questionNumber: state.questionIndex + 1,
         totalQuestions: state.questionIds.length,
@@ -306,28 +305,13 @@ async function finishRound(io) {
     const roundId = quizState.roundId;
     const roundKey = quizState.roundKey;
     const totalQuestions = CAMPUS_QUIZ_QUESTIONS_PER_ROUND;
-
-    // v5.0 scoring: every correct answer is worth 10 points.
-    // A player keeps the points earned before elimination; persistence still
-    // happens only once, at the end of the match.
     for (const socket of getQuizSockets(io)) {
-        const correctCount = Math.max(
-            0,
-            Math.min(
-                totalQuestions,
-                Number(socket.data.campusQuizCorrectCount) || 0
-            )
-        );
-
-        socket.data.campusQuizScore =
-            socket.data.campusQuizParticipating
-                ? Math.min(
-                    CAMPUS_QUIZ_MAX_SCORE,
-                    correctCount * CAMPUS_QUIZ_SCORE_PER_CORRECT
-                )
-                : 0;
+        socket.data.campusQuizScore = completed && socket.data.campusQuizParticipating &&
+            !socket.data.campusQuizEliminated && socket.data.campusQuizLives > 0 &&
+            socket.data.campusQuizCorrectCount === totalQuestions &&
+            socket.data.campusQuizAnsweredQuestions?.size === totalQuestions
+                ? CAMPUS_QUIZ_MAX_SCORE : 0;
     }
-
     const durationMs = Math.max(1, Date.now() - (quizState.roundStartedAt ?? Date.now()));
     const standings = publicPlayerStatus(io).filter(player => player.participating)
         .sort((a, b) => b.score - a.score);
@@ -341,12 +325,7 @@ async function finishRound(io) {
         const score = socket.data.campusQuizScore ?? 0;
         const correctCount = socket.data.campusQuizCorrectCount ?? 0;
         const wrongCount = socket.data.campusQuizWrongCount ?? 0;
-        const completedRound = Boolean(
-            participated &&
-            !socket.data.campusQuizEliminated &&
-            socket.data.campusQuizAnsweredQuestions?.size === totalQuestions
-        );
-        const eligible = participated && score > 0;
+        const eligible = score === CAMPUS_QUIZ_MAX_SCORE;
         let rewardSaved = !eligible;
         let totalPoints = null;
         if (eligible) {
@@ -366,7 +345,7 @@ async function finishRound(io) {
             }
         }
         return { socket, payload: {
-            roundId, participated, completed: completedRound, score, correctCount, wrongCount,
+            roundId, participated, completed: eligible, score, correctCount, wrongCount,
             livesRemaining: socket.data.campusQuizLives,
             totalQuestions, maxScore: CAMPUS_QUIZ_MAX_SCORE,
             rank: standings.find(player => player.socketId === socket.id)?.rank ?? null,
@@ -490,10 +469,6 @@ function evaluateQuestion(io, roundId = quizState.roundId, questionId = quizStat
 
         if (correct) {
             socket.data.campusQuizCorrectCount += 1;
-            socket.data.campusQuizScore = Math.min(
-                CAMPUS_QUIZ_MAX_SCORE,
-                socket.data.campusQuizCorrectCount * CAMPUS_QUIZ_SCORE_PER_CORRECT
-            );
         } else {
             socket.data.campusQuizWrongCount += 1;
             socket.data.campusQuizLives = Math.max(
@@ -510,7 +485,7 @@ function evaluateQuestion(io, roundId = quizState.roundId, questionId = quizStat
             roundId,
             questionNumber: state.questionIndex + 1,
             wrongCount: socket.data.campusQuizWrongCount,
-            pointsEarned: correct ? CAMPUS_QUIZ_SCORE_PER_CORRECT : 0,
+            pointsEarned: 0,
             questionId: question.id,
             selectedFloorId,
             correctFloorId,

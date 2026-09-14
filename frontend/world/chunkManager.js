@@ -1086,6 +1086,252 @@ export function initChunkManager(scene, player, BaseUrl) {
     let enabled = true;
     let generation = 0;
 
+    // ========================================================
+    // v5.3 Elevator destination preloading
+    //
+    // Elevator travel must prepare the destination interior
+    // before the player's capsule is moved there. Otherwise
+    // gravity can run before the destination floor GLB exists.
+    // ========================================================
+    const elevatorPinnedChunks =
+        new Set();
+
+    const elevatorLoadPromises =
+        new WeakMap();
+
+    const ensureChunkInRam =
+        (chunk) => {
+            if (
+                chunk.status ===
+                    "IN_RAM" ||
+                chunk.status ===
+                    "IN_SCENE"
+            ) {
+                return Promise.resolve(
+                    chunk
+                );
+            }
+
+            const tracked =
+                elevatorLoadPromises
+                    .get(
+                        chunk
+                    );
+
+            if (tracked) {
+                return tracked;
+            }
+
+            // A normal streaming load may already be underway.
+            // Wait for it instead of downloading the GLB twice.
+            if (
+                chunk.status ===
+                "LOADING"
+            ) {
+                const waitForExistingLoad =
+                    new Promise(
+                        (
+                            resolve,
+                            reject
+                        ) => {
+                            const startedAt =
+                                performance.now();
+
+                            const check =
+                                () => {
+                                    if (
+                                        chunk.status ===
+                                            "IN_RAM" ||
+                                        chunk.status ===
+                                            "IN_SCENE"
+                                    ) {
+                                        resolve(
+                                            chunk
+                                        );
+
+                                        return;
+                                    }
+
+                                    if (
+                                        chunk.status ===
+                                        "UNLOADED"
+                                    ) {
+                                        elevatorLoadPromises
+                                            .delete(
+                                                chunk
+                                            );
+
+                                        ensureChunkInRam(
+                                            chunk
+                                        )
+                                            .then(
+                                                resolve,
+                                                reject
+                                            );
+
+                                        return;
+                                    }
+
+                                    if (
+                                        performance.now() -
+                                            startedAt >
+                                        12_000
+                                    ) {
+                                        reject(
+                                            new Error(
+                                                `Timed out waiting for ${chunk.name} to finish loading.`
+                                            )
+                                        );
+
+                                        return;
+                                    }
+
+                                    window.setTimeout(
+                                        check,
+                                        30
+                                    );
+                                };
+
+                            check();
+                        }
+                    );
+
+                elevatorLoadPromises
+                    .set(
+                        chunk,
+                        waitForExistingLoad
+                    );
+
+                return waitForExistingLoad;
+            }
+
+            chunk.status =
+                "LOADING";
+
+            const loadGeneration =
+                generation;
+
+            const loadPromise =
+                BABYLON.SceneLoader
+                    .LoadAssetContainerAsync(
+                        BaseUrl,
+                        chunk.filename,
+                        scene
+                    )
+                    .then(
+                        (container) => {
+                            if (
+                                !enabled ||
+                                loadGeneration !==
+                                    generation
+                            ) {
+                                container.dispose();
+
+                                chunk.status =
+                                    "UNLOADED";
+
+                                throw new Error(
+                                    `Loading ${chunk.name} was cancelled because interior streaming changed state.`
+                                );
+                            }
+
+                            container.meshes
+                                .forEach(
+                                    (mesh) => {
+                                        if (
+                                            mesh.isVisible &&
+                                            mesh.name !==
+                                                "__root__"
+                                        ) {
+                                            mesh.checkCollisions =
+                                                true;
+
+                                            markWalkableGround(
+                                                mesh
+                                            );
+                                        }
+                                    }
+                                );
+
+                            chunk.container =
+                                container;
+
+                            chunk.status =
+                                "IN_RAM";
+
+                            return chunk;
+                        }
+                    )
+                    .catch(
+                        (error) => {
+                            if (
+                                chunk.status ===
+                                "LOADING"
+                            ) {
+                                chunk.status =
+                                    "UNLOADED";
+                            }
+
+                            throw error;
+                        }
+                    )
+                    .finally(
+                        () => {
+                            if (
+                                elevatorLoadPromises
+                                    .get(
+                                        chunk
+                                    ) ===
+                                loadPromise
+                            ) {
+                                elevatorLoadPromises
+                                    .delete(
+                                        chunk
+                                    );
+                            }
+                        }
+                    );
+
+            elevatorLoadPromises
+                .set(
+                    chunk,
+                    loadPromise
+                );
+
+            return loadPromise;
+        };
+
+    const ensureChunkInScene =
+        async (chunk) => {
+            await ensureChunkInRam(
+                chunk
+            );
+
+            if (
+                chunk.status ===
+                    "IN_RAM" &&
+                chunk.container
+            ) {
+                chunk.container
+                    .addAllToScene();
+
+                chunk.status =
+                    "IN_SCENE";
+            }
+
+            if (
+                chunk.status !==
+                    "IN_SCENE" ||
+                !chunk.container
+            ) {
+                throw new Error(
+                    `Interior chunk ${chunk.name} is not ready for teleport.`
+                );
+            }
+
+            return chunk;
+        };
+
     const purgeChunk =
         (chunk) => {
             if (chunk.container) {
@@ -1150,6 +1396,187 @@ export function initChunkManager(scene, player, BaseUrl) {
 
         isEnabled() {
             return enabled;
+        },
+
+        async preparePosition(
+            position,
+            {
+                timeoutMs = 10_000
+            } = {}
+        ) {
+            if (
+                !enabled
+            ) {
+                throw new Error(
+                    "Interior streaming is currently suspended."
+                );
+            }
+
+            if (
+                !position ||
+                !Number.isFinite(
+                    position.x
+                ) ||
+                !Number.isFinite(
+                    position.y
+                ) ||
+                !Number.isFinite(
+                    position.z
+                )
+            ) {
+                throw new Error(
+                    "preparePosition() requires a finite x/y/z destination."
+                );
+            }
+
+            const target =
+                new BABYLON.Vector3(
+                    position.x,
+                    position.y,
+                    position.z
+                );
+
+            // Render-zone matching is intentional: these are the chunks that
+            // must physically exist when the player becomes visible again.
+            const destinationChunks =
+                buildingsConfig.filter(
+                    (chunk) => {
+                        const renderZone =
+                            getChunkZoneBox(
+                                chunk,
+                                "render"
+                            );
+
+                        return isPointInBox(
+                            target,
+                            renderZone.center,
+                            renderZone.size
+                        );
+                    }
+                );
+
+            if (
+                destinationChunks.length ===
+                0
+            ) {
+                console.warn(
+                    "[ChunkManager] No interior chunk matched elevator destination:",
+                    {
+                        x:
+                            target.x,
+                        y:
+                            target.y,
+                        z:
+                            target.z
+                    }
+                );
+
+                return {
+                    chunkNames: [],
+
+                    release() {
+                        // No chunks were pinned.
+                    }
+                };
+            }
+
+            destinationChunks.forEach(
+                (chunk) => {
+                    elevatorPinnedChunks.add(
+                        chunk
+                    );
+                }
+            );
+
+            let timeoutHandle =
+                null;
+
+            let released =
+                false;
+
+            const release =
+                () => {
+                    if (released) {
+                        return;
+                    }
+
+                    released =
+                        true;
+
+                    destinationChunks.forEach(
+                        (chunk) => {
+                            elevatorPinnedChunks.delete(
+                                chunk
+                            );
+                        }
+                    );
+                };
+
+            const timeoutPromise =
+                new Promise(
+                    (
+                        _resolve,
+                        reject
+                    ) => {
+                        timeoutHandle =
+                            window.setTimeout(
+                                () => {
+                                    reject(
+                                        new Error(
+                                            `Destination floor did not finish loading within ${Math.round(timeoutMs / 1000)} seconds.`
+                                        )
+                                    );
+                                },
+                                Math.max(
+                                    1000,
+                                    timeoutMs
+                                )
+                            );
+                    }
+                );
+
+            try {
+                await Promise.race([
+                    Promise.all(
+                        destinationChunks.map(
+                            ensureChunkInScene
+                        )
+                    ),
+
+                    timeoutPromise
+                ]);
+
+                console.log(
+                    "[ChunkManager] Elevator destination ready:",
+                    destinationChunks.map(
+                        (chunk) =>
+                            chunk.name
+                    )
+                );
+
+                return {
+                    chunkNames:
+                        destinationChunks.map(
+                            (chunk) =>
+                                chunk.name
+                        ),
+
+                    release
+                };
+            } catch (error) {
+                release();
+
+                throw error;
+            } finally {
+                if (
+                    timeoutHandle !==
+                    null
+                ) {
+                    window.clearTimeout(
+                        timeoutHandle
+                    );
+                }
+            }
         },
 
         getLoadedCount() {
@@ -1222,6 +1649,9 @@ export function initChunkManager(scene, player, BaseUrl) {
 
                     if (
                         !isInsideDisposeBox &&
+                        !elevatorPinnedChunks.has(
+                            chunk
+                        ) &&
                         chunk.status !==
                             "UNLOADED"
                     ) {

@@ -13,6 +13,7 @@ import { createMissionClient } from "./missions/missionClient.js";
 import { createExplorationClient } from "./exploration/explorationClient.js";
 import { createCampusQuizClient } from "./quiz/quizClient.js";
 import { createCarRaceClient } from "./racing/carRaceClient.js";
+import { createPropHuntClient } from "./propHunt/propHuntClient.js";
 
 export const remotePlayers = new Map();
 
@@ -1089,6 +1090,8 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             playerName: data.playerName,
             avatarKey: data.avatarKey || "default_avatar",
             inCarRace: false,
+            propHuntDisguised: false,
+            hiddenByPropHuntIsolation: false,
             nameTag: createNameTag(
                 rootMesh,
                 data.playerName,
@@ -1190,6 +1193,17 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
                             .setEnabled(true);
                     }
                 }
+            }
+        );
+
+    const propHuntClient =
+        createPropHuntClient(
+            scene,
+            localPlayer,
+            socket,
+            {
+                remotePlayers,
+                setFullMinigameState
             }
         );
 
@@ -1617,7 +1631,15 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
                 return;
             }
 
-            if (
+            const hiddenForPropHunt = Boolean(
+                remotePlayer.propHuntDisguised ||
+                remotePlayer.hiddenByPropHuntIsolation
+            );
+
+            if (hiddenForPropHunt) {
+                remotePlayer.rootMesh
+                    .setEnabled(false);
+            } else if (
                 !remotePlayer.rootMesh
                     .isEnabled()
             ) {
@@ -1635,6 +1657,12 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             const yDifference = normalizeAngle(remotePlayer.targetRotation.y - remotePlayer.rootMesh.rotation.y);
             remotePlayer.rootMesh.rotation.y = normalizeAngle(remotePlayer.rootMesh.rotation.y + yDifference * smoothing);
             remotePlayer.nameTag.updatePosition();
+
+            if (hiddenForPropHunt) {
+                remotePlayer.nameTag.setVisibility(0);
+                return;
+            }
+
             const playerDistance = BABYLON.Vector3.Distance(localPlayer.position, remotePlayer.rootMesh.position);
             const opacity = playerDistance <= NAME_FULL_VISIBILITY_DISTANCE
                 ? 1
@@ -1721,6 +1749,11 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
             if (!socket.connected || !multiplayerJoined) return false;
             return carRaceClient.requestStart();
         },
+        startPropHunt() {
+            if (!socket.connected || !multiplayerJoined) return false;
+            void propHuntClient.requestJoin();
+            return true;
+        },
         joinRlgl() {
             if (!socket.connected || !multiplayerJoined) return false;
             clientInRlgl = true;
@@ -1768,6 +1801,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         },
         dispose() {
 
+            propHuntClient.dispose();
             carRaceClient.dispose();
             campusQuizClient.dispose();
             explorationClient.dispose();

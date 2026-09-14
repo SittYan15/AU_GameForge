@@ -20,6 +20,13 @@ export class InputController {
         this.isFixedCamera = false;
         this.fixedCameraSnapshot = null;
 
+        // Prop Hunt is the one gameplay mode that intentionally uses TPS for
+        // active Hiders so they can see the disguised prop and its facing.
+        this.isPropHuntThirdPerson = false;
+        this.propHuntCameraSnapshot = null;
+        this.propHuntCameraTarget = null;
+        this.propHuntCameraCollisionObserver = null;
+        this.propHuntPreferredRadius = 4.2;
 
         this.scene.metadata =
             this.scene.metadata || {};
@@ -39,7 +46,8 @@ export class InputController {
             if (
                 evt.button === 0 &&
                 !this.isMobileDevice() &&
-                !this.isFixedCamera
+                !this.isFixedCamera &&
+                !this.isPropHuntThirdPerson
             ) {
                 this.scene
                     .getEngine()
@@ -95,6 +103,338 @@ export class InputController {
         }
     }
 
+
+
+    enterPropHuntThirdPerson() {
+        if (
+            this.isPropHuntThirdPerson ||
+            this.isFixedCamera
+        ) {
+            return;
+        }
+
+        this.propHuntCameraSnapshot = {
+            alpha:
+                this.camera.alpha,
+            beta:
+                this.camera.beta,
+            radius:
+                this.camera.radius,
+            lowerRadiusLimit:
+                this.camera.lowerRadiusLimit,
+            upperRadiusLimit:
+                this.camera.upperRadiusLimit,
+            lowerBetaLimit:
+                this.camera.lowerBetaLimit,
+            upperBetaLimit:
+                this.camera.upperBetaLimit,
+            panningSensibility:
+                this.camera.panningSensibility,
+            inertia:
+                this.camera.inertia,
+            checkCollisions:
+                Boolean(
+                    this.camera
+                        .checkCollisions
+                ),
+            collisionRadius:
+                this.camera
+                    .collisionRadius
+                    ?.clone?.() ||
+                null
+        };
+
+        this.isPropHuntThirdPerson =
+            true;
+
+        document.exitPointerLock?.();
+
+        if (
+            !this.propHuntCameraTarget
+        ) {
+            this.propHuntCameraTarget =
+                new BABYLON.TransformNode(
+                    "propHuntThirdPersonTarget",
+                    this.scene
+                );
+
+            this.propHuntCameraTarget.parent =
+                this.player;
+
+            this.propHuntCameraTarget.position
+                .copyFromFloats(
+                    0,
+                    -0.10,
+                    0
+                );
+        }
+
+        this.camera.lockedTarget =
+            this.propHuntCameraTarget;
+
+        this.camera.beta =
+            1.12;
+
+        this.camera.lowerBetaLimit =
+            0.58;
+
+        this.camera.upperBetaLimit =
+            1.48;
+
+        this.propHuntPreferredRadius =
+            4.2;
+
+        this.camera.radius =
+            this.propHuntPreferredRadius;
+
+        // Allow the camera to move closer when a wall is behind the Hider.
+        this.camera.lowerRadiusLimit =
+            0.70;
+
+        this.camera.upperRadiusLimit =
+            this.propHuntPreferredRadius;
+
+        this.camera.panningSensibility =
+            0;
+
+        this.camera.inertia =
+            0.55;
+
+        // Babylon camera collision is the first layer of protection.
+        this.camera.checkCollisions =
+            true;
+
+        this.camera.collisionRadius =
+            new BABYLON.Vector3(
+                0.28,
+                0.28,
+                0.28
+            );
+
+        const pointerInput =
+            this.camera.inputs
+                ?.attached
+                ?.pointers;
+
+        if (pointerInput) {
+            pointerInput.angularSensibilityX =
+                1150;
+
+            pointerInput.angularSensibilityY =
+                1150;
+        }
+
+        const canvas =
+            this.scene
+                .getEngine()
+                .getRenderingCanvas();
+
+        if (canvas) {
+            this.camera.attachControl(
+                canvas,
+                true
+            );
+        }
+
+        // Remove a stale observer before installing the v1.2 wall clamp.
+        if (
+            this.propHuntCameraCollisionObserver
+        ) {
+            this.scene
+                .onBeforeRenderObservable
+                .remove(
+                    this.propHuntCameraCollisionObserver
+                );
+
+            this.propHuntCameraCollisionObserver =
+                null;
+        }
+
+        // Second protection layer:
+        // cast one ray from the Hider toward the camera and dynamically pull
+        // the camera in front of the first collision wall.
+        //
+        // This runs only while Hider TPS is active.
+        this.propHuntCameraCollisionObserver =
+            this.scene
+                .onBeforeRenderObservable
+                .add(
+                    () => {
+                        if (
+                            !this.isPropHuntThirdPerson ||
+                            !this.propHuntCameraTarget
+                        ) {
+                            return;
+                        }
+
+                        const targetPosition =
+                            this.propHuntCameraTarget
+                                .getAbsolutePosition();
+
+                        const cameraPosition =
+                            this.camera
+                                .globalPosition;
+
+                        const direction =
+                            cameraPosition
+                                .subtract(
+                                    targetPosition
+                                );
+
+                        const currentDistance =
+                            direction.length();
+
+                        if (
+                            currentDistance <
+                            0.05
+                        ) {
+                            return;
+                        }
+
+                        direction.scaleInPlace(
+                            1 /
+                            currentDistance
+                        );
+
+                        const ray =
+                            new BABYLON.Ray(
+                                targetPosition,
+                                direction,
+                                this.propHuntPreferredRadius
+                            );
+
+                        const hit =
+                            this.scene
+                                .pickWithRay(
+                                    ray,
+                                    (mesh) => {
+                                        if (
+                                            !mesh ||
+                                            mesh ===
+                                                this.player ||
+                                            mesh.isDescendantOf
+                                                ?.(
+                                                    this.player
+                                                ) ||
+                                            !mesh.isEnabled
+                                                ?.() ||
+                                            !mesh.isVisible ||
+                                            !mesh.checkCollisions
+                                        ) {
+                                            return false;
+                                        }
+
+                                        return true;
+                                    }
+                                );
+
+                        const wallPadding =
+                            0.32;
+
+                        const desiredRadius =
+                            hit?.hit
+                                ? Math.max(
+                                    0.70,
+                                    hit.distance -
+                                        wallPadding
+                                )
+                                : this.propHuntPreferredRadius;
+
+                        // Move inward quickly to avoid wall clipping, then
+                        // restore smoothly when the wall is gone.
+                        const smoothing =
+                            hit?.hit
+                                ? 0.72
+                                : 0.16;
+
+                        this.camera.radius =
+                            BABYLON.Scalar.Lerp(
+                                this.camera.radius,
+                                desiredRadius,
+                                smoothing
+                            );
+                    }
+                );
+
+        // Hiders see their prop model, not the normal human model.
+        if (
+            this.player.characterMesh
+        ) {
+            this.player.characterMesh
+                .setEnabled(
+                    false
+                );
+        }
+    }
+
+
+    exitPropHuntThirdPerson() {
+        if (
+            !this.isPropHuntThirdPerson
+        ) {
+            return;
+        }
+
+        const snapshot =
+            this.propHuntCameraSnapshot;
+
+        this.propHuntCameraSnapshot =
+            null;
+
+        this.isPropHuntThirdPerson =
+            false;
+
+        if (
+            this.propHuntCameraCollisionObserver
+        ) {
+            this.scene
+                .onBeforeRenderObservable
+                .remove(
+                    this.propHuntCameraCollisionObserver
+                );
+
+            this.propHuntCameraCollisionObserver =
+                null;
+        }
+
+        // Restore the normal AU GameForge FPS camera.
+        this.applyFirstPersonMode();
+
+        if (snapshot) {
+            this.camera.alpha =
+                snapshot.alpha;
+
+            this.camera.beta =
+                snapshot.beta;
+
+            this.camera.checkCollisions =
+                snapshot.checkCollisions;
+
+            if (
+                snapshot.collisionRadius
+            ) {
+                this.camera.collisionRadius =
+                    snapshot
+                        .collisionRadius
+                        .clone();
+            }
+        } else {
+            this.camera.checkCollisions =
+                false;
+        }
+
+        const canvas =
+            this.scene
+                .getEngine()
+                .getRenderingCanvas();
+
+        if (canvas) {
+            this.camera.attachControl(
+                canvas,
+                true
+            );
+        }
+    }
 
 
     enterCampusQuizFixedCamera() {

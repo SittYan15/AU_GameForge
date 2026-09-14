@@ -1,4 +1,7 @@
 import * as BABYLON from "@babylonjs/core";
+import {
+    PLAYER_COLLIDER_HALF_HEIGHT
+} from "../grounding.js";
 
 // frontend/elevators/elevatorSystem.js
 
@@ -51,6 +54,98 @@ function wait(ms) {
     return new Promise((resolve) => {
         window.setTimeout(resolve, ms);
     });
+}
+
+// Only inspect the immediate destination floor. Never use the global grounding
+// ray here: it is intentionally very long and can see a lower floor through an
+// elevator shaft.
+function findElevatorLandingSurface(
+    scene,
+    target
+) {
+    const origin =
+        new BABYLON.Vector3(
+            target.x,
+            target.y + 0.4,
+            target.z
+        );
+
+    const ray =
+        new BABYLON.Ray(
+            origin,
+            BABYLON.Vector3.Down(),
+            2.4
+        );
+
+    const hits =
+        scene.multiPickWithRay(
+            ray,
+            (mesh) =>
+                mesh?.metadata
+                    ?.groundingRole ===
+                    "walkable" &&
+                mesh.isEnabled() &&
+                mesh.isVisible &&
+                mesh.isPickable
+        ) || [];
+
+    const hit =
+        hits
+            .filter(
+                (candidate) =>
+                    candidate.hit &&
+                    candidate.pickedPoint &&
+                    Math.abs(
+                        candidate
+                            .getNormal(
+                                true
+                            )
+                            ?.y ??
+                        0
+                    ) >=
+                        0.55
+            )
+            .sort(
+                (a, b) =>
+                    a.distance -
+                    b.distance
+            )[0];
+
+    if (!hit) {
+        return null;
+    }
+
+    const centerY =
+        hit.pickedPoint.y +
+        PLAYER_COLLIDER_HALF_HEIGHT;
+
+    // The configured elevator target should already be approximately one
+    // capsule half-height above this surface. Reject unrelated lower floors.
+    if (
+        Math.abs(
+            centerY -
+            target.y
+        ) >
+        1.35
+    ) {
+        return null;
+    }
+
+    return {
+        position: {
+            x:
+                target.x,
+            y:
+                centerY,
+            z:
+                target.z
+        },
+
+        meshName:
+            hit.pickedMesh
+                ?.name ||
+            "unknown"
+    };
 }
 
 function createStyles() {
@@ -616,6 +711,13 @@ export function createElevatorSystem(
         teleporting =
             true;
 
+        scene.metadata =
+            scene.metadata ||
+            {};
+
+        scene.metadata.elevatorTransitActive =
+            true;
+
         const originEntrance =
             activeEntrance;
 
@@ -661,7 +763,11 @@ export function createElevatorSystem(
                             floor.target,
                             {
                                 timeoutMs:
-                                    10_000
+                                    10_000,
+                                horizontalPadding:
+                                    0.75,
+                                verticalPadding:
+                                    2.25
                             }
                         );
             }
@@ -677,22 +783,49 @@ export function createElevatorSystem(
                 requestAnimationFrame
             );
 
+            const landing =
+                findElevatorLandingSurface(
+                    scene,
+                    floor.target
+                );
+
+            if (!landing) {
+                throw new Error(
+                    `No walkable landing surface was found near ${floor.title}. Refusing to teleport into an empty elevator shaft.`
+                );
+            }
+
+            console.log(
+                "[Elevator] Landing surface:",
+                {
+                    elevator:
+                        elevator.id,
+                    floor:
+                        floor.id,
+                    configuredTarget:
+                        floor.target,
+                    resolvedPosition:
+                        landing.position,
+                    groundMesh:
+                        landing.meshName
+                }
+            );
+
             ui.fadeMessage.textContent =
                 `Arriving at ${floor.title}...`;
 
             if (
-                typeof player.setGroundedPosition ===
+                typeof player.setExactTeleportPosition ===
                 "function"
             ) {
-                player.setGroundedPosition(
-                    floor.target,
-                    `elevator-${elevator.id}-${floor.id}`
+                player.setExactTeleportPosition(
+                    landing.position
                 );
             } else {
                 player.position.copyFromFloats(
-                    floor.target.x,
-                    floor.target.y,
-                    floor.target.z
+                    landing.position.x,
+                    landing.position.y,
+                    landing.position.z
                 );
             }
 
@@ -722,6 +855,9 @@ export function createElevatorSystem(
 
             destinationLease =
                 null;
+
+            scene.metadata.elevatorTransitActive =
+                false;
 
             player.isLocked =
                 previousLock;
@@ -765,6 +901,9 @@ export function createElevatorSystem(
 
             ui.fadeMessage.textContent =
                 "";
+
+            scene.metadata.elevatorTransitActive =
+                false;
 
             player.isLocked =
                 previousLock;

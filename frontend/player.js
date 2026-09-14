@@ -135,6 +135,43 @@ export const createPlayer = async (
         verticalVelocity = 0;
     };
 
+    // Elevator destinations are already validated against a nearby local
+    // walkable surface. Do not run the long grounding ray again here because
+    // an elevator shaft can let that ray fall through to a lower floor.
+    player.setExactTeleportPosition = (position) => {
+        const x =
+            Number(position?.x);
+
+        const y =
+            Number(position?.y);
+
+        const z =
+            Number(position?.z);
+
+        if (
+            !Number.isFinite(x) ||
+            !Number.isFinite(y) ||
+            !Number.isFinite(z)
+        ) {
+            throw new Error(
+                "Exact teleport requires finite x/y/z coordinates."
+            );
+        }
+
+        player.position.copyFromFloats(
+            x,
+            y,
+            z
+        );
+
+        verticalVelocity =
+            0;
+
+        player.computeWorldMatrix(
+            true
+        );
+    };
+
     scene.onBeforeRenderObservable.add(() => {
         // Campus Road Race owns the player capsule while active.
         //
@@ -144,7 +181,11 @@ export const createPlayer = async (
         // like a wall. Completely pause humanoid movement/gravity in race.
         if (
             scene.metadata
-                ?.carRaceActive
+                ?.carRaceActive ||
+            scene.metadata
+                ?.elevatorTransitActive ||
+            scene.metadata
+                ?.propHuntTeleportActive
         ) {
             verticalVelocity = 0;
             return;

@@ -874,18 +874,6 @@ export function registerCarRaceSocket(
 
             if (
                 socket.data
-                    .inPropHunt
-            ) {
-                socket.emit(
-                    "carRace:error",
-                    "Leave Campus Prop Hunt before starting the race."
-                );
-
-                return;
-            }
-
-            if (
-                socket.data
                     .inCarRace
             ) {
                 return;

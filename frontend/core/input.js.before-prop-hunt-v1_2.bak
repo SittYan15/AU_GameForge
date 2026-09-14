@@ -20,6 +20,11 @@ export class InputController {
         this.isFixedCamera = false;
         this.fixedCameraSnapshot = null;
 
+        // Prop Hunt is the one gameplay mode that intentionally uses TPS for
+        // active Hiders so they can see the disguised prop and its facing.
+        this.isPropHuntThirdPerson = false;
+        this.propHuntCameraSnapshot = null;
+        this.propHuntCameraTarget = null;
 
         this.scene.metadata =
             this.scene.metadata || {};
@@ -39,7 +44,8 @@ export class InputController {
             if (
                 evt.button === 0 &&
                 !this.isMobileDevice() &&
-                !this.isFixedCamera
+                !this.isFixedCamera &&
+                !this.isPropHuntThirdPerson
             ) {
                 this.scene
                     .getEngine()
@@ -95,6 +101,169 @@ export class InputController {
         }
     }
 
+
+
+    enterPropHuntThirdPerson() {
+        if (
+            this.isPropHuntThirdPerson ||
+            this.isFixedCamera
+        ) {
+            return;
+        }
+
+        this.propHuntCameraSnapshot = {
+            alpha:
+                this.camera.alpha,
+            beta:
+                this.camera.beta,
+            radius:
+                this.camera.radius,
+            lowerRadiusLimit:
+                this.camera.lowerRadiusLimit,
+            upperRadiusLimit:
+                this.camera.upperRadiusLimit,
+            lowerBetaLimit:
+                this.camera.lowerBetaLimit,
+            upperBetaLimit:
+                this.camera.upperBetaLimit,
+            panningSensibility:
+                this.camera.panningSensibility,
+            inertia:
+                this.camera.inertia
+        };
+
+        this.isPropHuntThirdPerson =
+            true;
+
+        document.exitPointerLock?.();
+
+        if (
+            !this.propHuntCameraTarget
+        ) {
+            this.propHuntCameraTarget =
+                new BABYLON.TransformNode(
+                    "propHuntThirdPersonTarget",
+                    this.scene
+                );
+
+            this.propHuntCameraTarget.parent =
+                this.player;
+
+            // Aim slightly above the floor so the prop stays near screen
+            // center instead of placing the camera at capsule/head height.
+            this.propHuntCameraTarget.position
+                .copyFromFloats(
+                    0,
+                    -0.10,
+                    0
+                );
+        }
+
+        this.camera.lockedTarget =
+            this.propHuntCameraTarget;
+
+        // Keep the player's current horizontal view direction, but pull the
+        // camera back enough to clearly see the prop.
+        this.camera.beta =
+            1.12;
+
+        this.camera.lowerBetaLimit =
+            0.58;
+
+        this.camera.upperBetaLimit =
+            1.48;
+
+        this.camera.radius =
+            4.2;
+
+        this.camera.lowerRadiusLimit =
+            3.0;
+
+        this.camera.upperRadiusLimit =
+            6.0;
+
+        this.camera.panningSensibility =
+            0;
+
+        this.camera.inertia =
+            0.65;
+
+        const pointerInput =
+            this.camera.inputs
+                ?.attached
+                ?.pointers;
+
+        if (pointerInput) {
+            pointerInput.angularSensibilityX =
+                1150;
+
+            pointerInput.angularSensibilityY =
+                1150;
+        }
+
+        const canvas =
+            this.scene
+                .getEngine()
+                .getRenderingCanvas();
+
+        if (canvas) {
+            this.camera.attachControl(
+                canvas,
+                true
+            );
+        }
+
+        // Hiders see their prop model, not the normal human model.
+        if (
+            this.player.characterMesh
+        ) {
+            this.player.characterMesh
+                .setEnabled(
+                    false
+                );
+        }
+    }
+
+
+    exitPropHuntThirdPerson() {
+        if (
+            !this.isPropHuntThirdPerson
+        ) {
+            return;
+        }
+
+        const snapshot =
+            this.propHuntCameraSnapshot;
+
+        this.propHuntCameraSnapshot =
+            null;
+
+        this.isPropHuntThirdPerson =
+            false;
+
+        // Restore the normal AU GameForge FPS camera.
+        this.applyFirstPersonMode();
+
+        if (snapshot) {
+            this.camera.alpha =
+                snapshot.alpha;
+
+            this.camera.beta =
+                snapshot.beta;
+        }
+
+        const canvas =
+            this.scene
+                .getEngine()
+                .getRenderingCanvas();
+
+        if (canvas) {
+            this.camera.attachControl(
+                canvas,
+                true
+            );
+        }
+    }
 
 
     enterCampusQuizFixedCamera() {

@@ -1401,7 +1401,9 @@ export function initChunkManager(scene, player, BaseUrl) {
         async preparePosition(
             position,
             {
-                timeoutMs = 10_000
+                timeoutMs = 10_000,
+                horizontalPadding = 0.75,
+                verticalPadding = 2.25
             } = {}
         ) {
             if (
@@ -1436,8 +1438,10 @@ export function initChunkManager(scene, player, BaseUrl) {
                     position.z
                 );
 
-            // Render-zone matching is intentional: these are the chunks that
-            // must physically exist when the player becomes visible again.
+            // Elevator destinations sit about one capsule half-height above
+            // the actual floor surface. The visible floor slab can belong to
+            // the chunk immediately below the destination center, so prepare a
+            // small neighborhood instead of matching one exact point.
             const destinationChunks =
                 buildingsConfig.filter(
                     (chunk) => {
@@ -1447,10 +1451,32 @@ export function initChunkManager(scene, player, BaseUrl) {
                                 "render"
                             );
 
+                        const paddedSize =
+                            new BABYLON.Vector3(
+                                renderZone.size.x +
+                                    Math.max(
+                                        0,
+                                        horizontalPadding
+                                    ) *
+                                        2,
+                                renderZone.size.y +
+                                    Math.max(
+                                        0,
+                                        verticalPadding
+                                    ) *
+                                        2,
+                                renderZone.size.z +
+                                    Math.max(
+                                        0,
+                                        horizontalPadding
+                                    ) *
+                                        2
+                            );
+
                         return isPointInBox(
                             target,
                             renderZone.center,
-                            renderZone.size
+                            paddedSize
                         );
                     }
                 );
@@ -1749,6 +1775,9 @@ export function initChunkManager(scene, player, BaseUrl) {
                     if (
                         !isInsideRenderBox &&
                         isInsideDisposeBox &&
+                        !elevatorPinnedChunks.has(
+                            chunk
+                        ) &&
                         chunk.status ===
                             "IN_SCENE"
                     ) {

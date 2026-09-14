@@ -19,10 +19,6 @@ import {
     checkCarRaceProgress,
     registerCarRaceSocket
 } from "../racing/raceManager.js";
-import {
-    registerPropHuntSocket,
-    validatePropHuntMovement
-} from "../propHunt/propHuntManager.js";
 
 const players = new Map();
 const activePlayerSockets = new Map();
@@ -603,31 +599,6 @@ export default function registerMultiplayerSocket(io) {
             }
         );
 
-        registerPropHuntSocket(
-            io,
-            socket,
-            () => players.get(socket.id),
-            {
-                onEnter() {
-                    cancelDynamicMissionForMinigame(socket);
-                },
-
-                onExit(player) {
-                    resumeDynamicMissionsAfterMinigame(
-                        io,
-                        socket,
-                        player
-                    );
-                },
-
-                onTeleport(player, position) {
-                    player.position = { ...position };
-                    socket.data.lastMoveAt = Date.now();
-                    broadcastPlayerPosition(io, player);
-                }
-            }
-        );
-
         socket.on("player:join", async (payload = {}) => {
             if (players.has(socket.id) || socket.data.joining) return;
 
@@ -773,20 +744,6 @@ export default function registerMultiplayerSocket(io) {
             const now = Date.now();
             const elapsedSeconds = Math.max((now - socket.data.lastMoveAt) / 1000, 1 / 60);
 
-            if (socket.data.inPropHunt) {
-                const validation = validatePropHuntMovement(
-                    socket,
-                    player,
-                    payload.position
-                );
-
-                if (!validation.ok) {
-                    socket.data.lastMoveAt = now;
-                    socket.emit("propHunt:correction", player.position);
-                    return;
-                }
-            }
-
             if (socket.data.inRlgl) {
                 const rlglElapsed = Math.min(elapsedSeconds, RLGL_MAX_MOVEMENT_ELAPSED_SECONDS);
                 const rlglAllowedDistance = RLGL_MAX_SPEED_UNITS_PER_SECOND * rlglElapsed + RLGL_MOVEMENT_TOLERANCE;
@@ -885,8 +842,7 @@ export default function registerMultiplayerSocket(io) {
             if (
                 !socket.data.inRlgl &&
                 !socket.data.inCampusQuiz &&
-                !socket.data.inCarRace &&
-                !socket.data.inPropHunt
+                !socket.data.inCarRace
             ) {
                 void checkCampusExplorationProgress(io, socket, player).then(({ completedNow } = {}) => {
                     if (completedNow) scheduleDynamicMission(io, socket, player, { minDelayMs: 8_000, maxDelayMs: 15_000 });
@@ -1001,11 +957,6 @@ export default function registerMultiplayerSocket(io) {
 
             if (socket.data.inCarRace) {
                 socket.emit("rlgl:error", "Exit the Campus Road Race before entering Red Light, Green Light.");
-                return;
-            }
-
-            if (socket.data.inPropHunt) {
-                socket.emit("rlgl:error", "Exit Campus Prop Hunt before entering Red Light, Green Light.");
                 return;
             }
 

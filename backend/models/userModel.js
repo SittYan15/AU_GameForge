@@ -126,6 +126,57 @@ export async function claimActiveSession(userId, sessionId, expiresAt) {
     return result.rowCount === 1;
 }
 
+export async function replaceActiveSession(userId, sessionId, expiresAt) {
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        // Serialize concurrent logins for the same account.
+        const previousResult = await client.query(
+            `SELECT active_session_id, active_session_expires_at
+             FROM users
+             WHERE id = $1
+             FOR UPDATE`,
+            [userId]
+        );
+
+        if (previousResult.rowCount !== 1) {
+            await client.query("ROLLBACK");
+            return null;
+        }
+
+        const previous = previousResult.rows[0];
+
+        await client.query(
+            `UPDATE users
+             SET active_session_id = $1,
+                 active_session_expires_at = $2,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            [sessionId, expiresAt, userId]
+        );
+
+        await client.query("COMMIT");
+
+        return {
+            previousSessionId: previous.active_session_id || null,
+            previousSessionExpiresAt: previous.active_session_expires_at || null
+        };
+    } catch (error) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            // Ignore rollback errors and preserve the original failure.
+        }
+
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+
 export async function clearActiveSession(userId, sessionId) {
     const result = await pool.query(
         `UPDATE users

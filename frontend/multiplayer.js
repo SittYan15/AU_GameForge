@@ -1157,7 +1157,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
     });
 
-    const explorationClient = createExplorationClient(socket);
+    const explorationClient = createExplorationClient(scene, socket);
 
     const campusQuizClient =
         createCampusQuizClient(

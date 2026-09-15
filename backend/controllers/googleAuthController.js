@@ -3,37 +3,89 @@ import crypto from "node:crypto";
 import { createAccessToken } from "../middleware/authToken.js";
 import { establishSession } from "../middleware/sessionAuth.js";
 import { createOrFindGoogleUser, upgradeGuestToGoogle } from "../models/googleAccountModel.js";
-import { claimActiveSession, clearActiveSession, findUserById, setActiveSessionExpiration } from "../models/userModel.js";
+import { clearActiveSession, findUserById, replaceActiveSession, setActiveSessionExpiration } from "../models/userModel.js";
 import { disconnectUserSession } from "../socket/multiplayerSocket.js";
+
+async function destroyRequestSession(req) {
+    await new Promise((resolve) => {
+        if (!req.session) {
+            resolve();
+            return;
+        }
+
+        req.session.destroy(() => resolve());
+    });
+}
 
 async function beginUserSession(req, profile) {
     const currentUser = await findUserById(profile.userId);
-    const existingSessionIsCurrent = req.session?.accountType === "user"
+
+    if (!currentUser) {
+        const error = new Error("Account not found.");
+        error.status = 404;
+        throw error;
+    }
+
+    const existingSessionIsCurrent =
+        req.session?.accountType === "user"
         && req.session.userId === profile.userId
-        && req.session.sessionId === currentUser?.activeSessionId
+        && req.session.sessionId === currentUser.activeSessionId
         && currentUser.activeSessionExpiresAt
         && new Date(currentUser.activeSessionExpiresAt) > new Date();
+
     if (existingSessionIsCurrent) {
-        return { ...profile, token: createAccessToken(profile.userId, req.session.sessionId) };
+        return {
+            ...profile,
+            token: createAccessToken(profile.userId, req.session.sessionId)
+        };
     }
 
     const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    if (!(await claimActiveSession(profile.userId, sessionId, expiresAt))) {
-        const error = new Error(
-            "This account is already logged in on another browser or device. Please log out from the existing session before logging in here."
-        );
-        error.status = 409;
-        throw error;
-    }
+
+    await establishSession(req, {
+        accountType: "user",
+        userId: profile.userId,
+        sessionId
+    });
+
+    let replacement;
+
     try {
-        await establishSession(req, { accountType: "user", userId: profile.userId, sessionId });
+        replacement = await replaceActiveSession(
+            profile.userId,
+            sessionId,
+            expiresAt
+        );
+
+        if (!replacement) {
+            const error = new Error("Account not found.");
+            error.status = 404;
+            throw error;
+        }
     } catch (error) {
-        await clearActiveSession(profile.userId, sessionId);
+        await destroyRequestSession(req);
         throw error;
     }
-    return { ...profile, token: createAccessToken(profile.userId, sessionId) };
+
+    const previousSessionId = replacement.previousSessionId;
+
+    if (previousSessionId && previousSessionId !== sessionId) {
+        disconnectUserSession(
+            profile.userId,
+            previousSessionId,
+            {
+                notifyReplacement: true
+            }
+        );
+    }
+
+    return {
+        ...profile,
+        token: createAccessToken(profile.userId, sessionId)
+    };
 }
+
 
 export async function googleLogin(req, res, next) {
     try {

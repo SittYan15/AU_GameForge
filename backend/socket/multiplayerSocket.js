@@ -7,6 +7,7 @@ import {
     cancelDynamicMissionForMinigame,
     checkDynamicMissionProgress,
     resumeDynamicMissionsAfterMinigame,
+    registerDynamicMissionSocket,
     scheduleDynamicMission,
     stopDynamicMissions
 } from "../missions/missionManager.js";
@@ -525,6 +526,12 @@ export default function registerMultiplayerSocket(io) {
     io.on("connection", (socket) => {
         socket.data.lastMoveAt = Date.now();
         socket.emit("chat:history", chatHistory);
+
+        registerDynamicMissionSocket(
+            io,
+            socket,
+            () => players.get(socket.id)
+        );
 
         registerCampusQuizSocket(
             io,
@@ -1182,10 +1189,50 @@ export default function registerMultiplayerSocket(io) {
 
 export { players };
 
-export function disconnectUserSession(userId, sessionId) {
-    if (!multiplayerIo) return;
+export function disconnectUserSession(
+    userId,
+    sessionId,
+    {
+        notifyReplacement = false
+    } = {}
+) {
+    if (!multiplayerIo || !sessionId) return;
+
+    const accountKey = `user:${userId}`;
+
     for (const socket of multiplayerIo.sockets.sockets.values()) {
-        if (socket.data.authUserId !== userId || socket.data.authSessionId !== sessionId) continue;
+        if (
+            socket.data.authUserId !== userId
+            || socket.data.authSessionId !== sessionId
+        ) {
+            continue;
+        }
+
+        // Release the account-key slot immediately so the replacement browser
+        // cannot be rejected by the duplicate-game-tab check while the old
+        // socket is shutting down.
+        if (activePlayerSockets.get(accountKey) === socket.id) {
+            activePlayerSockets.delete(accountKey);
+        }
+
+        if (notifyReplacement) {
+            socket.emit("auth:sessionReplaced", {
+                message:
+                    "Your account was signed in from another browser or device. "
+                    + "This session has been logged out."
+            });
+
+            // Give Socket.IO a short moment to flush the replacement event.
+            // The client also disconnects itself as soon as it receives it.
+            setTimeout(() => {
+                if (socket.connected) {
+                    socket.disconnect(true);
+                }
+            }, 150);
+
+            continue;
+        }
+
         socket.disconnect(true);
     }
 }

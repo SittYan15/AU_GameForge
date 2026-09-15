@@ -8,16 +8,25 @@ function reached(position, location) {
         && Math.abs(position.y - location.position.y) <= location.verticalTolerance;
 }
 
+function hasVisitedAllCurrentLocations(visitedIds) {
+    const visited = new Set(visitedIds);
+    return CAMPUS_EXPLORATION_LOCATIONS.every((location) =>
+        visited.has(location.id)
+    );
+}
+
 function publicState(visitedIds, completed) {
     const visited = new Set(visitedIds);
     return {
         completed,
         rewardPoints: EXPLORATION_REWARD_POINTS,
-        visitedCount: visited.size,
+        visitedCount: CAMPUS_EXPLORATION_LOCATIONS.filter((location) => visited.has(location.id)).length,
         totalCount: CAMPUS_EXPLORATION_LOCATIONS.length,
         locations: CAMPUS_EXPLORATION_LOCATIONS.map((location) => ({
             id: location.id,
             title: location.title,
+            position: { ...location.position },
+            horizontalRadius: location.horizontalRadius,
             visited: visited.has(location.id)
         }))
     };
@@ -25,10 +34,28 @@ function publicState(visitedIds, completed) {
 
 export async function initializeCampusExploration(socket, player) {
     const progress = await getExplorationProgress(player);
-    socket.data.explorationVisitedIds = new Set(progress.visitedIds);
-    socket.data.explorationCompleted = Boolean(progress.completed);
-    socket.emit("exploration:state", publicState(progress.visitedIds, progress.completed));
-    return { completed: Boolean(progress.completed) };
+
+    const currentIds = new Set(
+        CAMPUS_EXPLORATION_LOCATIONS.map((location) => location.id)
+    );
+
+    const visitedIds = progress.visitedIds.filter((id) =>
+        currentIds.has(id)
+    );
+
+    const completed =
+        Boolean(progress.completed)
+        && hasVisitedAllCurrentLocations(visitedIds);
+
+    socket.data.explorationVisitedIds = new Set(visitedIds);
+    socket.data.explorationCompleted = completed;
+
+    socket.emit(
+        "exploration:state",
+        publicState(visitedIds, completed)
+    );
+
+    return { completed };
 }
 
 export async function checkCampusExplorationProgress(io, socket, player) {
@@ -54,7 +81,7 @@ export async function checkCampusExplorationProgress(io, socket, player) {
             break;
         }
 
-        if (visited.size < CAMPUS_EXPLORATION_LOCATIONS.length) return { completedNow: false };
+        if (!hasVisitedAllCurrentLocations(visited)) return { completedNow: false };
 
         const reward = await completeExplorationAndReward(player, EXPLORATION_REWARD_POINTS);
         socket.data.explorationCompleted = true;

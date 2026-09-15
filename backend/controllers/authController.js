@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 import { createAccessToken } from "../middleware/authToken.js";
-import { claimActiveSession, clearActiveSession, createUser, findUserByUsername, publicUser, upgradeGuestToPasswordUser } from "../models/userModel.js";
+import { clearActiveSession, createUser, findUserByUsername, publicUser, replaceActiveSession, upgradeGuestToPasswordUser } from "../models/userModel.js";
 import { establishSession } from "../middleware/sessionAuth.js";
+import { disconnectUserSession } from "../socket/multiplayerSocket.js";
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,50}$/;
 
@@ -13,33 +14,80 @@ function credentials(body) {
     };
 }
 
+async function destroyRequestSession(req) {
+    await new Promise((resolve) => {
+        if (!req.session) {
+            resolve();
+            return;
+        }
+
+        req.session.destroy(() => resolve());
+    });
+}
+
 async function beginUserSession(req, user) {
-    const existingSessionIsCurrent = req.session?.accountType === "user"
+    const existingSessionIsCurrent =
+        req.session?.accountType === "user"
         && req.session.userId === user.id
         && req.session.sessionId === user.activeSessionId
         && user.activeSessionExpiresAt
         && new Date(user.activeSessionExpiresAt) > new Date();
+
     if (existingSessionIsCurrent) {
-        return { ...publicUser(user), token: createAccessToken(user.id, req.session.sessionId) };
+        return {
+            ...publicUser(user),
+            token: createAccessToken(user.id, req.session.sessionId)
+        };
     }
 
     const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
-    if (!(await claimActiveSession(user.id, sessionId, expiresAt))) {
-        const error = new Error(
-            "This account is already logged in on another browser or device. Please log out from the existing session before logging in here."
-        );
-        error.status = 409;
-        throw error;
-    }
+
+    // Create/save the new browser session first. If this fails, the current
+    // active session remains untouched.
+    await establishSession(req, {
+        accountType: "user",
+        userId: user.id,
+        sessionId
+    });
+
+    let replacement;
+
     try {
-        await establishSession(req, { accountType: "user", userId: user.id, sessionId });
+        replacement = await replaceActiveSession(
+            user.id,
+            sessionId,
+            expiresAt
+        );
+
+        if (!replacement) {
+            const error = new Error("Account not found.");
+            error.status = 404;
+            throw error;
+        }
     } catch (error) {
-        await clearActiveSession(user.id, sessionId);
+        await destroyRequestSession(req);
         throw error;
     }
-    return { ...publicUser(user), token: createAccessToken(user.id, sessionId) };
+
+    const previousSessionId = replacement.previousSessionId;
+
+    if (previousSessionId && previousSessionId !== sessionId) {
+        disconnectUserSession(
+            user.id,
+            previousSessionId,
+            {
+                notifyReplacement: true
+            }
+        );
+    }
+
+    return {
+        ...publicUser(user),
+        token: createAccessToken(user.id, sessionId)
+    };
 }
+
 
 export async function login(req, res, next) {
     try {

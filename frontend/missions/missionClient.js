@@ -16,6 +16,9 @@ export function createMissionClient(scene, localPlayer, socket) {
     let markerObserver = null;
     let statusTimer = null;
     let newMissionTimer = null;
+    let lookSampleTimer = null;
+    let lookProgressMs = 0;
+    let lookProgressLooking = false;
 
     const style = document.createElement("style");
     style.textContent = `
@@ -41,6 +44,39 @@ export function createMissionClient(scene, localPlayer, socket) {
 
         #dynamicMissionPanel.mission-new {
             animation: missionPop 360ms ease-out;
+        }
+
+        #dynamicMissionLookGuide {
+            display: none;
+            margin-top: 10px;
+            padding: 9px 10px;
+            border: 1px solid rgba(255,209,102,.28);
+            border-radius: 9px;
+            background: rgba(255,209,102,.07);
+        }
+
+        #dynamicMissionLookText {
+            margin-bottom: 6px;
+            color: #f6e7bd;
+            font-size: 11px;
+            font-weight: 850;
+            line-height: 1.35;
+        }
+
+        #dynamicMissionLookTrack {
+            width: 100%;
+            height: 7px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+        }
+
+        #dynamicMissionLookFill {
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background: #ffd166;
+            transition: width 90ms linear;
         }
 
         #dynamicMissionToast {
@@ -137,7 +173,29 @@ export function createMissionClient(scene, localPlayer, socket) {
     floorHint.style.textAlign = "right";
 
     details.append(reward, timer, distance, floorHint);
-    panel.append(badge, title, description, details);
+
+    const lookGuide = document.createElement("div");
+    lookGuide.id = "dynamicMissionLookGuide";
+
+    const lookText = document.createElement("div");
+    lookText.id = "dynamicMissionLookText";
+
+    const lookTrack = document.createElement("div");
+    lookTrack.id = "dynamicMissionLookTrack";
+
+    const lookFill = document.createElement("div");
+    lookFill.id = "dynamicMissionLookFill";
+
+    lookTrack.appendChild(lookFill);
+    lookGuide.append(lookText, lookTrack);
+
+    panel.append(
+        badge,
+        title,
+        description,
+        details,
+        lookGuide
+    );
     document.body.appendChild(panel);
 
     const toast = document.createElement("div");
@@ -173,6 +231,8 @@ export function createMissionClient(scene, localPlayer, socket) {
 
     function createMarker(mission) {
         clearMarker();
+
+        if (mission.showMarker === false) return;
 
         markerRoot = new BABYLON.TransformNode(
             `missionMarker_${mission.id}`,
@@ -240,14 +300,108 @@ export function createMissionClient(scene, localPlayer, socket) {
             const dt = scene.getEngine().getDeltaTime() / 1000;
             elapsed += dt;
             markerRoot.rotation.y += dt * 0.8;
-            orb.position.y = 3.4 + Math.sin(elapsed * 2.4) * 0.18;
+            orb.position.y =
+                3.4 + Math.sin(elapsed * 2.4) * 0.18;
         });
+    }
+
+    function clearLookSampleTimer() {
+        if (!lookSampleTimer) return;
+        window.clearInterval(lookSampleTimer);
+        lookSampleTimer = null;
+    }
+
+    function localMissionDistance(mission) {
+        if (!mission || !localPlayer) {
+            return {
+                horizontalDistance: Infinity,
+                verticalDifference: Infinity,
+                inRange: false
+            };
+        }
+
+        const dx = localPlayer.position.x - mission.position.x;
+        const dz = localPlayer.position.z - mission.position.z;
+        const horizontalDistance = Math.hypot(dx, dz);
+        const verticalDifference =
+            mission.position.y - localPlayer.position.y;
+
+        return {
+            horizontalDistance,
+            verticalDifference,
+            inRange:
+                horizontalDistance <= mission.horizontalRadius
+                && Math.abs(verticalDifference)
+                    <= mission.verticalTolerance
+        };
+    }
+
+    function sendLookSample() {
+        if (
+            !activeMission
+            || activeMission.type !== "look_at_target"
+            || !socket.connected
+        ) {
+            return;
+        }
+
+        const { horizontalDistance } =
+            localMissionDistance(activeMission);
+
+        if (
+            horizontalDistance
+            > activeMission.horizontalRadius + 2
+        ) {
+            return;
+        }
+
+        const camera = scene.activeCamera;
+        if (!camera) return;
+
+        const ray = camera.getForwardRay(1);
+        const origin = camera.globalPosition;
+        const direction = ray.direction.normalize();
+
+        socket.emit("mission:lookSample", {
+            origin: {
+                x: origin.x,
+                y: origin.y,
+                z: origin.z
+            },
+            direction: {
+                x: direction.x,
+                y: direction.y,
+                z: direction.z
+            }
+        });
+    }
+
+    function startLookSampleTimer() {
+        clearLookSampleTimer();
+
+        if (
+            !activeMission
+            || activeMission.type !== "look_at_target"
+        ) {
+            return;
+        }
+
+        lookSampleTimer = window.setInterval(
+            sendLookSample,
+            120
+        );
     }
 
     function clearMissionDisplay() {
         activeMission = null;
         panel.style.display = "none";
         clearMarker();
+        clearLookSampleTimer();
+
+        lookProgressMs = 0;
+        lookProgressLooking = false;
+        lookGuide.style.display = "none";
+        lookFill.style.width = "0%";
 
         if (statusTimer) {
             window.clearInterval(statusTimer);
@@ -260,28 +414,102 @@ export function createMissionClient(scene, localPlayer, socket) {
         }
     }
 
+    function updateLookMissionUi() {
+        if (
+            !activeMission
+            || activeMission.type !== "look_at_target"
+        ) {
+            lookGuide.style.display = "none";
+            return;
+        }
+
+        lookGuide.style.display = "block";
+
+        const { inRange } =
+            localMissionDistance(activeMission);
+
+        const requiredMs =
+            Number(activeMission.requiredLookMs) || 3000;
+
+        const percent = Math.max(
+            0,
+            Math.min(
+                100,
+                lookProgressMs / requiredMs * 100
+            )
+        );
+
+        lookFill.style.width = `${percent}%`;
+
+        if (!inRange) {
+            lookText.textContent =
+                `🔎 Find the ${activeMission.targetName || activeMission.title} statue and get within 10m.`;
+            lookFill.style.width = "0%";
+            return;
+        }
+
+        if (lookProgressLooking && lookProgressMs > 0) {
+            lookText.textContent =
+                `👀 Keep looking at ${activeMission.targetName || activeMission.title}... `
+                + `${(lookProgressMs / 1000).toFixed(1)} / `
+                + `${(requiredMs / 1000).toFixed(1)} sec`;
+            return;
+        }
+
+        lookText.textContent =
+            `👀 ${activeMission.targetName || activeMission.title} nearby — look directly at the statue for 3 seconds.`;
+    }
+
     function updateStatus() {
         if (!activeMission || !localPlayer) return;
 
         const now = Date.now();
-        timer.textContent = `⏱ ${formatTime(activeMission.expiresAt - now)}`;
+        timer.textContent =
+            `⏱ ${formatTime(activeMission.expiresAt - now)}`;
 
-        const dx = localPlayer.position.x - activeMission.position.x;
-        const dz = localPlayer.position.z - activeMission.position.z;
-        const horizontalDistance = Math.hypot(dx, dz);
-        const verticalDifference = activeMission.position.y - localPlayer.position.y;
+        const {
+            horizontalDistance,
+            verticalDifference,
+            inRange
+        } = localMissionDistance(activeMission);
 
-        distance.textContent = `📍 ${Math.round(horizontalDistance)}m away`;
+        if (activeMission.type === "look_at_target") {
+            distance.textContent =
+                inRange
+                    ? "📍 Statue nearby"
+                    : "🔎 Search campus";
 
-        if (Math.abs(verticalDifference) < 1.8) {
-            floorHint.textContent = "Same level";
-            floorHint.style.color = "#7ee787";
-        } else if (verticalDifference > 0) {
-            floorHint.textContent = `↑ ${Math.round(Math.abs(verticalDifference))}m`;
-            floorHint.style.color = "#8cc8ff";
+            floorHint.textContent =
+                inRange
+                    ? "Look at statue"
+                    : "";
+
+            floorHint.style.color =
+                inRange
+                    ? "#ffd166"
+                    : "#8cc8ff";
+
+            updateLookMissionUi();
         } else {
-            floorHint.textContent = `↓ ${Math.round(Math.abs(verticalDifference))}m`;
-            floorHint.style.color = "#8cc8ff";
+            distance.textContent =
+                `📍 ${Math.round(horizontalDistance)}m away`;
+
+            if (Math.abs(verticalDifference) < 1.8) {
+                floorHint.textContent = "Same level";
+                floorHint.style.color = "#7ee787";
+            } else if (verticalDifference > 0) {
+                floorHint.textContent =
+                    `↑ ${Math.round(
+                        Math.abs(verticalDifference)
+                    )}m`;
+                floorHint.style.color = "#8cc8ff";
+            } else {
+                floorHint.textContent =
+                    `↓ ${Math.round(
+                        Math.abs(verticalDifference)
+                    )}m`;
+                floorHint.style.color = "#8cc8ff";
+            }
         }
 
         if (now >= activeMission.expiresAt) {
@@ -293,10 +521,15 @@ export function createMissionClient(scene, localPlayer, socket) {
         clearMissionDisplay();
         activeMission = mission;
 
-        badge.textContent = "NEW CAMPUS MISSION";
+        badge.textContent =
+            mission.type === "look_at_target"
+                ? "NEW FINDING MISSION"
+                : "NEW CAMPUS MISSION";
+
         title.textContent = mission.title;
         description.textContent = mission.description;
-        reward.textContent = `⭐ +${mission.rewardPoints} points`;
+        reward.textContent =
+            `⭐ +${mission.rewardPoints} points`;
 
         panel.style.display = "block";
         panel.classList.remove("mission-new");
@@ -304,33 +537,87 @@ export function createMissionClient(scene, localPlayer, socket) {
         panel.classList.add("mission-new");
 
         createMarker(mission);
-        updateStatus();
 
-        statusTimer = window.setInterval(updateStatus, 250);
+        lookProgressMs = 0;
+        lookProgressLooking = false;
+
+        updateStatus();
+        startLookSampleTimer();
+
+        statusTimer = window.setInterval(
+            updateStatus,
+            250
+        );
+
         newMissionTimer = window.setTimeout(() => {
             badge.textContent = "ACTIVE MISSION";
         }, 4000);
     }
 
+    function onLookProgress({
+        id,
+        progressMs,
+        requiredMs,
+        inRange,
+        looking
+    } = {}) {
+        if (
+            !activeMission
+            || activeMission.type !== "look_at_target"
+            || id !== activeMission.id
+        ) {
+            return;
+        }
+
+        lookProgressMs = Math.max(
+            0,
+            Number(progressMs) || 0
+        );
+
+        lookProgressLooking = Boolean(looking);
+
+        if (Number.isFinite(Number(requiredMs))) {
+            activeMission.requiredLookMs =
+                Number(requiredMs);
+        }
+
+        if (!inRange) {
+            lookProgressMs = 0;
+            lookProgressLooking = false;
+        }
+
+        updateLookMissionUi();
+    }
+
     function onCompleted(result = {}) {
-        const points = Number(result.pointsEarned) || 0;
+        const points =
+            Number(result.pointsEarned) || 0;
+
         clearMissionDisplay();
 
         showToast(
             result.rewardSaved
                 ? `✓ MISSION COMPLETE  +${points} POINTS`
                 : "✓ MISSION COMPLETE — reward could not be saved",
-            result.rewardSaved ? "#7ee787" : "#ffcc66"
+            result.rewardSaved
+                ? "#7ee787"
+                : "#ffcc66"
         );
 
-        window.dispatchEvent(new CustomEvent("mission:completed", {
-            detail: result
-        }));
+        window.dispatchEvent(
+            new CustomEvent(
+                "mission:completed",
+                { detail: result }
+            )
+        );
     }
 
     function onExpired() {
         clearMissionDisplay();
-        showToast("MISSION EXPIRED", "#ff7b72");
+        showToast(
+            "MISSION EXPIRED",
+            "#ff7b72"
+        );
     }
 
     function onCancelled({ reason } = {}) {
@@ -349,6 +636,7 @@ export function createMissionClient(scene, localPlayer, socket) {
     }
 
     socket.on("mission:assigned", onAssigned);
+    socket.on("mission:lookProgress", onLookProgress);
     socket.on("mission:completed", onCompleted);
     socket.on("mission:expired", onExpired);
     socket.on("mission:cancelled", onCancelled);
@@ -359,6 +647,7 @@ export function createMissionClient(scene, localPlayer, socket) {
             clearMissionDisplay();
 
             socket.off("mission:assigned", onAssigned);
+            socket.off("mission:lookProgress", onLookProgress);
             socket.off("mission:completed", onCompleted);
             socket.off("mission:expired", onExpired);
             socket.off("mission:cancelled", onCancelled);

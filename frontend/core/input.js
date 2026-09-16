@@ -14,6 +14,8 @@ export class InputController {
         this.player = player;
         this.headNode = headNode;
         this.inputMap = sharedInputMap;
+        this.iosFullscreenActive = false;
+        this.iosFullscreenCleanup = null;
 
         // Campus Quiz can temporarily switch the same ArcRotateCamera
         // from FPS into a locked arena overview and then restore FPS.
@@ -226,6 +228,7 @@ export class InputController {
             () => {
                 const active =
                     Boolean(
+                        this.iosFullscreenActive ||
                         document.fullscreenElement ||
                         document.webkitFullscreenElement ||
                         document.mozFullScreenElement ||
@@ -259,6 +262,11 @@ export class InputController {
 
         document.addEventListener(
             "webkitfullscreenchange",
+            updateLabel
+        );
+
+        document.addEventListener(
+            "iosfullscreenchange",
             updateLabel
         );
 
@@ -651,6 +659,217 @@ export class InputController {
         );
     }
 
+    isIPhoneIOS() {
+        return /iPhone|iPod/i.test(
+            navigator.userAgent || ""
+        );
+    }
+
+    enterIOSFullscreen() {
+        if (this.iosFullscreenActive) {
+            return;
+        }
+
+        const viewport =
+            document.getElementById(
+                "gameViewport"
+            );
+
+        if (!viewport) {
+            return;
+        }
+
+        const root = document.documentElement;
+        const body = document.body;
+        const engine = this.scene.getEngine();
+        const visualViewport =
+            window.visualViewport;
+        const previousViewportStyles = {
+            height: viewport.style.getPropertyValue(
+                "--ios-viewport-height"
+            ),
+            top: viewport.style.getPropertyValue(
+                "--ios-viewport-offset-top"
+            ),
+            left: viewport.style.getPropertyValue(
+                "--ios-viewport-offset-left"
+            )
+        };
+        let resizeFrame = null;
+        let orientationTimer = null;
+
+        const resizeToAvailableViewport = () => {
+            const height = Math.round(
+                visualViewport?.height ||
+                window.innerHeight
+            );
+            const offsetTop = Math.round(
+                visualViewport?.offsetTop || 0
+            );
+            const offsetLeft = Math.round(
+                visualViewport?.offsetLeft || 0
+            );
+
+            viewport.style.setProperty(
+                "--ios-viewport-height",
+                `${height}px`
+            );
+            viewport.style.setProperty(
+                "--ios-viewport-offset-top",
+                `${offsetTop}px`
+            );
+            viewport.style.setProperty(
+                "--ios-viewport-offset-left",
+                `${offsetLeft}px`
+            );
+
+            engine.resize();
+        };
+
+        const scheduleResize = () => {
+            if (resizeFrame !== null) {
+                window.cancelAnimationFrame(
+                    resizeFrame
+                );
+            }
+
+            resizeFrame =
+                window.requestAnimationFrame(
+                    () => {
+                        resizeFrame = null;
+                        resizeToAvailableViewport();
+                    }
+                );
+        };
+
+        const handleOrientationChange = () => {
+            scheduleResize();
+            window.clearTimeout(
+                orientationTimer
+            );
+            orientationTimer =
+                window.setTimeout(
+                    scheduleResize,
+                    250
+                );
+        };
+
+        this.iosFullscreenActive = true;
+        root.classList.add(
+            "ios-fullscreen-mode"
+        );
+        body.classList.add(
+            "ios-fullscreen-mode"
+        );
+        viewport.classList.add(
+            "ios-fullscreen-mode"
+        );
+
+        window.addEventListener(
+            "resize",
+            scheduleResize
+        );
+        window.addEventListener(
+            "orientationchange",
+            handleOrientationChange
+        );
+        visualViewport?.addEventListener(
+            "resize",
+            scheduleResize
+        );
+        visualViewport?.addEventListener(
+            "scroll",
+            scheduleResize
+        );
+
+        this.iosFullscreenCleanup = () => {
+            window.removeEventListener(
+                "resize",
+                scheduleResize
+            );
+            window.removeEventListener(
+                "orientationchange",
+                handleOrientationChange
+            );
+            visualViewport?.removeEventListener(
+                "resize",
+                scheduleResize
+            );
+            visualViewport?.removeEventListener(
+                "scroll",
+                scheduleResize
+            );
+            window.clearTimeout(
+                orientationTimer
+            );
+
+            if (resizeFrame !== null) {
+                window.cancelAnimationFrame(
+                    resizeFrame
+                );
+            }
+
+            root.classList.remove(
+                "ios-fullscreen-mode"
+            );
+            body.classList.remove(
+                "ios-fullscreen-mode"
+            );
+            viewport.classList.remove(
+                "ios-fullscreen-mode"
+            );
+
+            const restoreProperty = (
+                name,
+                value
+            ) => {
+                if (value) {
+                    viewport.style.setProperty(
+                        name,
+                        value
+                    );
+                } else {
+                    viewport.style.removeProperty(
+                        name
+                    );
+                }
+            };
+
+            restoreProperty(
+                "--ios-viewport-height",
+                previousViewportStyles.height
+            );
+            restoreProperty(
+                "--ios-viewport-offset-top",
+                previousViewportStyles.top
+            );
+            restoreProperty(
+                "--ios-viewport-offset-left",
+                previousViewportStyles.left
+            );
+
+            this.iosFullscreenActive = false;
+            this.iosFullscreenCleanup = null;
+            engine.resize();
+            document.dispatchEvent(
+                new Event(
+                    "iosfullscreenchange"
+                )
+            );
+        };
+
+        resizeToAvailableViewport();
+        document.dispatchEvent(
+            new Event(
+                "iosfullscreenchange"
+            )
+        );
+    }
+
+    exitIOSFullscreen() {
+        this.iosFullscreenCleanup?.();
+    }
+
     toggleFullScreen() {
         const doc =
             window.document;
@@ -670,11 +889,66 @@ export class InputController {
             doc.webkitExitFullscreen ||
             doc.msExitFullscreen;
 
+        const fullscreenElement =
+            doc.fullscreenElement ||
+            doc.mozFullScreenElement ||
+            doc.webkitFullscreenElement ||
+            doc.msFullscreenElement;
+
+        if (this.iosFullscreenActive) {
+            this.exitIOSFullscreen();
+            return;
+        }
+
         if (
-            !doc.fullscreenElement &&
-            !doc.mozFullScreenElement &&
-            !doc.webkitFullscreenElement &&
-            !doc.msFullscreenElement
+            this.isIPhoneIOS() &&
+            !fullscreenElement
+        ) {
+            const fullscreenEnabled =
+                doc.fullscreenEnabled === true ||
+                doc.webkitFullscreenEnabled === true;
+
+            if (
+                !requestFullScreen ||
+                !fullscreenEnabled
+            ) {
+                this.enterIOSFullscreen();
+                return;
+            }
+
+            try {
+                const request =
+                    requestFullScreen.call(
+                        docEl
+                    );
+
+                Promise.resolve(request).then(
+                    () => {
+                        if (
+                            !doc.fullscreenElement &&
+                            !doc.webkitFullscreenElement
+                        ) {
+                            this.enterIOSFullscreen();
+                        }
+                    },
+                    () => {
+                        if (
+                            !doc.fullscreenElement &&
+                            !doc.webkitFullscreenElement
+                        ) {
+                            this.enterIOSFullscreen();
+                        }
+                    }
+                );
+            } catch {
+                this.enterIOSFullscreen();
+            }
+
+            return;
+        }
+
+        if (
+            !fullscreenElement
         ) {
             if (
                 requestFullScreen

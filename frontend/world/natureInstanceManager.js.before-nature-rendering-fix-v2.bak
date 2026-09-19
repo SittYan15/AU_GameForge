@@ -498,14 +498,6 @@ export function initNatureInstanceManager(
             const template =
                 await promise;
 
-            if (disposed) {
-                template.container?.dispose();
-                templates.delete(
-                    type
-                );
-                return null;
-            }
-
             templates.set(
                 type,
                 template
@@ -521,30 +513,6 @@ export function initNatureInstanceManager(
         }
     }
 
-    function configureNatureMesh(
-        mesh
-    ) {
-        mesh.isPickable =
-            false;
-
-        mesh.checkCollisions =
-            false;
-
-        mesh.alwaysSelectAsActiveMesh =
-            false;
-
-        if (
-            mesh.getTotalVertices?.() >
-                0
-            && !mesh.material
-        ) {
-            console.warn(
-                "[Nature] Mesh has no material:",
-                mesh.name
-            );
-        }
-    }
-
     function configureInstantiatedMeshes(
         roots
     ) {
@@ -553,21 +521,32 @@ export function initNatureInstanceManager(
                 root.isPickable =
                     false;
 
-                if (
-                    root.getTotalVertices?.() >
-                        0
-                ) {
-                    configureNatureMesh(
-                        root
-                    );
-                }
-
                 const meshes =
                     root.getChildMeshes?.()
                     || [];
 
                 meshes.forEach(
-                    configureNatureMesh
+                    (mesh) => {
+                        mesh.isPickable =
+                            false;
+
+                        mesh.checkCollisions =
+                            false;
+
+                        mesh.alwaysSelectAsActiveMesh =
+                            false;
+
+                        if (
+                            mesh.getTotalVertices?.() >
+                                0
+                            && !mesh.material
+                        ) {
+                            console.warn(
+                                "[Nature] Mesh has no material:",
+                                mesh.name
+                            );
+                        }
+                    }
                 );
             }
         );
@@ -594,10 +573,11 @@ export function initNatureInstanceManager(
                     (sourceName) =>
                         `${placement.id}_${sourceName}`,
 
-                    // Share the AssetContainer materials/textures between all
-                    // placements of this GLB. The container stays alive until
-                    // the nature manager itself is disposed.
-                    false,
+                    // Clone material objects into the live scene. Textures and
+                    // geometry remain shared, but each instantiated hierarchy
+                    // keeps its proper GLB materials instead of falling back
+                    // to Babylon's gray default material.
+                    true,
 
                     {
                         doNotInstantiate:
@@ -658,12 +638,9 @@ export function initNatureInstanceManager(
                 placementRoot,
 
             dispose() {
-                // Remove only this streamed placement hierarchy.
-                // Do not dispose shared materials/textures here, because other
-                // active trees/plants still use the AssetContainer resources.
                 placementRoot.dispose(
                     false,
-                    false
+                    true
                 );
 
                 entries.animationGroups

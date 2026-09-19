@@ -30,7 +30,8 @@ const NATURE_ASSETS = Object.freeze({
     coconutSingle: Object.freeze({
         label: "Coconut Single",
         rootUrl: "/nature/",
-        filename: "coconut_single.glb"
+        filename: "coconut_single.glb",
+        cacheVersion: "coconut-single-v2"
     }),
 
     coconutDouble: Object.freeze({
@@ -269,23 +270,23 @@ function makeStoneSource(scene) {
 
     material.diffuseColor =
         new BABYLON.Color3(
-            0.36,
-            0.35,
-            0.32
+            0.48,
+            0.48,
+            0.48
         );
 
     material.emissiveColor =
         new BABYLON.Color3(
-            0.025,
-            0.025,
-            0.02
+            0.018,
+            0.018,
+            0.018
         );
 
     material.specularColor =
         new BABYLON.Color3(
-            0.05,
-            0.05,
-            0.05
+            0.06,
+            0.06,
+            0.06
         );
 
     stone.material =
@@ -317,12 +318,21 @@ async function loadGlbTemplate(
     definition,
     type
 ) {
+    const sceneFilename =
+        definition.cacheVersion
+            ? `${definition.filename}?v=${encodeURIComponent(
+                definition.cacheVersion
+            )}`
+            : definition.filename;
+
     const container =
         await BABYLON.SceneLoader
             .LoadAssetContainerAsync(
                 definition.rootUrl,
-                definition.filename,
-                scene
+                sceneFilename,
+                scene,
+                undefined,
+                ".glb"
             );
 
     // Keep the GLB as an AssetContainer template. We can compute bounds

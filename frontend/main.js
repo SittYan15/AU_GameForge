@@ -16,6 +16,7 @@ import { createElevatorSystem } from "./elevators/elevatorSystem.js";
 // World Systems
 import { createMainScene } from "./world/scene.js";
 import { initChunkManager } from "./world/chunkManager.js";
+import { initNatureInstanceManager } from "./world/natureInstanceManager.js";
 import {
     clearTabAuthentication,
     completeMovementTutorial,
@@ -26,8 +27,8 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-// const BaseUrl = "./au_campus/";
+// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
+const BaseUrl = "./au_campus/";
 
 let multiplayer = null;
 let currentSession = null;
@@ -142,6 +143,16 @@ async function startGame(session) {
 
         setStartupStage("Starting chunk manager");
         initChunkManager(scene, player, BaseUrl);
+
+        setStartupStage("Initializing nature instances");
+        const natureManager =
+            initNatureInstanceManager(
+                scene,
+                player
+            );
+
+        window.natureInstanceManager =
+            natureManager;
 
         setStartupStage("Initializing multiplayer");
 

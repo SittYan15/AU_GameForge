@@ -27,8 +27,9 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-// const BaseUrl = "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
-const BaseUrl = "./au_campus/";
+const BaseUrl = process.env.NODE_ENV === 'development' 
+    ? "./au_campus/" 
+    : "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
 
 let multiplayer = null;
 let currentSession = null;

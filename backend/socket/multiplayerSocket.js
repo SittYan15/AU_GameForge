@@ -670,9 +670,7 @@ export default function registerMultiplayerSocket(io) {
                 return;
             }
             if (accountType === "user"
-                && (!account.activeSessionId || account.activeSessionId !== tokenIdentity.sessionId
-                    || !account.activeSessionExpiresAt
-                    || new Date(account.activeSessionExpiresAt) <= new Date())) {
+                && (!account.activeSessionId || account.activeSessionId !== tokenIdentity.sessionId)) {
                 socket.emit("auth:sessionReplaced", {
                     message: "Your account was logged in from another browser or device. Please log in again."
                 });

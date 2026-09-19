@@ -8,8 +8,7 @@ export async function requireSession(req, res, next) {
     if (req.session.accountType !== "user") return next();
     try {
         const user = await findUserById(req.session.userId);
-        if (user?.activeSessionId && user.activeSessionId === req.session.sessionId
-            && user.activeSessionExpiresAt && new Date(user.activeSessionExpiresAt) > new Date()) return next();
+        if (user?.activeSessionId && user.activeSessionId === req.session.sessionId) return next();
         const response = {
             error: "Your account was logged in from another browser or device. Please log in again.",
             code: SESSION_REPLACED_CODE

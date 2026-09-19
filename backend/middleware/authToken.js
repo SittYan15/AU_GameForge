@@ -38,8 +38,7 @@ export async function requireUser(req, res, next) {
     try {
         const user = await findUserById(identity.userId);
         if (!user) return res.status(401).json({ error: "User not found." });
-        if (!user.activeSessionId || user.activeSessionId !== identity.sessionId
-            || !user.activeSessionExpiresAt || new Date(user.activeSessionExpiresAt) <= new Date()) {
+        if (!user.activeSessionId || user.activeSessionId !== identity.sessionId) {
             return res.status(401).json({
                 error: "Your account was logged in from another browser or device. Please log in again.",
                 code: SESSION_REPLACED_CODE

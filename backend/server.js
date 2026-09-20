@@ -34,9 +34,9 @@ const sessionMiddleware = session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        // Production API requests are proxied through the frontend origin so
-        // Safari can use this as a first-party session cookie.
-        sameSite: "lax",
+        // Production commonly serves Vite and the API from different sites.
+        // Cross-site credentialed requests require SameSite=None + Secure.
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 8 * 60 * 60 * 1000
     }
 });

@@ -27,9 +27,7 @@ npm install
 cp .env.example .env
 ```
 
-Set `DATABASE_URL` in `backend/.env`. Never commit the real `.env`. Set `DATABASE_SSL=true` only when the database provider requires TLS. `CLIENT_ORIGIN` accepts comma-separated origins. For local development, set `VITE_API_URL` and `VITE_SOCKET_URL` to the backend's HTTP(S) URL (not `ws://`). The legacy `VITE_SERVER_URL` remains supported locally.
-
-In production, browser API calls use the same-origin `/api` path. The root `render.yaml` proxies that path from the `au-gameforge` static site to the backend so Safari stores the HTTP-only session as a first-party cookie. Socket.IO still connects directly to the backend using `VITE_SOCKET_URL` (or the existing `VITE_SERVER_URL`) and authenticates with a signed player token.
+Set `DATABASE_URL` in `backend/.env`. Never commit the real `.env`. Set `DATABASE_SSL=true` only when the database provider requires TLS. `CLIENT_ORIGIN` accepts comma-separated origins. Set `VITE_SERVER_URL` to the backend's HTTP(S) URL (not `ws://`).
 
 Run each command in a separate terminal:
 
@@ -58,7 +56,7 @@ Registered accounts live in the `users` table and use bcrypt hashes in `password
    ```
 
 7. Test registered-user points with `PATCH /api/users/USER_ID/points` and the same `{ "pointsToAdd": 10 }` body.
-8. For two computers on one LAN, run Vite with `--host`, set `VITE_API_URL=http://HOST_LAN_IP:3000` and `VITE_SOCKET_URL=http://HOST_LAN_IP:3000`, set backend `CLIENT_ORIGIN=http://HOST_LAN_IP:5173`, restart both services, allow ports 3000 and 5173 through the firewall, then browse to `http://HOST_LAN_IP:5173` on both devices.
+8. For two computers on one LAN, run Vite with `--host`, set `VITE_SERVER_URL=http://HOST_LAN_IP:3000`, set backend `CLIENT_ORIGIN=http://HOST_LAN_IP:5173`, restart both services, allow ports 3000 and 5173 through the firewall, then browse to `http://HOST_LAN_IP:5173` on both devices.
 
 ## API responses
 
@@ -74,7 +72,7 @@ Registered accounts live in the `users` table and use bcrypt hashes in `password
 - `relation guest_users does not exist`: run `psql -d au_gameforge -f backend/schema.sql` against the same database in `DATABASE_URL`.
 - PostgreSQL authentication/connection refused: verify username, password, host, port, database name, and that PostgreSQL is running.
 - CORS error: add the browser's exact origin (including protocol and port) to `CLIENT_ORIGIN`, then restart the backend.
-- Socket connection fails in production: use an `https://` backend URL in `VITE_SOCKET_URL`; the client negotiates Socket.IO transport itself.
+- Socket connection fails in production: use an `https://` backend URL in `VITE_SERVER_URL`; the client negotiates Socket.IO transport itself.
 - Other computers cannot connect: use the host's LAN IP rather than `localhost`, bind Vite with `--host`, and check the firewall.
 - Remote model or animations missing: confirm `frontend/public/BoyAnimV2.4.glb` exists and contains animation group names including `idle`, `walk`, and `run`.
 - `POST /api/auth/login` verifies a registered user's bcrypt hash (`200`) or rejects invalid credentials (`401`).

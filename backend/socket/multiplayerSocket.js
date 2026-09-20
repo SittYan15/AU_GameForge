@@ -1,4 +1,4 @@
-import { verifyAccessToken, verifyGuestAccessToken } from "../middleware/authToken.js";
+import { verifyAccessToken } from "../middleware/authToken.js";
 import { getConvertedUserForGuest } from "../models/googleAccountModel.js";
 import { findGuestById, addGuestPoints } from "../models/guestModel.js";
 import { findUserById, addUserPoints, setActiveSessionExpiration } from "../models/userModel.js";
@@ -641,12 +641,8 @@ export default function registerMultiplayerSocket(io) {
             const accountType = payload.accountType;
             const guestSession = socket.request.session;
             const tokenIdentity = accountType === "user" ? verifyAccessToken(socket.handshake.auth?.token) : null;
-            const guestTokenIdentity = accountType === "guest"
-                ? verifyGuestAccessToken(socket.handshake.auth?.token)
-                : null;
             if (accountType !== "guest" && accountType !== "user") return;
             if (accountType === "guest"
-                && !guestTokenIdentity
                 && (guestSession?.accountType !== "guest" || !Number.isSafeInteger(guestSession.guestId))) {
                 socket.emit("player:joinError", "An authenticated guest session is required.");
                 return;
@@ -660,7 +656,7 @@ export default function registerMultiplayerSocket(io) {
             let account;
             try {
                 account = accountType === "guest"
-                    ? await findGuestById(guestTokenIdentity?.guestId ?? guestSession.guestId)
+                    ? await findGuestById(guestSession.guestId)
                     : await findUserById(tokenIdentity.userId);
             } catch (error) {
                 console.error("Could not verify multiplayer account:", error.message);
@@ -711,8 +707,6 @@ export default function registerMultiplayerSocket(io) {
                         console.error("Could not revalidate multiplayer session:", error.message);
                     }
                 }, 5000);
-            } else {
-                socket.data.authGuestId = account.id;
             }
 
             const accountKey = accountType === "user"
@@ -959,9 +953,7 @@ export default function registerMultiplayerSocket(io) {
             try {
                 let profile;
                 if (player.accountType === "guest") {
-                    const sessionMatches = guestSession?.accountType === "guest"
-                        && guestSession.guestId === player.guestId;
-                    if (!sessionMatches && socket.data.authGuestId !== player.guestId) return;
+                    if (guestSession?.accountType !== "guest" || guestSession.guestId !== player.guestId) return;
                     profile = await findGuestById(player.guestId);
                     if (!profile || profile.convertedToUserId) return;
                 } else {

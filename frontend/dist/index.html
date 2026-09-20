@@ -3,7 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#2c2c2c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AU GameForge">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
     <title>AU Gameforge Multiplayer</title>
     <style>
         html,
@@ -22,6 +30,53 @@
             width: 100%;
             height: 100%;
             touch-action: none;
+        }
+
+        #gameViewport {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        html.ios-fullscreen-mode,
+        body.ios-fullscreen-mode {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        #gameViewport.ios-fullscreen-mode {
+            position: fixed;
+            inset: 0;
+            top: var(--ios-viewport-offset-top, 0px);
+            left: var(--ios-viewport-offset-left, 0px);
+            /* Body-level HUD panels such as Top Players must stay above the canvas. */
+            z-index: 0;
+            box-sizing: border-box;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            height: var(--ios-viewport-height, 100dvh);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #2c2c2c;
+        }
+
+        #gameViewport.ios-fullscreen-mode #renderCanvas {
+            display: block;
+        }
+
+        body.ios-fullscreen-mode #orientation-overlay {
+            box-sizing: border-box;
+            padding: env(safe-area-inset-top)
+                env(safe-area-inset-right)
+                env(safe-area-inset-bottom)
+                env(safe-area-inset-left);
         }
 
         [hidden] { display: none !important; }
@@ -587,8 +642,6 @@
         }
     </style>
 
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <style id="auUnifiedUiStyle">
         /* =====================================================
            AU GAMEFORGE UNIFIED FLOATING UI v4.3
@@ -851,7 +904,7 @@
         }
     </style>
 
-  <script type="module" crossorigin src="/assets/index-BCrGrVNs.js"></script>
+  <script type="module" crossorigin src="/assets/index-DNfubmyC.js"></script>
 </head>
 
 <body>
@@ -909,6 +962,7 @@
         </div>
     </div>
 
+    <div id="gameViewport" class="game-ui" hidden>
     <!-- ORIENTATION OVERLAY -->
     <div id="orientation-overlay" class="game-ui" hidden>
         <!-- A simple SVG icon of a phone rotating -->
@@ -1019,6 +1073,7 @@
             </div>
             <div id="btn-cam" class="m-btn" style="top: 10px; right: 10px; width: 60px; font-size: 14px;">Cam</div>
         </div>
+    </div>
     </div>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>

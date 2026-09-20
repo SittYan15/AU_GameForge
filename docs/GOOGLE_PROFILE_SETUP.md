@@ -24,7 +24,8 @@ NODE_ENV=development
 Frontend `.env`:
 
 ```env
-VITE_SERVER_URL=http://localhost:3000
+VITE_API_URL=http://localhost:3000
+VITE_SOCKET_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=000000000000-example.apps.googleusercontent.com
 ```
 
@@ -62,7 +63,7 @@ The migration keeps password accounts, adds nullable Google identity fields, add
 
 Guest create/restore now establishes an HTTP-only session cookie. The upgrade endpoint never accepts a guest code or guest ID from the request. For an existing Google account it returns `409` with the registered, guest, and combined point totals until the player confirms the merge.
 
-The application session is stored server-side and referenced by an HTTP-only, SameSite cookie. A separate eight-hour JWT is returned for the existing Socket.IO registered-user handshake and user-points route; the frontend keeps it only in the in-memory player session and never writes it to `localStorage`.
+The application session is stored server-side and referenced by an HTTP-only, SameSite cookie. Separate eight-hour JWTs are returned for Socket.IO player handshakes; registered-user tokens also authorize the user-points route. The frontend keeps these tokens only in the in-memory player session and never writes them to `localStorage`.
 
 ## Local testing
 
@@ -78,6 +79,7 @@ The application session is stored server-side and referenced by an HTTP-only, Sa
 ## Production
 
 - Use HTTPS for both frontend and backend.
+- Proxy the frontend's `/api/*` path to the backend so session cookies remain first-party in Safari. The repository's `render.yaml` defines this rewrite for Render.
 - Set `NODE_ENV=production` so the session cookie is `Secure`.
 - Set `CLIENT_ORIGIN` to exact comma-separated HTTPS frontend origins; never use `*` with credentialed requests.
 - Use long independent secrets and rotate them through the hosting provider's secret manager.

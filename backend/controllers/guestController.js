@@ -1,6 +1,7 @@
 import { addGuestPoints, createGuest, findGuestByCode, updateGuestProfile } from "../models/guestModel.js";
 import { establishSession } from "../middleware/sessionAuth.js";
 import { ALLOWED_AVATARS } from "../config/guestProfile.js";
+import { createGuestAccessToken } from "../middleware/authToken.js";
 
 const GUEST_CODE_PATTERN = /^AU-[A-Z0-9]{6}$/;
 
@@ -22,7 +23,7 @@ export async function createGuestAccount(req, res, next) {
     try {
         const guest = await createGuest();
         await establishSession(req, { accountType: "guest", guestId: guest.id });
-        res.status(201).json(guest);
+        res.status(201).json({ ...guest, token: createGuestAccessToken(guest.id) });
     } catch (error) {
         next(error);
     }
@@ -34,7 +35,7 @@ export async function restoreGuestAccount(req, res, next) {
         if (!guest) return res.status(404).json({ error: "Guest Code not found." });
         if (guest.convertedToUserId) return res.status(409).json({ error: "This guest was converted to a registered account." });
         await establishSession(req, { accountType: "guest", guestId: guest.id });
-        return res.status(200).json(guest);
+        return res.status(200).json({ ...guest, token: createGuestAccessToken(guest.id) });
     } catch (error) {
         return next(error);
     }

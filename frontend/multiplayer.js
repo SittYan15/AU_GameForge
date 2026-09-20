@@ -35,14 +35,21 @@ const isLocalNetwork =
     hostname.startsWith("10.") ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
 
-const SERVER_URL = (
+const LOCAL_SERVER_URL = `${window.location.protocol}//${hostname}:3001`;
+const API_URL = (
     isLocalNetwork
-        ? `${window.location.protocol}//${hostname}:3001`
-        : import.meta.env.VITE_SERVER_URL ||
+        ? import.meta.env.VITE_API_URL || import.meta.env.VITE_SERVER_URL || LOCAL_SERVER_URL
+        : import.meta.env.VITE_API_URL || ""
+).replace(/\/$/, "");
+const SOCKET_URL = (
+    isLocalNetwork
+        ? import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_SERVER_URL || LOCAL_SERVER_URL
+        : import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_SERVER_URL ||
         "https://au-gameforge-backend.onrender.com"
 ).replace(/\/$/, "");
 
-console.log("Backend URL:", SERVER_URL);
+console.log("API URL:", API_URL || window.location.origin);
+console.log("Socket URL:", SOCKET_URL);
 
 const STORAGE_KEY = "guestCode";
 const TAB_AUTH_KEY = "auGameForgeTabAuthenticated";
@@ -686,7 +693,7 @@ rlglQuitBtn.addEventListener("click", () => {
 });
 
 async function request(path, options = {}) {
-    const response = await fetch(`${SERVER_URL}${path}`, {
+    const response = await fetch(`${API_URL}${path}`, {
         ...options,
         credentials: "include",
         headers: { "Content-Type": "application/json", ...options.headers }
@@ -739,7 +746,7 @@ export async function restoreSession() {
         const profile = await getProfile({ signal: controller.signal });
         return {
             ...profile,
-            token: profile.accountType === "user" ? profile.token : undefined
+            token: profile.token
         };
     } catch (error) {
         if (error.name === "AbortError") {
@@ -799,7 +806,8 @@ function toGuestSession(guest) {
         points: guest.points,
         avatarKey: guest.avatarKey || "default_avatar",
         bio: guest.bio || "",
-        tutorialCompleted: guest.tutorialCompleted !== false
+        tutorialCompleted: guest.tutorialCompleted !== false,
+        token: guest.token
     };
 }
 
@@ -1149,10 +1157,10 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         }
     };
 
-    const socket = io(SERVER_URL, {
+    const socket = io(SOCKET_URL, {
         transports: ["websocket", "polling"],
         auth: {
-            token: session.accountType === "user" ? session.token : undefined,
+            token: session.token,
             gameTabId: session.gameTabId
         }
     });

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    runtime: static
+    name: au-gameforge
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://au-gameforge-backend.onrender.com/api/*

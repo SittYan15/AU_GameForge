@@ -1,6 +1,6 @@
 import { findGuestById } from "../models/guestModel.js";
 import { getUserProfile } from "../models/googleAccountModel.js";
-import { createAccessToken } from "../middleware/authToken.js";
+import { createAccessToken, createGuestAccessToken } from "../middleware/authToken.js";
 import { publicUser, setActiveSessionExpiration, updateUserProfile } from "../models/userModel.js";
 import { ALLOWED_AVATARS } from "../config/guestProfile.js";
 import { completeNewPlayerTutorial } from "../models/tutorialModel.js";
@@ -35,7 +35,8 @@ export async function getProfile(req, res, next) {
             points: guest.points,
             avatarKey: guest.avatarKey,
             bio: guest.bio,
-            tutorialCompleted: guest.tutorialCompleted
+            tutorialCompleted: guest.tutorialCompleted,
+            token: createGuestAccessToken(guest.id)
         });
     } catch (error) {
         return next(error);

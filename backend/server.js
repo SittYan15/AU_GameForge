@@ -34,9 +34,7 @@ const sessionMiddleware = session({
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        // Production commonly serves Vite and the API from different sites.
-        // Cross-site credentialed requests require SameSite=None + Secure.
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 8 * 60 * 60 * 1000
     }
 });

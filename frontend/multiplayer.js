@@ -44,7 +44,7 @@ const SERVER_URL = (
         : isRenderFrontend
             ? "https://au-gameforge-backend.onrender.com"
             : import.meta.env.VITE_SERVER_URL ||
-                "https://au-gameforge-backend.onrender.com"
+            "https://au-gameforge-backend.onrender.com"
 ).replace(/\/$/, "");
 
 console.log("Backend URL:", SERVER_URL);
@@ -757,9 +757,22 @@ export async function restoreSession() {
 }
 
 export async function logoutSession() {
-    const response = await request("/api/auth/logout", { method: "POST" });
-    clearTabAuthentication();
-    return response;
+    try {
+        const response = await request("/api/auth/logout", { method: "POST" });
+        clearTabAuthentication();
+        return response;
+    } catch (error) {
+        clearTabAuthentication();
+
+        if (
+            error?.message?.includes("active player session") ||
+            error?.message?.includes("Unauthorized")
+        ) {
+            return { ok: true, alreadyLoggedOut: true };
+        }
+
+        throw error;
+    }
 }
 
 export async function keepSessionAlive() {

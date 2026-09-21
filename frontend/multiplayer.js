@@ -35,11 +35,16 @@ const isLocalNetwork =
     hostname.startsWith("10.") ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
 
+const isRenderFrontend =
+    hostname.endsWith(".onrender.com");
+
 const SERVER_URL = (
     isLocalNetwork
         ? `${window.location.protocol}//${hostname}:3001`
-        : import.meta.env.VITE_SERVER_URL ||
-        "https://au-gameforge-backend.onrender.com"
+        : isRenderFrontend
+            ? "https://au-gameforge-backend.onrender.com"
+            : import.meta.env.VITE_SERVER_URL ||
+                "https://au-gameforge-backend.onrender.com"
 ).replace(/\/$/, "");
 
 console.log("Backend URL:", SERVER_URL);

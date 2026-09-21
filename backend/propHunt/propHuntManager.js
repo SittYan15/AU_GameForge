@@ -1,9 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { addGuestPoints } from "../models/guestModel.js";
-import { addUserPoints } from "../models/userModel.js";
-import { getTopPlayers } from "../models/leaderboardModel.js";
 import {
-    PROP_HUNT_AREAS,
     PROP_HUNT_ELEVATOR_HORIZONTAL_RADIUS,
     PROP_HUNT_ELEVATOR_VERTICAL_TOLERANCE,
     PROP_HUNT_ELEVATORS,
@@ -23,11 +18,20 @@ import {
     PROP_HUNT_PLAYER_CENTER_OFFSET_Y,
     PROP_HUNT_PORTAL,
     PROP_HUNT_PROP_IDS,
+    PROP_HUNT_RESTRICTION_CORNERS,
+    PROP_HUNT_RESTRICTION_MAX_Y,
+    PROP_HUNT_RESTRICTION_MIN_Y,
     PROP_HUNT_RESULTS_MS,
     PROP_HUNT_RETURN_POSITION,
     PROP_HUNT_ROOM,
     PROP_HUNT_SEEKER_WIN_POINTS,
-    PROP_HUNT_WRONG_SHOT_PENALTY_MS
+    PROP_HUNT_WRONG_SHOT_PENALTY_MS,
+    randomUUID } from "node:crypto";
+import { addGuestPoints } from "../models/guestModel.js";
+import { addUserPoints } from "../models/userModel.js";
+import { getTopPlayers } from "../models/leaderboardModel.js";
+import {
+    PROP_HUNT_AREAS
 } from "./propHuntDefinitions.js";
 
 const socketHandlers = new Map();
@@ -100,9 +104,183 @@ function insideArea(position, area) {
         && position.z >= area.minZ && position.z <= area.maxZ;
 }
 
+
+
+// Prop Hunt polygon restriction helpers start
+function clampNumber(value, min, max) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return min;
+    return Math.max(min, Math.min(max, number));
+}
+
+function pointInsideRestrictionPolygon(position) {
+    if (!finiteVector(position)) return false;
+
+    if (
+        position.y < PROP_HUNT_RESTRICTION_MIN_Y ||
+        position.y > PROP_HUNT_RESTRICTION_MAX_Y
+    ) {
+        return false;
+    }
+
+    let inside = false;
+    const points = PROP_HUNT_RESTRICTION_CORNERS;
+
+    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+        const currentPoint = points[index];
+        const previousPoint = points[previous];
+
+        const intersects =
+            (currentPoint.z > position.z) !== (previousPoint.z > position.z) &&
+            position.x <
+                ((previousPoint.x - currentPoint.x) * (position.z - currentPoint.z)) /
+                    ((previousPoint.z - currentPoint.z) || Number.EPSILON) +
+                    currentPoint.x;
+
+        if (intersects) {
+            inside = !inside;
+        }
+    }
+
+    return inside;
+}
+
+function nearestPointOnRestrictionSegment(position, start, end) {
+    const segmentX = end.x - start.x;
+    const segmentZ = end.z - start.z;
+    const lengthSquared = segmentX * segmentX + segmentZ * segmentZ;
+
+    if (lengthSquared <= 0.000001) {
+        return { x: start.x, z: start.z };
+    }
+
+    const t = clampNumber(
+        ((position.x - start.x) * segmentX + (position.z - start.z) * segmentZ) / lengthSquared,
+        0,
+        1
+    );
+
+    return {
+        x: start.x + segmentX * t,
+        z: start.z + segmentZ * t
+    };
+}
+
+function nearestPropHuntPlayablePosition(currentPosition, requestedPosition) {
+    const source = finiteVector(requestedPosition)
+        ? requestedPosition
+        : finiteVector(currentPosition)
+            ? currentPosition
+            : PROP_HUNT_RESTRICTION_CORNERS[0];
+
+    const clampedY = clampNumber(
+        source.y,
+        PROP_HUNT_RESTRICTION_MIN_Y,
+        PROP_HUNT_RESTRICTION_MAX_Y
+    );
+
+    const yClampedPosition = {
+        x: source.x,
+        y: clampedY,
+        z: source.z
+    };
+
+    if (pointInsideRestrictionPolygon(yClampedPosition)) {
+        return yClampedPosition;
+    }
+
+    let bestPoint = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    const points = PROP_HUNT_RESTRICTION_CORNERS;
+
+    for (let index = 0; index < points.length; index += 1) {
+        const start = points[index];
+        const end = points[(index + 1) % points.length];
+        const candidate = nearestPointOnRestrictionSegment(source, start, end);
+        const distanceSquared =
+            (candidate.x - source.x) * (candidate.x - source.x) +
+            (candidate.z - source.z) * (candidate.z - source.z);
+
+        if (distanceSquared < bestDistance) {
+            bestDistance = distanceSquared;
+            bestPoint = candidate;
+        }
+    }
+
+    return {
+        x: bestPoint?.x ?? source.x,
+        y: clampedY,
+        z: bestPoint?.z ?? source.z
+    };
+}
+// Prop Hunt polygon restriction helpers endexport 
 export function isInsidePropHuntArea(position) {
     if (!finiteVector(position)) return false;
-    return PROP_HUNT_AREAS.some((area) => insideArea(position, area));
+    return pointInsideRestrictionPolygon(position);
+}
+
+function squaredDistance(a, b) {
+    return (
+        (a.x - b.x) ** 2 +
+        (a.y - b.y) ** 2 +
+        (a.z - b.z) ** 2
+    );
+}
+
+function closestPropHuntPlayablePosition(position) {
+    if (!finiteVector(position)) {
+        return null;
+    }
+
+    let bestPosition =
+        null;
+
+    let bestDistance =
+        Number.POSITIVE_INFINITY;
+
+    for (const area of PROP_HUNT_AREAS) {
+        const margin =
+            0.22;
+
+        const candidate = {
+            x:
+                clampNumber(
+                    position.x,
+                    area.minX + margin,
+                    area.maxX - margin
+                ),
+
+            y:
+                clampNumber(
+                    position.y,
+                    area.minY + margin,
+                    area.maxY - margin
+                ),
+
+            z:
+                clampNumber(
+                    position.z,
+                    area.minZ + margin,
+                    area.maxZ - margin
+                )
+        };
+
+        const candidateDistance =
+            squaredDistance(
+                position,
+                candidate
+            );
+
+        if (candidateDistance < bestDistance) {
+            bestDistance =
+                candidateDistance;
+
+            bestPosition =
+                candidate;
+        }
+    }
+
+    return bestPosition;
 }
 
 function distanceToPortal(position) {
@@ -597,12 +775,18 @@ export function validatePropHuntMovement(socket, player, nextPosition) {
     }
 
     if (!isInsidePropHuntArea(nextPosition)) {
-        return { ok: false, reason: "out_of_bounds" };
+        return {
+            ok: false,
+            reason: "out_of_bounds",
+            correction: nearestPropHuntPlayablePosition(player?.position, nextPosition)
+        };
     }
 
     const role = socket.data.propHuntRole;
 
-    if (role === "SPECTATOR" || socket.data.propHuntCaught) {
+    // Spectators cannot move during an active Prop Hunt round.
+    // Caught Hiders are allowed to move as invisible ghosts until the round ends.
+    if (role === "SPECTATOR") {
         return { ok: false, reason: "spectator_locked" };
     }
 

@@ -789,7 +789,34 @@ export default function registerMultiplayerSocket(io) {
 
                 if (!validation.ok) {
                     socket.data.lastMoveAt = now;
-                    socket.emit("propHunt:correction", player.position);
+
+                    const correctionPosition =
+                        isVector3(validation.correction)
+                            ? validation.correction
+                            : player.position;
+
+                    if (
+                        validation.reason === "out_of_bounds" &&
+                        isVector3(correctionPosition)
+                    ) {
+                        player.position = { ...correctionPosition };
+                        player.rotation = { ...payload.rotation };
+
+                        socket.emit("propHunt:correction", {
+                            position:
+                                player.position,
+                            reason:
+                                "out_of_bounds"
+                        });
+
+                        broadcastPlayerPosition(io, player);
+                        return;
+                    }
+
+                    socket.emit(
+                        "propHunt:correction",
+                        validation.correction || player.position
+                    );
                     return;
                 }
             }

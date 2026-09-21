@@ -7,10 +7,41 @@ import {
     PROP_HUNT_PLAYER_CENTER_OFFSET_Y,
     PROP_HUNT_PORTAL_POSITION,
     PROP_HUNT_PORTAL_TRIGGER_RADIUS,
-    PROP_HUNT_PROP_ASSETS
+    PROP_HUNT_PROP_ASSETS,
+    PROP_HUNT_RESTRICTION_CORNERS
 } from "./propHuntConfig.js";
 
 const PROP_ASSET_ROOT = "/propHunt/props/";
+
+const PROP_HUNT_AREAS = Object.freeze([
+    Object.freeze({
+        id: "VMES",
+        minX: -249.75,
+        maxX: -213.75,
+        minY: -1.0,
+        maxY: 46.5,
+        minZ: 20.5,
+        maxZ: 103.0
+    }),
+    Object.freeze({
+        id: "VME",
+        minX: -293.0,
+        maxX: -257.0,
+        minY: -1.0,
+        maxY: 46.5,
+        minZ: 20.5,
+        maxZ: 103.0
+    }),
+    Object.freeze({
+        id: "VME_MIDDLE",
+        minX: -273.0,
+        maxX: -232.0,
+        minY: -1.0,
+        maxY: 46.5,
+        minZ: 48.0,
+        maxZ: 130.0
+    })
+]);
 
 // v1.5: the re-exported Prop Hunt meshes have been corrected in Blender and
 // now share the same forward convention. Keep this explicit so any future
@@ -127,7 +158,8 @@ function createStyles() {
         #propHuntFireButton,
         #propHuntLoadingFade,
         #propHuntSeekerBlind,
-        #propHuntPropHud {
+        #propHuntPropHud,
+        #propHuntCaughtOverlay {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
@@ -159,7 +191,8 @@ function createStyles() {
         #propHuntSeekerBlind[hidden],
         #propHuntCrosshair[hidden],
         #propHuntAmmoHud[hidden],
-        #propHuntPropHud[hidden] {
+        #propHuntPropHud[hidden],
+        #propHuntCaughtOverlay[hidden] {
             display: none !important;
         }
 
@@ -245,6 +278,68 @@ function createStyles() {
             color: #aeb7c4;
             font-size: 11px;
             line-height: 1.35;
+        }
+
+        #propHuntTeamStats {
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 24px;
+            padding: 0 11px;
+            border: 1px solid rgba(140,246,200,.22);
+            border-radius: 999px;
+            background: rgba(140,246,200,.09);
+            color: #8cf6c8;
+            font-size: 10px;
+            font-weight: 950;
+            letter-spacing: .03em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #propHuntCaughtOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 5100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 22px;
+            background:
+                radial-gradient(circle at center, rgba(128,220,255,.20), rgba(0,0,0,.72) 62%),
+                rgba(4,7,12,.72);
+            color: #fff;
+            text-align: center;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        #propHuntCaughtCard {
+            width: min(420px, calc(100vw - 34px));
+            box-sizing: border-box;
+            padding: 24px 20px;
+            border: 1px solid rgba(180,235,255,.35);
+            border-radius: 22px;
+            background: rgba(8,13,21,.88);
+            box-shadow: 0 20px 52px rgba(0,0,0,.48);
+        }
+
+        #propHuntCaughtTitle {
+            color: #b8efff;
+            font-size: clamp(30px, 7vw, 58px);
+            font-weight: 1000;
+            letter-spacing: .08em;
+            text-shadow: 0 0 20px rgba(96,210,255,.55);
+        }
+
+        #propHuntCaughtText {
+            margin-top: 9px;
+            color: #e9f8ff;
+            font-size: 13px;
+            font-weight: 850;
+            line-height: 1.45;
         }
 
         #propHuntReturnButton {
@@ -575,6 +670,54 @@ function createStyles() {
             }
         }
 
+
+
+        /* Prop Hunt mobile compact facing HUD override. */
+        @media (max-width: 700px) {
+            #propHuntPropHud {
+                top: 86px;
+                right: max(6px, env(safe-area-inset-right));
+                bottom: auto;
+                width: 118px;
+                padding: 4px 5px;
+                border-color: transparent;
+                background: transparent;
+                box-shadow: none;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                pointer-events: none;
+            }
+
+            #propHuntPropHudTitle {
+                font-size: 8px;
+                text-shadow: 0 1px 3px rgba(0,0,0,.78);
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 54px;
+                height: 54px;
+                margin-top: 0;
+                pointer-events: auto;
+            }
+
+            #propHuntPropFacingValue {
+                font-size: 9px;
+                text-shadow: 0 1px 3px rgba(0,0,0,.78);
+            }
+
+            #propHuntPropLockState {
+                min-height: 18px;
+                margin-top: 2px;
+                padding: 0 6px;
+                background: rgba(10,12,16,.38);
+                font-size: 8px;
+                pointer-events: none;
+            }
+
+            #propHuntPropMobileControls {
+                display: none;
+            }
+        }
         @media (max-width: 420px) {
             #propHuntElevatorFloors {
                 grid-template-columns: repeat(4, minmax(0,1fr));
@@ -604,6 +747,7 @@ function createUi() {
         <div id="propHuntHudPhase">WAITING</div>
         <div id="propHuntHudRole"></div>
         <div id="propHuntHudStatus"></div>
+        <div id="propHuntTeamStats"></div>
     `;
 
     const elevator = document.createElement("section");
@@ -687,6 +831,18 @@ function createUi() {
         <div id="propHuntSeekerBlindText">Wait here. Your hunt begins when the timer reaches zero.</div>
     `;
 
+    const caughtOverlay = document.createElement("section");
+    caughtOverlay.id = "propHuntCaughtOverlay";
+    caughtOverlay.hidden = true;
+    caughtOverlay.innerHTML = `
+        <div id="propHuntCaughtCard">
+            <div id="propHuntCaughtTitle">FOUND!</div>
+            <div id="propHuntCaughtText">
+                You are now a ghost. You can move around, but other players cannot see you.
+            </div>
+        </div>
+    `;
+
     document.body.append(
         joinPanel,
         hud,
@@ -697,7 +853,8 @@ function createUi() {
         ammoHud,
         propHud,
         loadingFade,
-        seekerBlind
+        seekerBlind,
+        caughtOverlay
     );
 
     return {
@@ -705,9 +862,11 @@ function createUi() {
         joinButton: joinPanel.querySelector("#propHuntJoinButton"),
         joinText: joinPanel.querySelector("#propHuntJoinText"),
         hud,
+        hudTitle: hud.querySelector("#propHuntHudTitle"),
         phase: hud.querySelector("#propHuntHudPhase"),
         role: hud.querySelector("#propHuntHudRole"),
         status: hud.querySelector("#propHuntHudStatus"),
+        teamStats: hud.querySelector("#propHuntTeamStats"),
         elevator,
         elevatorTitle: elevator.querySelector("#propHuntElevatorTitle"),
         elevatorFloors: elevator.querySelector("#propHuntElevatorFloors"),
@@ -724,7 +883,104 @@ function createUi() {
         loadingFade,
         loadingText: loadingFade.querySelector("#propHuntLoadingText"),
         seekerBlind,
-        seekerBlindTimer: seekerBlind.querySelector("#propHuntSeekerBlindTimer")
+        seekerBlindTimer: seekerBlind.querySelector("#propHuntSeekerBlindTimer"),
+        caughtOverlay,
+        caughtOverlayTitle: caughtOverlay.querySelector("#propHuntCaughtTitle"),
+        caughtOverlayText: caughtOverlay.querySelector("#propHuntCaughtText")
+    };
+}
+
+
+function createPropHuntBoundaryVisual(scene) {
+    const root = new BABYLON.TransformNode(
+        "prop_hunt_red_restriction_area_root",
+        scene
+    );
+
+    const yOffset = 0.055;
+    const points = PROP_HUNT_RESTRICTION_CORNERS.map((point) =>
+        new BABYLON.Vector3(
+            point.x,
+            (Number(point.y) || 0) + yOffset,
+            point.z
+        )
+    );
+
+    const mesh = new BABYLON.Mesh(
+        "prop_hunt_red_restriction_area_plane",
+        scene
+    );
+
+    const positions = points.flatMap((point) => [
+        point.x,
+        point.y,
+        point.z
+    ]);
+
+    const indices = [0, 1, 2, 0, 2, 3];
+    const normals = [];
+
+    BABYLON.VertexData.ComputeNormals(
+        positions,
+        indices,
+        normals
+    );
+
+    const vertexData = new BABYLON.VertexData();
+    vertexData.positions = positions;
+    vertexData.indices = indices;
+    vertexData.normals = normals;
+    vertexData.applyToMesh(mesh);
+
+    const material = new BABYLON.StandardMaterial(
+        "prop_hunt_red_restriction_area_mat",
+        scene
+    );
+
+    material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+    material.emissiveColor = new BABYLON.Color3(0.85, 0.03, 0.02);
+    material.alpha = 0.20;
+    material.backFaceCulling = false;
+    material.disableLighting = true;
+
+    mesh.material = material;
+    mesh.parent = root;
+    mesh.isPickable = false;
+    mesh.checkCollisions = false;
+    mesh.renderingGroupId = 1;
+
+    const outlinePoints = [
+        ...points.map((point) =>
+            point.add(new BABYLON.Vector3(0, 0.045, 0))
+        ),
+        points[0].add(new BABYLON.Vector3(0, 0.045, 0))
+    ];
+
+    const outline = BABYLON.MeshBuilder.CreateLines(
+        "prop_hunt_red_restriction_area_outline",
+        {
+            points: outlinePoints
+        },
+        scene
+    );
+
+    outline.color = new BABYLON.Color3(1, 0.02, 0.02);
+    outline.parent = root;
+    outline.isPickable = false;
+    outline.checkCollisions = false;
+    outline.renderingGroupId = 2;
+
+    root.setEnabled(false);
+
+    return {
+        setVisible(visible) {
+            root.setEnabled(Boolean(visible));
+        },
+
+        dispose() {
+            root.dispose(false, true);
+            material.dispose();
+        }
     };
 }
 
@@ -1965,6 +2221,8 @@ export function createPropHuntClient(
 ) {
     const ui = createUi();
     const portal = createPortal(scene);
+    const boundaryVisual = createPropHuntBoundaryVisual(scene);
+    const boundaryVisuals = createPropHuntBoundaryVisuals(scene);
 
     const propHudPreview =
         createPropHudPreview(
@@ -1993,6 +2251,8 @@ export function createPropHuntClient(
     let lastShotAt = 0;
     let bulletsRemaining = 0;
     let roundResultMessage = "";
+    let roundIntroEndsAt = 0;
+    let caughtOverlayTimer = null;
 
     let localPropYaw = 0;
     let localPropLocked = false;
@@ -2020,11 +2280,22 @@ export function createPropHuntClient(
 
         const participantIds = new Set(participants.keys());
         remotePlayers.forEach((remotePlayer, socketId) => {
-            remotePlayer.hiddenByPropHuntIsolation = Boolean(
+            const participant = participants.get(socketId);
+
+            const hiddenBecauseNotInRound = Boolean(
                 active && !participantIds.has(socketId)
             );
 
-            const participant = participants.get(socketId);
+            const hiddenBecauseGhost = Boolean(
+                active
+                && participant?.role === "HIDER"
+                && participant?.caught
+            );
+
+            remotePlayer.hiddenByPropHuntIsolation = Boolean(
+                hiddenBecauseNotInRound || hiddenBecauseGhost
+            );
+
             remotePlayer.propHuntDisguised = Boolean(
                 active
                 && participant?.role === "HIDER"
@@ -2351,21 +2622,120 @@ export function createPropHuntClient(
     }
 
 
+    function hideCaughtOverlay() {
+        if (caughtOverlayTimer) {
+            window.clearTimeout(caughtOverlayTimer);
+            caughtOverlayTimer = null;
+        }
+
+        ui.caughtOverlay.hidden = true;
+    }
+
+    function showCaughtOverlay() {
+        if (caughtOverlayTimer) {
+            window.clearTimeout(caughtOverlayTimer);
+        }
+
+        ui.caughtOverlayTitle.textContent = "FOUND!";
+        ui.caughtOverlayText.textContent =
+            "You are now a ghost. You can move around, but other players cannot see you.";
+
+        ui.caughtOverlay.hidden = false;
+
+        caughtOverlayTimer = window.setTimeout(
+            () => {
+                ui.caughtOverlay.hidden = true;
+                caughtOverlayTimer = null;
+            },
+            2600
+        );
+    }
+
+    function teamCounts() {
+        const rows = [...participants.values()];
+
+        const seekers = rows.filter((row) =>
+            row.role === "SEEKER"
+        ).length;
+
+        const totalHiders = rows.filter((row) =>
+            row.role === "HIDER"
+        ).length;
+
+        const activeHiders = rows.filter((row) =>
+            row.role === "HIDER" && !row.caught
+        ).length;
+
+        const caughtHiders = Math.max(
+            0,
+            totalHiders - activeHiders
+        );
+
+        return {
+            seekers,
+            totalHiders,
+            activeHiders,
+            caughtHiders
+        };
+    }
+
     function updateRoleUi() {
-        const label = role === "HIDER"
-            ? `ROLE: HIDER • PROP: ${PROP_HUNT_PROP_ASSETS[localPropId]?.label || "Unknown"}`
-            : role === "SEEKER"
-                ? "ROLE: SEEKER"
-                : role === "SPECTATOR"
-                    ? "ROLE: SPECTATOR"
-                    : "WAITING FOR PLAYERS";
+        const label = caught && role === "HIDER"
+            ? "ROLE: GHOST • FOUND HIDER"
+            : role === "HIDER"
+                ? `ROLE: HIDER • PROP: ${PROP_HUNT_PROP_ASSETS[localPropId]?.label || "Unknown"}`
+                : role === "SEEKER"
+                    ? "ROLE: FINDER"
+                    : role === "SPECTATOR"
+                        ? "ROLE: SPECTATOR"
+                        : "WAITING FOR PLAYERS";
         ui.role.textContent = label;
     }
 
     function remainingHiders() {
-        return [...participants.values()].filter((row) =>
-            row.role === "HIDER" && !row.caught
-        ).length;
+        return teamCounts().activeHiders;
+    }
+
+
+    function compactTeamStatus() {
+        const rows =
+            [...participants.values()];
+
+        const seekers =
+            rows.filter(
+                (row) =>
+                    row?.role === "SEEKER"
+            ).length;
+
+        const hiderRows =
+            rows.filter(
+                (row) =>
+                    row?.role === "HIDER"
+            );
+
+        const totalHiders =
+            hiderRows.length;
+
+        const caughtHiders =
+            hiderRows.filter(
+                (row) =>
+                    Boolean(row?.caught)
+            ).length;
+
+        const activeHiders =
+            Math.max(
+                0,
+                totalHiders - caughtHiders
+            );
+
+        if (
+            seekers <= 0 &&
+            totalHiders <= 0
+        ) {
+            return "Waiting for Prop Hunt players...";
+        }
+
+        return `Finders: ${seekers} • Hiders left: ${activeHiders}/${totalHiders} • Found: ${caughtHiders}`;
     }
 
     function orientationActive() {
@@ -2665,11 +3035,36 @@ export function createPropHuntClient(
     function updatePhaseUi() {
         if (!active) return;
 
+        if (ui.hudTitle) {
+            const showRoundIntroTitle = Boolean(
+                phase === "LOBBY"
+                || phase === "FINISHED"
+                || (
+                    phase === "HIDING"
+                    && Date.now() < roundIntroEndsAt
+                )
+            );
+
+            ui.hudTitle.hidden = !showRoundIntroTitle;
+        }
+
         updateOrientationHud();
         void syncPropViewHeight();
 
         let title = phase;
         let status = "";
+        
+        if (ui.teamStats) {
+            ui.teamStats.textContent = active
+                ? compactTeamStatus
+                : "";
+        }
+
+        const counts = teamCounts();
+
+        ui.teamStats.textContent = active
+            ? `Finders: ${counts.seekers} • Hiders left: ${counts.activeHiders}/${counts.totalHiders} • Found: ${counts.caughtHiders}`
+            : "";
 
         if (phase === "LOBBY") {
             title = lobbyCountdown == null
@@ -2688,19 +3083,25 @@ export function createPropHuntClient(
             const time = phaseEndsAt ? formatClock(phaseEndsAt - Date.now()) : "4:00";
             title = `HUNT • ${time}`;
             status = role === "SEEKER"
-                ? `Find the props! ${remainingHiders()} hider(s) remaining.`
+                ? `Find the props! ${counts.activeHiders} hider(s) still need to be found.`
                 : role === "HIDER"
-                    ? `${remainingHiders()} hider(s) remaining. Look to rotate the prop; freeze it when your hiding angle is right.`
+                    ? caught
+                        ? `Ghost mode. Hiders left: ${counts.activeHiders}/${counts.totalHiders}. You can move around invisibly.`
+                        : `${counts.activeHiders} hider(s) remaining. Look to rotate the prop; freeze it when your hiding angle is right.`
                     : "Spectating this round.";
         } else if (phase === "FINISHED") {
             title = "ROUND OVER";
             status = roundResultMessage || "Results are being shown. The next lobby will start shortly.";
         }
 
+        if (phase === "HIDING" || phase === "HUNT") {
+            status = caught && role === "HIDER"
+                ? `GHOST MODE • ${compactTeamStatus}`
+                : compactTeamStatus;
+        }
+
         ui.phase.textContent = title;
-        ui.status.textContent = caught
-            ? "You were caught. Wait for the next round."
-            : status;
+        ui.status.textContent = status;
         updateRoleUi();
 
         const seekerBlind = active && phase === "HIDING" && role === "SEEKER";
@@ -2730,8 +3131,7 @@ export function createPropHuntClient(
 
         if (active) {
             localPlayer.isLocked = Boolean(
-                caught
-                || role === "SPECTATOR"
+                role === "SPECTATOR"
                 || (phase === "HIDING" && role === "SEEKER")
                 || phase === "FINISHED"
             );
@@ -2744,6 +3144,8 @@ export function createPropHuntClient(
         ui.returnButton.hidden = !active;
         ui.joinPanel.hidden = true;
         setFullMinigameState(active, "propHunt");
+        boundaryVisual.setVisible(active);
+        boundaryVisuals.root.setEnabled(active);
 
         // v1.3 always uses the normal FPS camera. If this browser had
         // Prop Hunt v1.1/v1.2 active before a hot reload, explicitly restore
@@ -2764,6 +3166,7 @@ export function createPropHuntClient(
             caught = false;
             bulletsRemaining = 0;
             roundResultMessage = "";
+            hideCaughtOverlay();
 
             localPropYaw = 0;
             localPropLocked = false;
@@ -2802,7 +3205,7 @@ export function createPropHuntClient(
     }
 
     function elevatorAtPlayer() {
-        if (!active || caught || role === "SPECTATOR") return null;
+        if (!active || role === "SPECTATOR") return null;
         if (phase !== "HIDING" && phase !== "HUNT") return null;
         if (phase === "HIDING" && role === "SEEKER") return null;
 
@@ -3094,6 +3497,19 @@ export function createPropHuntClient(
         true
     );
 
+
+    const propPreviewToggleHandler =
+        (event) => {
+            if (!orientationActive()) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            togglePropLock();
+        };
+
     const propMobileHandler =
         (event) => {
             const button =
@@ -3130,8 +3546,19 @@ export function createPropHuntClient(
             propMobileHandler
         );
 
+    ui.propPreviewCanvas
+        ?.addEventListener(
+            "pointerdown",
+            propPreviewToggleHandler
+        );
+
     const canvas = scene.getEngine().getRenderingCanvas();
     const pointerHandler = (event) => {
+        // Desktop only: left mouse click on the 3D canvas can shoot.
+        // Mobile/tablet touch is handled only by the FIRE button, otherwise
+        // every screen drag/tap for camera control shoots accidentally.
+        if (mobile) return;
+        if (event.pointerType && event.pointerType !== "mouse") return;
         if (event.button !== 0) return;
         if (event.target !== canvas) return;
         shoot();
@@ -3184,6 +3611,8 @@ export function createPropHuntClient(
             caught =
                 false;
 
+            hideCaughtOverlay();
+
             if (
                 role ===
                     "HIDER" &&
@@ -3212,7 +3641,17 @@ export function createPropHuntClient(
     );
 
     on("propHunt:phase", (payload = {}) => {
+        const previousPhase = phase;
         phase = payload.phase || "IDLE";
+
+        if (phase === "HIDING" && previousPhase !== "HIDING") {
+            roundIntroEndsAt = Date.now() + 5000;
+        }
+
+        if (phase === "LOBBY" || phase === "IDLE") {
+            roundIntroEndsAt = 0;
+        }
+
         phaseEndsAt = Number.isFinite(payload.endsAt) ? payload.endsAt : null;
         if (phase === "LOBBY") {
             caught = false;
@@ -3339,8 +3778,30 @@ export function createPropHuntClient(
         }
     });
 
-    on("propHunt:correction", (position) => {
+    on("propHunt:correction", (payload) => {
+        const position =
+            isFiniteVector(payload?.position)
+                ? payload.position
+                : payload;
+
+        const reason =
+            typeof payload?.reason === "string"
+                ? payload.reason
+                : "correction";
+
         if (!isFiniteVector(position)) return;
+
+        if (
+            reason === "out_of_bounds" &&
+            typeof localPlayer.setGroundedPosition === "function"
+        ) {
+            localPlayer.setGroundedPosition(
+                position,
+                "prop-hunt-boundary"
+            );
+            return;
+        }
+
         if (typeof localPlayer.setExactTeleportPosition === "function") {
             localPlayer.setExactTeleportPosition(position);
         } else {
@@ -3387,7 +3848,9 @@ export function createPropHuntClient(
 
     on("propHunt:caught", () => {
         caught = true;
-        localPlayer.isLocked = true;
+        localPlayer.isLocked = false;
+        restoreNormalFpsView();
+        showCaughtOverlay();
         updatePhaseUi();
     });
 
@@ -3575,6 +4038,10 @@ export function createPropHuntClient(
                 "pointerdown",
                 propMobileHandler
             );
+            ui.propPreviewCanvas?.removeEventListener(
+                "pointerdown",
+                propPreviewToggleHandler
+            );
             canvas?.removeEventListener("pointerdown", pointerHandler);
             socketHandlers.forEach(([event, handler]) => socket.off(event, handler));
             socketHandlers.length = 0;
@@ -3604,6 +4071,8 @@ export function createPropHuntClient(
             disposeShotEffectPool(
                 scene
             );
+            boundaryVisuals.dispose();
+            boundaryVisual.dispose();
             portal.dispose();
 
             [
@@ -3615,7 +4084,8 @@ export function createPropHuntClient(
                 ui.crosshair,
                 ui.propHud,
                 ui.loadingFade,
-                ui.seekerBlind
+                ui.seekerBlind,
+                ui.caughtOverlay
             ].forEach((element) => element.remove());
         }
     };

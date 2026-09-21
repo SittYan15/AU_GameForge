@@ -695,6 +695,265 @@ export function createElevatorSystem(
 
         ui.panel.hidden =
             false;
+
+        ui.hint.textContent =
+            elevator.floors.length > 9
+                ? "Click a floor, press 1-9, or type 10/11."
+                : "Click a floor or press its number key.";
+    }
+
+    let keyboardFloorBuffer =
+        "";
+
+    let keyboardFloorBufferTimer =
+        null;
+
+    function clearKeyboardFloorBuffer() {
+        keyboardFloorBuffer =
+            "";
+
+        if (
+            keyboardFloorBufferTimer
+        ) {
+            window.clearTimeout(
+                keyboardFloorBufferTimer
+            );
+
+            keyboardFloorBufferTimer =
+                null;
+        }
+    }
+
+    function getFloorKeyboardNumber(
+        floor,
+        index
+    ) {
+        const labelNumber =
+            Number(
+                floor.label
+            );
+
+        if (
+            Number.isInteger(
+                labelNumber
+            ) &&
+            labelNumber > 0
+        ) {
+            return String(
+                labelNumber
+            );
+        }
+
+        return String(
+            index + 1
+        );
+    }
+
+    function selectFloorFromKeyboard(
+        floorNumberText
+    ) {
+        if (
+            !activeEntrance ||
+            ui.panel.hidden ||
+            teleporting ||
+            minigameActive
+        ) {
+            return false;
+        }
+
+        const {
+            elevator,
+            currentFloor
+        } =
+            activeEntrance;
+
+        const floor =
+            elevator.floors.find(
+                (candidate, index) =>
+                    getFloorKeyboardNumber(
+                        candidate,
+                        index
+                    ) ===
+                    floorNumberText
+            );
+
+        if (!floor) {
+            ui.hint.textContent =
+                `No floor ${floorNumberText} in this elevator.`;
+
+            return false;
+        }
+
+        if (
+            floor.id ===
+            currentFloor.id
+        ) {
+            ui.hint.textContent =
+                `Already on ${floor.title}.`;
+
+            return false;
+        }
+
+        clearKeyboardFloorBuffer();
+
+        void teleportToFloor(
+            elevator,
+            floor
+        );
+
+        return true;
+    }
+
+    function handleElevatorKeyboardInput(
+        event
+    ) {
+        if (
+            event.defaultPrevented ||
+            !activeEntrance ||
+            ui.panel.hidden ||
+            teleporting ||
+            minigameActive
+        ) {
+            return;
+        }
+
+        const target =
+            event.target;
+
+        const targetTag =
+            target?.tagName
+                ?.toLowerCase?.();
+
+        if (
+            target?.isContentEditable ||
+            targetTag === "input" ||
+            targetTag === "textarea" ||
+            targetTag === "select"
+        ) {
+            return;
+        }
+
+        if (
+            event.key ===
+            "Escape"
+        ) {
+            event.preventDefault();
+            clearKeyboardFloorBuffer();
+            closePanel();
+            return;
+        }
+
+        if (
+            !/^\d$/.test(
+                event.key
+            )
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+
+        keyboardFloorBuffer +=
+            event.key;
+
+        if (
+            keyboardFloorBuffer.length >
+            2
+        ) {
+            keyboardFloorBuffer =
+                event.key;
+        }
+
+        const floors =
+            activeEntrance
+                .elevator
+                .floors;
+
+        const floorNumbers =
+            floors.map(
+                (floor, index) =>
+                    getFloorKeyboardNumber(
+                        floor,
+                        index
+                    )
+            );
+
+        const hasExactMatch =
+            floorNumbers.includes(
+                keyboardFloorBuffer
+            );
+
+        const hasLongerMatch =
+            floorNumbers.some(
+                (floorNumber) =>
+                    floorNumber !==
+                        keyboardFloorBuffer &&
+                    floorNumber.startsWith(
+                        keyboardFloorBuffer
+                    )
+            );
+
+        if (
+            hasExactMatch &&
+            !hasLongerMatch
+        ) {
+            selectFloorFromKeyboard(
+                keyboardFloorBuffer
+            );
+
+            return;
+        }
+
+        if (
+            hasExactMatch &&
+            keyboardFloorBuffer.length >=
+                2
+        ) {
+            selectFloorFromKeyboard(
+                keyboardFloorBuffer
+            );
+
+            return;
+        }
+
+        if (
+            !hasExactMatch &&
+            !hasLongerMatch
+        ) {
+            ui.hint.textContent =
+                `No floor ${keyboardFloorBuffer} in this elevator.`;
+
+            clearKeyboardFloorBuffer();
+            return;
+        }
+
+        ui.hint.textContent =
+            `Floor ${keyboardFloorBuffer}...`;
+
+        if (
+            keyboardFloorBufferTimer
+        ) {
+            window.clearTimeout(
+                keyboardFloorBufferTimer
+            );
+        }
+
+        keyboardFloorBufferTimer =
+            window.setTimeout(
+                () => {
+                    const pending =
+                        keyboardFloorBuffer;
+
+                    clearKeyboardFloorBuffer();
+
+                    if (pending) {
+                        selectFloorFromKeyboard(
+                            pending
+                        );
+                    }
+                },
+                450
+            );
     }
 
     async function teleportToFloor(
@@ -1041,6 +1300,11 @@ export function createElevatorSystem(
         onMinigameState
     );
 
+    window.addEventListener(
+        "keydown",
+        handleElevatorKeyboardInput
+    );
+
     scene.metadata =
         scene.metadata ||
         {};
@@ -1099,6 +1363,13 @@ export function createElevatorSystem(
                 "au:minigame-state",
                 onMinigameState
             );
+
+            window.removeEventListener(
+                "keydown",
+                handleElevatorKeyboardInput
+            );
+
+            clearKeyboardFloorBuffer();
 
             debugMeshes.forEach(
                 (mesh) =>

@@ -6,6 +6,19 @@ export const PROP_HUNT_PORTAL_POSITION = Object.freeze({
 
 export const PROP_HUNT_PORTAL_TRIGGER_RADIUS = 5.0;
 
+
+
+// Prop Hunt custom restriction polygon start
+export const PROP_HUNT_RESTRICTION_CORNERS = Object.freeze([
+    Object.freeze({ x: -253.05, y: 0.17, z: 17.61 }),
+    Object.freeze({ x: -300.08, y: 0.00, z: 62.71 }),
+    Object.freeze({ x: -272.85, y: 0.15, z: 104.70 }),
+    Object.freeze({ x: -207.59, y: 0.00, z: 72.81 })
+]);
+
+export const PROP_HUNT_RESTRICTION_MIN_Y = -1.0;
+export const PROP_HUNT_RESTRICTION_MAX_Y = 46.5;
+// Prop Hunt custom restriction polygon end
 export const PROP_HUNT_FLOOR_SURFACE_Y = Object.freeze([
     1.25,
     7.27,

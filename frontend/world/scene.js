@@ -87,6 +87,7 @@ export async function createMainScene(
             loadingScreen
         );
 
+
     try {
         const thaiFlag =
             await createAnimatedThaiFlag(
@@ -95,40 +96,38 @@ export async function createMainScene(
                 {
                     name: "thai_flag_main",
 
-                    // Change this to the real campus position you want.
+                    // Single floating flag cloth. No generated pole.
                     position:
                         new BABYLON.Vector3(
-                            -207.57,
-                            0,
+                            -267.01,
+                            17,
                             0
                         ),
 
-                    // Rotate if the flag is facing the wrong direction.
                     rotation:
                         new BABYLON.Vector3(
                             0,
-                            Math.PI / 2,
+                            90,
                             0
                         ),
 
-                    // Adjust size here.
                     scaling:
                         new BABYLON.Vector3(
-                            2,
-                            2,
-                            2
+                            1.3,
+                            1.3,
+                            1.3
                         ),
 
-                    // The flag renders only when player is within this distance.
-                    renderDistance: 200,
+                    renderDistance: 260,
 
-                    // 1.0 = normal speed.
-                    // 0.7 = slower waving.
-                    // 1.3 = faster waving.
-                    animationSpeedRatio: 1.0,
+                    flagWidth: 2.6,
+                    flagHeight: 1.55,
 
-                    // Adds a simple pole behind the flag.
-                    createPole: true
+                    waveAmplitude: 0.15,
+                    waveFrequency: 1.8,
+                    waveSpeed: 1.6,
+
+                    debug: false
                 }
             );
 
@@ -137,6 +136,14 @@ export async function createMainScene(
 
         scene.metadata.thaiFlag =
             thaiFlag;
+
+        window.thaiFlag =
+            thaiFlag;
+
+        console.log(
+            "Thai flag loaded:",
+            thaiFlag
+        );
     } catch (error) {
         console.error(
             "Thai flag failed to load:",

@@ -35,18 +35,20 @@ const isLocalNetwork =
     hostname.startsWith("10.") ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
 
-const isRenderFrontend =
-    hostname.endsWith(".onrender.com");
+const BACKEND_URL_BY_FRONTEND_HOST = Object.freeze({
+    "au-gameforge.onrender.com": "https://au-gameforge-backend.onrender.com",
+    "auverse.sittyan.com": "https://auverseapi.sittyan.com"
+});
 
 const SERVER_URL = (
     isLocalNetwork
         ? `${window.location.protocol}//${hostname}:3001`
-        : isRenderFrontend
-            ? "https://au-gameforge-backend.onrender.com"
-            : import.meta.env.VITE_SERVER_URL ||
+        : BACKEND_URL_BY_FRONTEND_HOST[hostname] ||
+            import.meta.env.VITE_SERVER_URL ||
             "https://au-gameforge-backend.onrender.com"
 ).replace(/\/$/, "");
 
+console.log("Frontend Host:", hostname);
 console.log("Backend URL:", SERVER_URL);
 
 const STORAGE_KEY = "guestCode";

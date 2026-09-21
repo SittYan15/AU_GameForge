@@ -1,4 +1,9 @@
+import { randomUUID } from "node:crypto";
+import { addGuestPoints } from "../models/guestModel.js";
+import { addUserPoints } from "../models/userModel.js";
+import { getTopPlayers } from "../models/leaderboardModel.js";
 import {
+    PROP_HUNT_AREAS,
     PROP_HUNT_ELEVATOR_HORIZONTAL_RADIUS,
     PROP_HUNT_ELEVATOR_VERTICAL_TOLERANCE,
     PROP_HUNT_ELEVATORS,
@@ -26,12 +31,7 @@ import {
     PROP_HUNT_ROOM,
     PROP_HUNT_SEEKER_WIN_POINTS,
     PROP_HUNT_WRONG_SHOT_PENALTY_MS,
-    randomUUID } from "node:crypto";
-import { addGuestPoints } from "../models/guestModel.js";
-import { addUserPoints } from "../models/userModel.js";
-import { getTopPlayers } from "../models/leaderboardModel.js";
-import {
-    PROP_HUNT_AREAS
+    PROP_HUNT_RESTRICTION_BOUNDS
 } from "./propHuntDefinitions.js";
 
 const socketHandlers = new Map();
@@ -113,57 +113,17 @@ function clampNumber(value, min, max) {
     return Math.max(min, Math.min(max, number));
 }
 
-function pointInsideRestrictionPolygon(position) {
+function pointInsideRestrictionRect(position) {
     if (!finiteVector(position)) return false;
 
-    if (
-        position.y < PROP_HUNT_RESTRICTION_MIN_Y ||
-        position.y > PROP_HUNT_RESTRICTION_MAX_Y
-    ) {
-        return false;
-    }
-
-    let inside = false;
-    const points = PROP_HUNT_RESTRICTION_CORNERS;
-
-    for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
-        const currentPoint = points[index];
-        const previousPoint = points[previous];
-
-        const intersects =
-            (currentPoint.z > position.z) !== (previousPoint.z > position.z) &&
-            position.x <
-                ((previousPoint.x - currentPoint.x) * (position.z - currentPoint.z)) /
-                    ((previousPoint.z - currentPoint.z) || Number.EPSILON) +
-                    currentPoint.x;
-
-        if (intersects) {
-            inside = !inside;
-        }
-    }
-
-    return inside;
-}
-
-function nearestPointOnRestrictionSegment(position, start, end) {
-    const segmentX = end.x - start.x;
-    const segmentZ = end.z - start.z;
-    const lengthSquared = segmentX * segmentX + segmentZ * segmentZ;
-
-    if (lengthSquared <= 0.000001) {
-        return { x: start.x, z: start.z };
-    }
-
-    const t = clampNumber(
-        ((position.x - start.x) * segmentX + (position.z - start.z) * segmentZ) / lengthSquared,
-        0,
-        1
+    return (
+        position.x >= PROP_HUNT_RESTRICTION_BOUNDS.minX &&
+        position.x <= PROP_HUNT_RESTRICTION_BOUNDS.maxX &&
+        position.z >= PROP_HUNT_RESTRICTION_BOUNDS.minZ &&
+        position.z <= PROP_HUNT_RESTRICTION_BOUNDS.maxZ &&
+        position.y >= PROP_HUNT_RESTRICTION_BOUNDS.minY &&
+        position.y <= PROP_HUNT_RESTRICTION_BOUNDS.maxY
     );
-
-    return {
-        x: start.x + segmentX * t,
-        z: start.z + segmentZ * t
-    };
 }
 
 function nearestPropHuntPlayablePosition(currentPosition, requestedPosition) {
@@ -171,52 +131,36 @@ function nearestPropHuntPlayablePosition(currentPosition, requestedPosition) {
         ? requestedPosition
         : finiteVector(currentPosition)
             ? currentPosition
-            : PROP_HUNT_RESTRICTION_CORNERS[0];
+            : {
+                x: (PROP_HUNT_RESTRICTION_BOUNDS.minX + PROP_HUNT_RESTRICTION_BOUNDS.maxX) / 2,
+                y: 1.0,
+                z: (PROP_HUNT_RESTRICTION_BOUNDS.minZ + PROP_HUNT_RESTRICTION_BOUNDS.maxZ) / 2
+            };
 
-    const clampedY = clampNumber(
-        source.y,
-        PROP_HUNT_RESTRICTION_MIN_Y,
-        PROP_HUNT_RESTRICTION_MAX_Y
-    );
-
-    const yClampedPosition = {
-        x: source.x,
-        y: clampedY,
-        z: source.z
-    };
-
-    if (pointInsideRestrictionPolygon(yClampedPosition)) {
-        return yClampedPosition;
-    }
-
-    let bestPoint = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    const points = PROP_HUNT_RESTRICTION_CORNERS;
-
-    for (let index = 0; index < points.length; index += 1) {
-        const start = points[index];
-        const end = points[(index + 1) % points.length];
-        const candidate = nearestPointOnRestrictionSegment(source, start, end);
-        const distanceSquared =
-            (candidate.x - source.x) * (candidate.x - source.x) +
-            (candidate.z - source.z) * (candidate.z - source.z);
-
-        if (distanceSquared < bestDistance) {
-            bestDistance = distanceSquared;
-            bestPoint = candidate;
-        }
-    }
+    const margin = 0.18;
 
     return {
-        x: bestPoint?.x ?? source.x,
-        y: clampedY,
-        z: bestPoint?.z ?? source.z
+        x: clampNumber(
+            source.x,
+            PROP_HUNT_RESTRICTION_BOUNDS.minX + margin,
+            PROP_HUNT_RESTRICTION_BOUNDS.maxX - margin
+        ),
+        y: clampNumber(
+            source.y,
+            PROP_HUNT_RESTRICTION_BOUNDS.minY,
+            PROP_HUNT_RESTRICTION_BOUNDS.maxY
+        ),
+        z: clampNumber(
+            source.z,
+            PROP_HUNT_RESTRICTION_BOUNDS.minZ + margin,
+            PROP_HUNT_RESTRICTION_BOUNDS.maxZ - margin
+        )
     };
 }
-// Prop Hunt polygon restriction helpers endexport 
+
 export function isInsidePropHuntArea(position) {
     if (!finiteVector(position)) return false;
-    return pointInsideRestrictionPolygon(position);
+    return pointInsideRestrictionRect(position);
 }
 
 function squaredDistance(a, b) {
@@ -898,7 +842,7 @@ export function registerPropHuntSocket(
         // limit so orientation replication cannot become a spam path.
         if (
             now -
-                (socket.data.propHuntLastOrientationAt || 0) <
+            (socket.data.propHuntLastOrientationAt || 0) <
             45
         ) {
             return;
@@ -1044,7 +988,7 @@ export function registerPropHuntSocket(
             Math.max(
                 0,
                 bulletsRemaining -
-                    1
+                1
             );
 
         socket.emit(

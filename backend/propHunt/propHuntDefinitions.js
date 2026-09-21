@@ -24,6 +24,15 @@ export const PROP_HUNT_PORTAL = Object.freeze({
     radius: 5.0
 });
 
+export const PROP_HUNT_RESTRICTION_BOUNDS = Object.freeze({
+    minX: -300.08,
+    maxX: -207.59,
+    minZ: 17.61,
+    maxZ: 104.70,
+    minY: -1.0,
+    maxY: 46.5
+});
+
 // These supplied coordinates were measured on the floor surface.
 // The player capsule is 2 units high and its root is centered, so +1.0 Y
 // keeps the human model/capsule above the floor instead of half embedded.
@@ -39,19 +48,19 @@ export const PROP_HUNT_RETURN_POSITION = Object.freeze({
     z: 19.74
 });
 
-
-
-// Prop Hunt custom restriction polygon start
 export const PROP_HUNT_RESTRICTION_CORNERS = Object.freeze([
-    Object.freeze({ x: -253.05, y: 0.17, z: 17.61 }),
-    Object.freeze({ x: -300.08, y: 0.00, z: 62.71 }),
-    Object.freeze({ x: -272.85, y: 0.15, z: 104.70 }),
-    Object.freeze({ x: -207.59, y: 0.00, z: 72.81 })
+    Object.freeze({ x: -300.08, y: 0.00, z: 17.61 }),
+    Object.freeze({ x: -207.59, y: 0.00, z: 17.61 }),
+    Object.freeze({ x: -207.59, y: 0.00, z: 104.70 }),
+    Object.freeze({ x: -300.08, y: 0.00, z: 104.70 })
 ]);
 
 export const PROP_HUNT_RESTRICTION_MIN_Y = -1.0;
 export const PROP_HUNT_RESTRICTION_MAX_Y = 46.5;
-// Prop Hunt custom restriction polygon end// The VME / VMES streaming configuration in chunkManager.js defines these
+
+// Prop Hunt custom restriction polygon end
+
+// The VME / VMES streaming configuration in chunkManager.js defines these
 // three playable building bands. Keeping them as a union is more accurate
 // than one giant rectangle because the portal/return area must stay outside.
 export const PROP_HUNT_AREAS = Object.freeze([

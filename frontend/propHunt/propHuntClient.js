@@ -8,7 +8,8 @@ import {
     PROP_HUNT_PORTAL_POSITION,
     PROP_HUNT_PORTAL_TRIGGER_RADIUS,
     PROP_HUNT_PROP_ASSETS,
-    PROP_HUNT_RESTRICTION_CORNERS
+    PROP_HUNT_RESTRICTION_CORNERS,
+    PROP_HUNT_RESTRICTION_BOUNDS
 } from "./propHuntConfig.js";
 
 const PROP_ASSET_ROOT = "/propHunt/props/";
@@ -892,94 +893,70 @@ function createUi() {
 
 
 function createPropHuntBoundaryVisual(scene) {
-    const root = new BABYLON.TransformNode(
-        "prop_hunt_red_restriction_area_root",
-        scene
-    );
+    const bounds = PROP_HUNT_RESTRICTION_BOUNDS;
 
-    const yOffset = 0.055;
-    const points = PROP_HUNT_RESTRICTION_CORNERS.map((point) =>
-        new BABYLON.Vector3(
-            point.x,
-            (Number(point.y) || 0) + yOffset,
-            point.z
-        )
-    );
+    const width =
+        bounds.maxX - bounds.minX;
 
-    const mesh = new BABYLON.Mesh(
-        "prop_hunt_red_restriction_area_plane",
-        scene
-    );
+    const height =
+        bounds.maxZ - bounds.minZ;
 
-    const positions = points.flatMap((point) => [
-        point.x,
-        point.y,
-        point.z
-    ]);
+    const centerX =
+        (bounds.minX + bounds.maxX) / 2;
 
-    const indices = [0, 1, 2, 0, 2, 3];
-    const normals = [];
+    const centerZ =
+        (bounds.minZ + bounds.maxZ) / 2;
 
-    BABYLON.VertexData.ComputeNormals(
-        positions,
-        indices,
-        normals
-    );
+    const plane =
+        BABYLON.MeshBuilder.CreateGround(
+            "prop_hunt_red_restriction_area",
+            {
+                width,
+                height
+            },
+            scene
+        );
 
-    const vertexData = new BABYLON.VertexData();
-    vertexData.positions = positions;
-    vertexData.indices = indices;
-    vertexData.normals = normals;
-    vertexData.applyToMesh(mesh);
+    plane.position.x = centerX;
+    plane.position.y = 0.06;
+    plane.position.z = centerZ;
 
-    const material = new BABYLON.StandardMaterial(
-        "prop_hunt_red_restriction_area_mat",
-        scene
-    );
+    plane.isPickable = false;
 
-    material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-    material.emissiveColor = new BABYLON.Color3(0.85, 0.03, 0.02);
-    material.alpha = 0.20;
+    const material =
+        new BABYLON.StandardMaterial(
+            "prop_hunt_red_restriction_area_mat",
+            scene
+        );
+
+    material.diffuseColor =
+        new BABYLON.Color3(
+            1,
+            0,
+            0
+        );
+
+    material.emissiveColor =
+        new BABYLON.Color3(
+            0.85,
+            0,
+            0
+        );
+
+    material.alpha = 0.18;
     material.backFaceCulling = false;
     material.disableLighting = true;
 
-    mesh.material = material;
-    mesh.parent = root;
-    mesh.isPickable = false;
-    mesh.checkCollisions = false;
-    mesh.renderingGroupId = 1;
-
-    const outlinePoints = [
-        ...points.map((point) =>
-            point.add(new BABYLON.Vector3(0, 0.045, 0))
-        ),
-        points[0].add(new BABYLON.Vector3(0, 0.045, 0))
-    ];
-
-    const outline = BABYLON.MeshBuilder.CreateLines(
-        "prop_hunt_red_restriction_area_outline",
-        {
-            points: outlinePoints
-        },
-        scene
-    );
-
-    outline.color = new BABYLON.Color3(1, 0.02, 0.02);
-    outline.parent = root;
-    outline.isPickable = false;
-    outline.checkCollisions = false;
-    outline.renderingGroupId = 2;
-
-    root.setEnabled(false);
+    plane.material = material;
+    plane.setEnabled(false);
 
     return {
         setVisible(visible) {
-            root.setEnabled(Boolean(visible));
+            plane.setEnabled(Boolean(visible));
         },
-
         dispose() {
-            root.dispose(false, true);
             material.dispose();
+            plane.dispose();
         }
     };
 }
@@ -2222,9 +2199,7 @@ export function createPropHuntClient(
     const ui = createUi();
     const portal = createPortal(scene);
     const boundaryVisual = createPropHuntBoundaryVisual(scene);
-    const boundaryVisuals = createPropHuntBoundaryVisuals(scene);
-
-    const propHudPreview =
+const propHudPreview =
         createPropHudPreview(
             ui.propPreviewCanvas
         );
@@ -3054,17 +3029,15 @@ export function createPropHuntClient(
         let title = phase;
         let status = "";
         
+        const counts = teamCounts();
+        const compactTeamStatus =
+            `Finders: ${counts.seekers} • Hiders left: ${counts.activeHiders}/${counts.totalHiders} • Found: ${counts.caughtHiders}`;
+
         if (ui.teamStats) {
             ui.teamStats.textContent = active
                 ? compactTeamStatus
                 : "";
         }
-
-        const counts = teamCounts();
-
-        ui.teamStats.textContent = active
-            ? `Finders: ${counts.seekers} • Hiders left: ${counts.activeHiders}/${counts.totalHiders} • Found: ${counts.caughtHiders}`
-            : "";
 
         if (phase === "LOBBY") {
             title = lobbyCountdown == null
@@ -3140,6 +3113,7 @@ export function createPropHuntClient(
 
     function setActive(next) {
         active = Boolean(next);
+        boundaryVisual?.setEnabled?.(active);
         ui.hud.hidden = !active;
         ui.returnButton.hidden = !active;
         ui.joinPanel.hidden = true;
@@ -4071,8 +4045,7 @@ export function createPropHuntClient(
             disposeShotEffectPool(
                 scene
             );
-            boundaryVisuals.dispose();
-            boundaryVisual.dispose();
+boundaryVisual.dispose();
             portal.dispose();
 
             [

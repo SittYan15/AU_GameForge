@@ -36,7 +36,7 @@ const sessionMiddleware = session({
         secure: process.env.NODE_ENV === "production",
         // Production commonly serves Vite and the API from different sites.
         // Cross-site credentialed requests require SameSite=None + Secure.
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        sameSite: "lax",
         maxAge: 8 * 60 * 60 * 1000
     }
 });

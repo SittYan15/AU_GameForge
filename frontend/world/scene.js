@@ -16,6 +16,7 @@ import {
     createCampusQuizPortal
 } from "./campusQuizPortal.js";
 import { createCampusQuizArena } from "./campusQuizArena.js";
+import { createAnimatedThaiFlag } from "./animatedFlag.js";
 
 export async function createMainScene(
     engine,
@@ -85,6 +86,63 @@ export async function createMainScene(
             animationCallback,
             loadingScreen
         );
+
+    try {
+        const thaiFlag =
+            await createAnimatedThaiFlag(
+                scene,
+                player,
+                {
+                    name: "thai_flag_main",
+
+                    // Change this to the real campus position you want.
+                    position:
+                        new BABYLON.Vector3(
+                            -207.57,
+                            0,
+                            0
+                        ),
+
+                    // Rotate if the flag is facing the wrong direction.
+                    rotation:
+                        new BABYLON.Vector3(
+                            0,
+                            Math.PI / 2,
+                            0
+                        ),
+
+                    // Adjust size here.
+                    scaling:
+                        new BABYLON.Vector3(
+                            2,
+                            2,
+                            2
+                        ),
+
+                    // The flag renders only when player is within this distance.
+                    renderDistance: 200,
+
+                    // 1.0 = normal speed.
+                    // 0.7 = slower waving.
+                    // 1.3 = faster waving.
+                    animationSpeedRatio: 1.0,
+
+                    // Adds a simple pole behind the flag.
+                    createPole: true
+                }
+            );
+
+        scene.metadata =
+            scene.metadata || {};
+
+        scene.metadata.thaiFlag =
+            thaiFlag;
+    } catch (error) {
+        console.error(
+            "Thai flag failed to load:",
+            error
+        );
+    }
 
     const headNode = new BABYLON.TransformNode("headNode", scene);
     headNode.parent = player;
@@ -390,9 +448,9 @@ export async function createMainScene(
                 4.71 +
                 Math.sin(
                     performance.now() *
-                        0.0025
+                    0.0025
                 ) *
-                    0.18;
+                0.18;
         }
     );
 

@@ -16,8 +16,50 @@ style.textContent = `
        --------------------------------------------------------- */
     @media (max-width: 900px) {
         /* The FPS number competes with Full Screen / Return buttons. */
+        /* Mobile FPS counter */
         #fpsCounter {
-            display: none !important;
+            display: block !important;
+
+            position: fixed !important;
+
+            right: max(
+                10px,
+                env(safe-area-inset-right)
+            ) !important;
+
+            /*
+            * Keep FPS above the mobile action buttons.
+            * Action button container is about 150px high.
+            */
+            bottom: calc(
+                165px +
+                env(safe-area-inset-bottom)
+            ) !important;
+
+            top: auto !important;
+            left: auto !important;
+
+            padding: 4px 7px !important;
+
+            font-size: 12px !important;
+            line-height: 1 !important;
+
+            border-radius: 5px !important;
+
+            background: rgba(
+                0,
+                0,
+                0,
+                0.68
+            ) !important;
+
+            color: #7cff7c !important;
+
+            z-index: 1100 !important;
+
+            pointer-events: none !important;
+
+            white-space: nowrap !important;
         }
 
         /* Compact connection/player-count badge. */

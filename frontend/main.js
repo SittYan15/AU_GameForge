@@ -27,8 +27,8 @@ import { claimGameTab, releaseGameTab } from "./gameTabLock.js";
 
 const { engine, canvas } = initEngine("renderCanvas");
 
-const BaseUrl = process.env.NODE_ENV === 'development' 
-    ? "./au_campus/" 
+const BaseUrl = process.env.NODE_ENV === 'development'
+    ? "./au_campus/"
     : "https://pub-1594e8b359fe4ef08605e86f19e11eeb.r2.dev/";
 
 let multiplayer = null;
@@ -197,14 +197,19 @@ async function startGame(session) {
             showNewPlayerTutorial({
                 player,
                 onComplete: async () => {
-                    await completeMovementTutorial();
+                    try {
+                        await completeMovementTutorial();
+                    } catch (error) {
+                        console.warn(
+                            "Could not save tutorial completion:",
+                            error?.message || error
+                        );
+                    }
 
-                    session.tutorialCompleted =
-                        true;
+                    session.tutorialCompleted = true;
 
                     if (currentSession) {
-                        currentSession.tutorialCompleted =
-                            true;
+                        currentSession.tutorialCompleted = true;
                     }
                 }
             });

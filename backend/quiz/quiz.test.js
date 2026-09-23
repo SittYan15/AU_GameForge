@@ -66,7 +66,7 @@ function answer(player, correct = true) {
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-test('each player draws 10 unique questions with private answer maps and fresh replay sets', () => {
+test('the room shares 10 unique questions across all players, with fresh replay sets', () => {
     const h = harness(), a = h.add('a'), b = h.add('b');
     const original = JSON.stringify(questions);
     let previous = [];
@@ -86,7 +86,7 @@ test('each player draws 10 unique questions with private answer maps and fresh r
             const correctText = state.currentQuestion.options.find(o => o.id === state.currentQuestion.correctOptionId).text;
             assert.equal(payload.options.find(o => o.floorId === state.correctFloorId).text, correctText);
         }
-        assert.notDeepEqual(a.s.data.campusQuizQuestions.questionIds, b.s.data.campusQuizQuestions.questionIds);
+        assert.deepEqual(a.s.data.campusQuizQuestions.questionIds, b.s.data.campusQuizQuestions.questionIds);
     }
     assert.equal(JSON.stringify(questions), original);
     h.setRandom(() => 0);

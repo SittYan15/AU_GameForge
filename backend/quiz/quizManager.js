@@ -403,29 +403,34 @@ function sendQuestion(io) {
     if (quizState.phase !== "QUESTION") return;
 
     quizState.questionDeadline = Date.now() + CAMPUS_QUIZ_QUESTION_TIME_MS;
+
+    // Selected once for the whole room so every player sees the same
+    // question, in the same order, with the same floor/option mapping.
+    quizState.currentQuestion = CAMPUS_QUIZ_QUESTIONS.find(
+        q => q.id === quizState.questionIds[quizState.questionIndex]
+    );
+    quizState.currentPublicQuestion = buildPublicQuestion(quizState.currentQuestion, quizState);
+
     const activeSockets = aliveParticipants(io);
     for (const socket of activeSockets) {
         const state = socket.data.campusQuizQuestions;
-        state.questionIndex = socket.data.campusQuizAnsweredQuestions.size;
+        state.questionIndex = quizState.questionIndex;
         state.roundId = quizState.roundId;
         state.questionDeadline = quizState.questionDeadline;
-        state.currentQuestion = CAMPUS_QUIZ_QUESTIONS.find(q => q.id === state.questionIds[state.questionIndex]);
-        state.currentPublicQuestion = buildPublicQuestion(state.currentQuestion, state);
+        state.currentQuestion = quizState.currentQuestion;
+        state.correctFloorId = quizState.correctFloorId;
+        state.currentPublicQuestion = quizState.currentPublicQuestion;
         socket.emit("campusQuiz:question", state.currentPublicQuestion);
     }
-    // Shared timer and spectator view follow the first active player only.
-    const view = activeSockets[0]?.data.campusQuizQuestions;
-    if (!view) { void finishRound(io); return; }
-    quizState.currentQuestion = view.currentQuestion;
-    quizState.currentPublicQuestion = view.currentPublicQuestion;
-    const question = view.currentQuestion;
+    if (activeSockets.length === 0) { void finishRound(io); return; }
+
     for (const socket of getQuizSockets(io).filter(s => !s.data.campusQuizParticipating)) {
-        socket.emit("campusQuiz:question", view.currentPublicQuestion);
+        socket.emit("campusQuiz:question", quizState.currentPublicQuestion);
     }
 
     clearTimeout(questionTimer);
     const roundId = quizState.roundId;
-    const questionId = question.id;
+    const questionId = quizState.currentQuestion.id;
     questionTimer = setTimeout(() => {
         evaluateQuestion(io, roundId, questionId);
     }, CAMPUS_QUIZ_QUESTION_TIME_MS + 40);
@@ -581,11 +586,11 @@ function startRound(io) {
     quizState.questionIndex = 0;
     quizState.roundStartedAt = Date.now();
     quizState.lobbyEndsAt = null;
+    // One shared question sequence for the whole room, not one per player.
+    quizState.questionIds = selectQuestions(quizState.questionIds);
     sockets.forEach((socket, index) => {
-        const questionIds = selectQuestions(socket.data.campusQuizQuestions?.questionIds);
         resetSocketForRound(socket);
-        socket.data.campusQuizQuestions = { questionIds, questionIndex: 0 };
-        if (index === 0) quizState.questionIds = [...questionIds];
+        socket.data.campusQuizQuestions = { questionIds: quizState.questionIds, questionIndex: 0 };
         teleport(socket, quizSpawn(index), "round-start");
         socket.emit("campusQuiz:role", "player");
     });

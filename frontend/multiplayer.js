@@ -14,6 +14,7 @@ import { createExplorationClient } from "./exploration/explorationClient.js";
 import { createCampusQuizClient } from "./quiz/quizClient.js";
 import { createCarRaceClient } from "./racing/carRaceClient.js";
 import { createPropHuntClient } from "./propHunt/propHuntClient.js";
+import { confirmReturnToCampus } from "./ui/returnToCampusConfirm.js";
 
 export const remotePlayers = new Map();
 
@@ -688,8 +689,10 @@ function clearRlglUi() {
 }
 
 rlglQuitBtn.addEventListener("click", () => {
-    rlglQuitBtn.style.display = "none";
-    if (window.exitRlgl) window.exitRlgl();
+    confirmReturnToCampus(() => {
+        rlglQuitBtn.style.display = "none";
+        if (window.exitRlgl) window.exitRlgl();
+    });
 });
 
 async function request(path, options = {}) {

@@ -11,6 +11,7 @@ import {
     PROP_HUNT_RESTRICTION_CORNERS,
     PROP_HUNT_RESTRICTION_BOUNDS
 } from "./propHuntConfig.js";
+import { confirmReturnToCampus } from "../ui/returnToCampusConfirm.js";
 
 const PROP_ASSET_ROOT = "/propHunt/props/";
 
@@ -25,7 +26,7 @@ const PROP_HUNT_AREAS = Object.freeze([
         maxZ: 103.0
     }),
     Object.freeze({
-        id: "VME",
+        id: "SLM",
         minX: -293.0,
         maxX: -257.0,
         minY: -1.0,
@@ -34,7 +35,7 @@ const PROP_HUNT_AREAS = Object.freeze([
         maxZ: 103.0
     }),
     Object.freeze({
-        id: "VME_MIDDLE",
+        id: "SLM_MIDDLE",
         minX: -273.0,
         maxX: -232.0,
         minY: -1.0,
@@ -736,7 +737,7 @@ function createUi() {
     joinPanel.hidden = true;
     joinPanel.innerHTML = `
         <div id="propHuntJoinTitle">👀 Campus Prop Hunt</div>
-        <div id="propHuntJoinText">VME + VMES • 11 floors • 5 minute rounds</div>
+        <div id="propHuntJoinText">SLM + VMES • 11 floors • 5 minute rounds</div>
         <button id="propHuntJoinButton" type="button">Join Prop Hunt</button>
     `;
 
@@ -1073,7 +1074,7 @@ function propMetricsFromContainer(
 ) {
     const config =
         PROP_HUNT_PROP_ASSETS[
-            propId
+        propId
         ];
 
     if (
@@ -1094,7 +1095,7 @@ function propMetricsFromContainer(
                 (mesh) =>
                     mesh?.getBoundingInfo &&
                     mesh.getTotalVertices?.() >
-                        0
+                    0
             );
 
     const bounds =
@@ -1115,7 +1116,7 @@ function propMetricsFromContainer(
                 bounds.max.x -
                 bounds.min.x
             ) *
-                scale
+            scale
         );
 
     const height =
@@ -1125,7 +1126,7 @@ function propMetricsFromContainer(
                 bounds.max.y -
                 bounds.min.y
             ) *
-                scale
+            scale
         );
 
     const depth =
@@ -1135,7 +1136,7 @@ function propMetricsFromContainer(
                 bounds.max.z -
                 bounds.min.z
             ) *
-                scale
+            scale
         );
 
     return {
@@ -1157,8 +1158,8 @@ function createPropHudPreview(
 ) {
     if (!canvas) {
         return {
-            setProp() {},
-            dispose() {}
+            setProp() { },
+            dispose() { }
         };
     }
 
@@ -1263,7 +1264,7 @@ function createPropHudPreview(
         ) => {
             const config =
                 PROP_HUNT_PROP_ASSETS[
-                    propId
+                propId
                 ];
 
             if (!config) {
@@ -1320,7 +1321,7 @@ function createPropHudPreview(
                         (mesh) =>
                             mesh?.getBoundingInfo &&
                             mesh.getTotalVertices?.() >
-                                0
+                            0
                     );
 
             meshes.forEach(
@@ -1436,14 +1437,14 @@ function createPropHudPreview(
 
             if (
                 lastRenderedYaw !==
-                    null &&
+                null &&
                 Math.abs(
                     shortestYawDelta(
                         lastRenderedYaw,
                         renderYaw
                     )
                 ) <
-                    0.005
+                0.005
             ) {
                 return;
             }
@@ -1764,7 +1765,7 @@ function getShotEffectPool(scene) {
                     if (
                         tracer.isEnabled() &&
                         now >=
-                            state.tracerEndsAt
+                        state.tracerEndsAt
                     ) {
                         tracer.setEnabled(
                             false
@@ -1774,7 +1775,7 @@ function getShotEffectPool(scene) {
                     if (
                         muzzle.isEnabled() &&
                         now >=
-                            state.muzzleEndsAt
+                        state.muzzleEndsAt
                     ) {
                         muzzle.setEnabled(
                             false
@@ -1788,7 +1789,7 @@ function getShotEffectPool(scene) {
                             Math.max(
                                 1,
                                 state.impactEndsAt -
-                                    state.impactStartedAt
+                                state.impactStartedAt
                             );
 
                         const t =
@@ -1797,7 +1798,7 @@ function getShotEffectPool(scene) {
                                     now -
                                     state.impactStartedAt
                                 ) /
-                                    duration,
+                                duration,
                                 0,
                                 1
                             );
@@ -1805,7 +1806,7 @@ function getShotEffectPool(scene) {
                         impact.scaling.setAll(
                             1 +
                             t *
-                                3.2
+                            3.2
                         );
 
                         impactMaterial.alpha =
@@ -2068,7 +2069,7 @@ function playGunFireSound() {
                 play
             )
             .catch(
-                () => {}
+                () => { }
             );
 
         return;
@@ -2193,13 +2194,13 @@ export function createPropHuntClient(
     socket,
     {
         remotePlayers,
-        setFullMinigameState = () => {}
+        setFullMinigameState = () => { }
     } = {}
 ) {
     const ui = createUi();
     const portal = createPortal(scene);
     const boundaryVisual = createPropHuntBoundaryVisual(scene);
-const propHudPreview =
+    const propHudPreview =
         createPropHudPreview(
             ui.propPreviewCanvas
         );
@@ -2459,7 +2460,7 @@ const propHudPreview =
         if (
             propViewActive &&
             propViewPropId ===
-                localPropId
+            localPropId
         ) {
             return;
         }
@@ -2475,7 +2476,7 @@ const propHudPreview =
 
         if (
             generation !==
-                propViewUpdateGeneration ||
+            propViewUpdateGeneration ||
             !orientationActive() ||
             !localPropId
         ) {
@@ -2495,7 +2496,7 @@ const propHudPreview =
         const eyeHeightAboveFloor =
             BABYLON.Scalar.Clamp(
                 metrics.height *
-                    0.72,
+                0.72,
                 0.52,
                 1.58
             );
@@ -2515,7 +2516,7 @@ const propHudPreview =
             .copyFromFloats(
                 0,
                 eyeHeightAboveFloor -
-                    PROP_HUNT_PLAYER_CENTER_OFFSET_Y,
+                PROP_HUNT_PLAYER_CENTER_OFFSET_Y,
                 0
             );
 
@@ -2582,7 +2583,7 @@ const propHudPreview =
         ui.ammoHud.classList.toggle(
             "empty",
             safeBullets <=
-                0
+            0
         );
 
         ui.fireButton.disabled =
@@ -2814,22 +2815,22 @@ const propHudPreview =
         if (
             !force &&
             now -
-                lastOrientationSentAt <
-                85
+            lastOrientationSentAt <
+            85
         ) {
             return;
         }
 
         const changedYaw =
             lastSentPropYaw ===
-                null ||
+            null ||
             Math.abs(
                 shortestYawDelta(
                     lastSentPropYaw,
                     localPropYaw
                 )
             ) >
-                0.025;
+            0.025;
 
         const changedLock =
             lastSentPropLocked !==
@@ -3028,7 +3029,7 @@ const propHudPreview =
 
         let title = phase;
         let status = "";
-        
+
         const counts = teamCounts();
         const compactTeamStatus =
             `Finders: ${counts.seekers} • Hiders left: ${counts.activeHiders}/${counts.totalHiders} • Found: ${counts.caughtHiders}`;
@@ -3050,7 +3051,7 @@ const propHudPreview =
             status = role === "SEEKER"
                 ? "Hiders are hiding. Your screen and movement are locked."
                 : role === "HIDER"
-                    ? "Hide anywhere in VME/VMES. Your prop follows the FPS camera direction. Press F to freeze it."
+                    ? "Hide anywhere in SLM/VMES. Your prop follows the FPS camera direction. Press F to freeze it."
                     : "Live round in progress — spectating until the next lobby.";
         } else if (phase === "HUNT") {
             const time = phaseEndsAt ? formatClock(phaseEndsAt - Date.now()) : "4:00";
@@ -3412,7 +3413,9 @@ const propHudPreview =
     window.addEventListener("au:minigame-state", minigameEventHandler);
 
     ui.joinButton.addEventListener("click", () => void requestJoin());
-    ui.returnButton.addEventListener("click", leave);
+    ui.returnButton.addEventListener("click", () => {
+        confirmReturnToCampus(leave);
+    });
     ui.fireButton.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -3437,11 +3440,11 @@ const propHudPreview =
 
             if (
                 tag ===
-                    "input" ||
+                "input" ||
                 tag ===
-                    "textarea" ||
+                "textarea" ||
                 tag ===
-                    "select"
+                "select"
             ) {
                 return;
             }
@@ -3551,7 +3554,7 @@ const propHudPreview =
         (
             {
                 role:
-                    nextRole,
+                nextRole,
                 propId,
                 propYaw,
                 propLocked
@@ -3589,7 +3592,7 @@ const propHudPreview =
 
             if (
                 role ===
-                    "HIDER" &&
+                "HIDER" &&
                 !localPropLocked
             ) {
                 const yaw =
@@ -3701,9 +3704,9 @@ const propHudPreview =
         ) => {
             if (
                 typeof socketId !==
-                    "string" ||
+                "string" ||
                 socketId ===
-                    socket.id ||
+                socket.id ||
                 !Number.isFinite(
                     Number(yaw)
                 )
@@ -3988,7 +3991,7 @@ const propHudPreview =
                             .y,
                         targetYaw
                     ) *
-                        0.28
+                    0.28
                 );
         });
     });
@@ -4045,7 +4048,7 @@ const propHudPreview =
             disposeShotEffectPool(
                 scene
             );
-boundaryVisual.dispose();
+            boundaryVisual.dispose();
             portal.dispose();
 
             [

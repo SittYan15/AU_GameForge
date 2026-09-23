@@ -10,6 +10,7 @@ import {
 import {
     createCarAudioController
 } from "./carAudioController.js";
+import { confirmReturnToCampus } from "../ui/returnToCampusConfirm.js";
 import {
     CAR_RACE_CHECKPOINTS,
     CAR_RACE_START_HEADING
@@ -1461,16 +1462,20 @@ export function createCarRaceClient(
     leaveButton.addEventListener(
         "click",
         () => {
-            if (
-                socket.connected &&
-                active
-            ) {
-                socket.emit(
-                    "carRace:leave"
-                );
-            } else {
-                deactivate();
-            }
+            confirmReturnToCampus(
+                () => {
+                    if (
+                        socket.connected &&
+                        active
+                    ) {
+                        socket.emit(
+                            "carRace:leave"
+                        );
+                    } else {
+                        deactivate();
+                    }
+                }
+            );
         }
     );
 

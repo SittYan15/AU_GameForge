@@ -1,5 +1,7 @@
 // frontend/quiz/quizClient.js
 
+import { confirmReturnToCampus } from "../ui/returnToCampusConfirm.js";
+
 const quizClients = new WeakMap();
 
 export function createCampusQuizClient(
@@ -544,7 +546,9 @@ export function createCampusQuizClient(
     socket.on("disconnect", onDisconnect);
 
     returnButton.addEventListener("click", () => {
-        if (active && socket.connected) socket.emit("campusQuiz:leave");
+        confirmReturnToCampus(() => {
+            if (active && socket.connected) socket.emit("campusQuiz:leave");
+        });
     });
 
     const client = {

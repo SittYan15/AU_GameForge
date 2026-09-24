@@ -16,8 +16,7 @@ import {
  *
  * - real 9.81 m/s² gravity
  * - airborne / grounded state
- * - spring + damper suspension
- * - suspension droop and compression
+ * - rigid road contact without spring suspension
  * - ramp takeoff and landing
  * - uphill/downhill gravity component
  * - traction loss in the air
@@ -63,21 +62,35 @@ const DEFAULTS = Object.freeze({
 
     collisionVelocityRetention: 0.24,
 
+    // CAR_FORWARD_GLANCING_COLLISION_FIX_V1
+    //
+    // The previous controller treated every wall-like ray hit as a complete
+    // block. When a side probe grazed a wall/curb/building edge, all forward
+    // movement could be cancelled even though the car was mostly travelling
+    // alongside the obstacle. Reverse still worked, which felt like the W key
+    // or forward gear had broken.
+    //
+    // Ignore nearly-parallel wall hits and preserve tangent velocity so the
+    // car can slide along a wall instead of becoming forward-locked.
+    obstacleMinApproachDot: 0.18,
+    collisionSlideRetention: 0.72,
+
+    // RACING_NO_SUSPENSION_V1
+    //
     // The network/player root remains the humanoid capsule center.
+    // There is no spring/damper suspension anymore. While the road is close
+    // enough, the car follows the road at a fixed ride height.
     rideHeight: PLAYER_COLLIDER_HALF_HEIGHT,
+    groundAttachDistance: 0.55,
 
-    // Raycast suspension. Values are acceleration-domain rather than Newtons,
-    // so vehicle mass cancels out and tuning stays simple.
-    suspensionTravel: 0.46,
-    suspensionCompressionLimit: 0.38,
-    suspensionSpring: 44.0,
-    suspensionDamping: 11.5,
-    maxSuspensionAcceleration: 34.0,
+    // RACING_GROUND_SINK_FIX_V1
+    //
+    // A rising slope/bump must never make the rigid car "airborne" just
+    // because the sampled road is already inside the chassis. Any upward
+    // penetration is corrected immediately.
+    groundPenetrationRecovery: true,
+
     maxVerticalSpeed: 12.0,
-
-    // The car may stay attached on normal road transitions, but a real gap
-    // larger than rideHeight + suspensionTravel produces an airborne state.
-    landingSnapTolerance: 0.10,
 
     obstacleProbeWidth: 0.38,
     obstacleProbeForwardPadding: 0.65,
@@ -90,8 +103,6 @@ const DEFAULTS = Object.freeze({
 
     surfaceSmoothingSpeed: 8.5,
 
-    bodyRollAmount: 0.075,
-    bodyPitchAmount: 0.028,
     groundedVisualResponse: 8.0,
     airborneVisualResponse: 1.3,
 
@@ -543,10 +554,48 @@ function findBlockingObstacle(
                 continue;
             }
 
+            const normalizedNormal =
+                normal.normalize();
+
+            const horizontalNormal =
+                new BABYLON.Vector3(
+                    normalizedNormal.x,
+                    0,
+                    normalizedNormal.z
+                );
+
+            if (
+                horizontalNormal.lengthSquared() <
+                0.000001
+            ) {
+                continue;
+            }
+
+            horizontalNormal.normalize();
+
+            // A near-parallel side wall should not stop forward motion.
+            // Only consider the surface blocking when the car is actually
+            // travelling meaningfully across the wall normal.
+            const approachDot =
+                Math.abs(
+                    BABYLON.Vector3.Dot(
+                        horizontalNormal,
+                        direction
+                    )
+                );
+
+            if (
+                approachDot <
+                config.obstacleMinApproachDot
+            ) {
+                continue;
+            }
+
             return {
                 hit,
                 normal:
-                    normal.normalize()
+                    normalizedNormal,
+                horizontalNormal
             };
         }
     }
@@ -594,7 +643,7 @@ export function createCarPhysicsController({
         startHeading;
 
     // Horizontal world-space velocity. Y is deliberately kept at zero because
-    // vertical motion has its own gravity/suspension state.
+    // vertical motion has its own gravity/ground-contact state.
     let planarVelocity =
         BABYLON.Vector3.Zero();
 
@@ -844,25 +893,19 @@ export function createCarPhysicsController({
                 roadY +
                 config.rideHeight;
 
-            const contact =
-                distance <=
-                    config.rideHeight +
-                    config.suspensionTravel &&
-                distance >=
-                    config.rideHeight -
-                    config.suspensionCompressionLimit -
-                    0.20;
+            const rideHeightError =
+                distance -
+                config.rideHeight;
 
-            const compression =
-                BABYLON.Scalar.Clamp(
-                    (
-                        config.rideHeight -
-                        distance
-                    ) /
-                        config.suspensionTravel,
-                    -1,
-                    1
-                );
+            const penetratingGround =
+                rideHeightError <
+                0;
+
+            const contact =
+                penetratingGround
+                    ? config.groundPenetrationRecovery
+                    : rideHeightError <=
+                        config.groundAttachDistance;
 
             return {
                 hasGround:
@@ -871,7 +914,8 @@ export function createCarPhysicsController({
                 roadY,
                 distance,
                 targetY,
-                compression
+                compression:
+                    0
             };
         };
 
@@ -891,6 +935,7 @@ export function createCarPhysicsController({
         airborne: true,
         airTime: 0,
         verticalSpeed: 0,
+        // Kept for state/API compatibility. Suspension is disabled.
         suspensionCompression: 0,
         landingImpact: 0,
 
@@ -1003,136 +1048,120 @@ export function createCarPhysicsController({
     const integrateVerticalPhysics =
         (
             deltaSeconds,
-            speedRatio
+            speedRatio,
+            longitudinalSpeed
         ) => {
             const contact =
                 getGroundContact();
 
-            landingImpact = 0;
+            landingImpact =
+                0;
 
             const previousGrounded =
                 grounded;
 
-            grounded = false;
-
-            let verticalAcceleration =
-                -config.gravity;
+            const groundPenetratingCar =
+                contact.hasGround &&
+                Number.isFinite(
+                    contact.targetY
+                ) &&
+                player.position.y <
+                    contact.targetY;
 
             if (
-                contact.contact
+                contact.contact ||
+                groundPenetratingCar
             ) {
-                const error =
-                    contact.targetY -
-                    player.position.y;
-
-                // Suspension support includes static preload equal to gravity.
-                // At target ride height:
-                // springSupport = gravity
-                // gravity + support => net zero.
-                const springSupport =
-                    BABYLON.Scalar.Clamp(
-                        config.gravity +
-                            error *
-                                config.suspensionSpring -
-                            verticalVelocity *
-                                config.suspensionDamping,
+                const impactSpeed =
+                    Math.max(
                         0,
-                        config.maxSuspensionAcceleration
+                        -verticalVelocity
                     );
 
-                verticalAcceleration +=
-                    springSupport;
+                // Rigid chassis: exact ride height, no suspension.
+                //
+                // If a slope/bump rises into the car, this is an immediate
+                // upward depenetration. Gravity is never allowed to pull an
+                // already-penetrating car farther below the road.
+                player.position.y =
+                    contact.targetY;
 
                 grounded =
-                    springSupport >
-                    0.05;
+                    true;
 
                 suspensionCompression =
-                    contact.compression;
-            } else {
-                suspensionCompression =
-                    -1;
-            }
+                    0;
 
-            // Aerodynamic downforce is small enough to preserve jumps but
-            // makes the car settle naturally at speed.
-            verticalAcceleration -=
-                config.downforceAcceleration *
-                speedRatio *
-                speedRatio;
+                airTime =
+                    0;
 
-            verticalVelocity +=
-                verticalAcceleration *
-                deltaSeconds;
+                // Preserve ramp takeoff without suspension.
+                // While attached to a slope, the car inherits the vertical
+                // component of motion along that road. If the road ends,
+                // this velocity continues into the jump.
+                const horizontalSurfaceMagnitude =
+                    Math.hypot(
+                        surfaceState.forward.x,
+                        surfaceState.forward.z
+                    );
 
-            verticalVelocity =
-                BABYLON.Scalar.Clamp(
-                    verticalVelocity,
-                    -config.maxVerticalSpeed,
-                    config.maxVerticalSpeed
-                );
+                const verticalSlopeRatio =
+                    horizontalSurfaceMagnitude >
+                        0.0001
+                        ? surfaceState.forward.y /
+                            horizontalSurfaceMagnitude
+                        : 0;
 
-            player.position.y +=
-                verticalVelocity *
-                deltaSeconds;
+                verticalVelocity =
+                    longitudinalSpeed *
+                    verticalSlopeRatio;
 
-            // Suspension bottom-out / ground penetration protection.
-            if (
-                contact.hasGround
-            ) {
-                const minimumY =
-                    contact.roadY +
-                    config.rideHeight -
-                    config.suspensionCompressionLimit;
+                verticalVelocity =
+                    BABYLON.Scalar.Clamp(
+                        verticalVelocity,
+                        -config.maxVerticalSpeed,
+                        config.maxVerticalSpeed
+                    );
 
                 if (
-                    player.position.y <
-                    minimumY
+                    !previousGrounded
                 ) {
                     landingImpact =
-                        Math.max(
-                            landingImpact,
-                            Math.max(
-                                0,
-                                -verticalVelocity
-                            )
-                        );
-
-                    player.position.y =
-                        minimumY;
-
-                    verticalVelocity =
-                        Math.max(
-                            0,
-                            verticalVelocity *
-                                -0.08
-                        );
-
-                    grounded = true;
+                        impactSpeed;
                 }
-            }
-
-            if (
-                grounded
-            ) {
-                airTime = 0;
             } else {
+                grounded =
+                    false;
+
+                suspensionCompression =
+                    0;
+
+                let verticalAcceleration =
+                    -config.gravity;
+
+                // Keep the existing small airborne downforce.
+                verticalAcceleration -=
+                    config.downforceAcceleration *
+                    speedRatio *
+                    speedRatio;
+
+                verticalVelocity +=
+                    verticalAcceleration *
+                    deltaSeconds;
+
+                verticalVelocity =
+                    BABYLON.Scalar.Clamp(
+                        verticalVelocity,
+                        -config.maxVerticalSpeed,
+                        config.maxVerticalSpeed
+                    );
+
+                player.position.y +=
+                    verticalVelocity *
+                    deltaSeconds;
+
                 airTime +=
                     deltaSeconds;
-            }
-
-            if (
-                !previousGrounded &&
-                grounded
-            ) {
-                landingImpact =
-                    Math.max(
-                        landingImpact,
-                        Math.max(
-                            0,
-                            -verticalVelocity
-                        )
-                    );
             }
 
             wasGrounded =
@@ -1469,25 +1498,118 @@ export function createCarPhysicsController({
                         longitudinalSpeed
                     );
 
-                planarVelocity.scaleInPlace(
-                    config.collisionVelocityRetention
-                );
+                let collisionNormal =
+                    obstacle.horizontalNormal
+                        ?.clone?.() ||
+                    new BABYLON.Vector3(
+                        obstacle.normal.x,
+                        0,
+                        obstacle.normal.z
+                    );
 
-                longitudinalSpeed *=
-                    config.collisionVelocityRetention;
+                if (
+                    collisionNormal.lengthSquared() >
+                    0.000001
+                ) {
+                    collisionNormal.normalize();
+
+                    // Orient the normal against the requested movement so the
+                    // "into wall" component is always negative.
+                    if (
+                        BABYLON.Vector3.Dot(
+                            requestedMovement,
+                            collisionNormal
+                        ) >
+                        0
+                    ) {
+                        collisionNormal.scaleInPlace(
+                            -1
+                        );
+                    }
+
+                    const movementIntoWall =
+                        BABYLON.Vector3.Dot(
+                            requestedMovement,
+                            collisionNormal
+                        );
+
+                    const slideMovement =
+                        movementIntoWall <
+                            0
+                            ? requestedMovement.subtract(
+                                collisionNormal.scale(
+                                    movementIntoWall
+                                )
+                            )
+                            : requestedMovement.clone();
+
+                    // Allow the tangential part of a glancing movement. A
+                    // head-on impact produces almost zero slideMovement, so
+                    // real walls still stop the car.
+                    if (
+                        slideMovement.lengthSquared() >
+                        0.0000001
+                    ) {
+                        player.position.x +=
+                            slideMovement.x *
+                            config.collisionSlideRetention;
+
+                        player.position.z +=
+                            slideMovement.z *
+                            config.collisionSlideRetention;
+                    }
+
+                    const velocityIntoWall =
+                        BABYLON.Vector3.Dot(
+                            planarVelocity,
+                            collisionNormal
+                        );
+
+                    if (
+                        velocityIntoWall <
+                        0
+                    ) {
+                        planarVelocity.subtractInPlace(
+                            collisionNormal.scale(
+                                velocityIntoWall
+                            )
+                        );
+                    }
+
+                    planarVelocity.scaleInPlace(
+                        config.collisionSlideRetention
+                    );
+
+                    longitudinalSpeed =
+                        BABYLON.Vector3.Dot(
+                            planarVelocity,
+                            newForward
+                        );
+                } else {
+                    // Safety fallback for malformed collision normals.
+                    planarVelocity.scaleInPlace(
+                        config.collisionVelocityRetention
+                    );
+
+                    longitudinalSpeed *=
+                        config.collisionVelocityRetention;
+                }
             }
 
-            // Refresh the road under the new X/Z position when the probe timer
-            // allows it, then integrate actual gravity/suspension in Y.
+            // The rigid chassis must use the road under the NEW X/Z position.
+            // Force a fresh probe here instead of reusing the 33ms cache;
+            // stale road height was a main cause of the car entering slopes.
             surfaceState =
                 refreshSurface(
-                    deltaSeconds
+                    deltaSeconds,
+                    true
                 );
 
             const contact =
                 integrateVerticalPhysics(
                     deltaSeconds,
-                    speedRatio
+                    speedRatio,
+                    longitudinalSpeed
                 );
 
             // Hard landings reuse the existing collision audio event.
@@ -1515,27 +1637,13 @@ export function createCarPhysicsController({
                 grounded &&
                 contact.hasGround
             ) {
-                const accelerationPitch =
-                    BABYLON.Scalar.Clamp(
-                        -acceleration *
-                            config.bodyPitchAmount *
-                            0.05,
-                        -0.045,
-                        0.045
-                    );
-
-                const cornerRoll =
-                    -steering *
-                    speedRatio *
-                    config.bodyRollAmount;
-
+                // No suspension/body bob: the chassis only follows the road
+                // surface orientation.
                 targetPitch =
-                    -surfaceState.pitch +
-                    accelerationPitch;
+                    -surfaceState.pitch;
 
                 targetRoll =
-                    surfaceState.roll +
-                    cornerRoll;
+                    surfaceState.roll;
             } else {
                 // Preserve take-off attitude in the air and only very slowly
                 // relax the chassis. This looks much more like a real car than

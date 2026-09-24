@@ -6,6 +6,249 @@ const profileButton = document.getElementById("profileButton");
 const profilePanel = document.getElementById("profilePanel");
 const closeProfileButton = document.getElementById("closeProfileButton");
 
+// PROFILE_CAMERA_SENSITIVITY_V1
+const CAMERA_SENSITIVITY_STORAGE_KEY =
+    "au_camera_sensitivity";
+
+const CAMERA_SENSITIVITY_DEFAULT =
+    5;
+
+function clampCameraSensitivity(
+    value
+) {
+    return Math.max(
+        1,
+        Math.min(
+            10,
+            Math.round(
+                Number(value) ||
+                CAMERA_SENSITIVITY_DEFAULT
+            )
+        )
+    );
+}
+
+function readCameraSensitivity() {
+    try {
+        return clampCameraSensitivity(
+            window.localStorage.getItem(
+                CAMERA_SENSITIVITY_STORAGE_KEY
+            )
+        );
+    } catch {
+        return CAMERA_SENSITIVITY_DEFAULT;
+    }
+}
+
+function saveCameraSensitivity(
+    value
+) {
+    const normalized =
+        clampCameraSensitivity(
+            value
+        );
+
+    try {
+        window.localStorage.setItem(
+            CAMERA_SENSITIVITY_STORAGE_KEY,
+            String(
+                normalized
+            )
+        );
+    } catch {
+        // Local storage can be blocked in private/restricted browsers.
+    }
+
+    window.dispatchEvent(
+        new CustomEvent(
+            "au:camera-sensitivity-changed",
+            {
+                detail: {
+                    value:
+                        normalized
+                }
+            }
+        )
+    );
+
+    return normalized;
+}
+
+function ensureCameraSensitivityControl() {
+    const form =
+        document.getElementById(
+            "profileEditForm"
+        );
+
+    if (!form) {
+        return;
+    }
+
+    const existing =
+        document.getElementById(
+            "profileCameraSensitivity"
+        );
+
+    if (existing) {
+        existing.value =
+            String(
+                readCameraSensitivity()
+            );
+
+        const valueLabel =
+            document.getElementById(
+                "profileCameraSensitivityValue"
+            );
+
+        if (valueLabel) {
+            valueLabel.textContent =
+                `${existing.value}/10`;
+        }
+
+        return;
+    }
+
+    if (
+        !document.getElementById(
+            "profileCameraSensitivityStyle"
+        )
+    ) {
+        const style =
+            document.createElement(
+                "style"
+            );
+
+        style.id =
+            "profileCameraSensitivityStyle";
+
+        style.textContent = `
+            #profileCameraSensitivitySetting {
+                margin: 3px 0 5px;
+                padding: 9px 10px;
+                border: 1px solid rgba(255,255,255,.10);
+                border-radius: 10px;
+                background: rgba(255,255,255,.035);
+            }
+
+            #profileCameraSensitivitySetting .camera-sensitivity-heading {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                margin-bottom: 6px;
+            }
+
+            #profileCameraSensitivitySetting label {
+                margin: 0;
+            }
+
+            #profileCameraSensitivityValue {
+                color: #69f0c0;
+                font-size: 11px;
+                font-weight: 900;
+                white-space: nowrap;
+            }
+
+            #profileCameraSensitivity {
+                width: 100%;
+                margin: 0;
+                padding: 0 !important;
+                accent-color: #69f0c0;
+                cursor: pointer;
+            }
+
+            #profileCameraSensitivitySetting .camera-sensitivity-scale {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 2px;
+                color: #8f96a3;
+                font-size: 9px;
+                font-weight: 700;
+            }
+        `;
+
+        document.head.appendChild(
+            style
+        );
+    }
+
+    const setting =
+        document.createElement(
+            "div"
+        );
+
+    setting.id =
+        "profileCameraSensitivitySetting";
+
+    const initialValue =
+        readCameraSensitivity();
+
+    setting.innerHTML = `
+        <div class="camera-sensitivity-heading">
+            <label for="profileCameraSensitivity">Camera Sensitivity</label>
+            <span id="profileCameraSensitivityValue">${initialValue}/10</span>
+        </div>
+        <input
+            id="profileCameraSensitivity"
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            value="${initialValue}"
+            aria-label="Camera movement sensitivity"
+        />
+        <div class="camera-sensitivity-scale">
+            <span>Slow</span>
+            <span>Fast</span>
+        </div>
+    `;
+
+    const bioLabel =
+        form.querySelector(
+            'label[for="profileBio"]'
+        );
+
+    if (bioLabel) {
+        bioLabel.before(
+            setting
+        );
+    } else {
+        form.appendChild(
+            setting
+        );
+    }
+
+    const slider =
+        setting.querySelector(
+            "#profileCameraSensitivity"
+        );
+
+    const valueLabel =
+        setting.querySelector(
+            "#profileCameraSensitivityValue"
+        );
+
+    slider?.addEventListener(
+        "input",
+        () => {
+            const value =
+                saveCameraSensitivity(
+                    slider.value
+                );
+
+            slider.value =
+                String(
+                    value
+                );
+
+            if (valueLabel) {
+                valueLabel.textContent =
+                    `${value}/10`;
+            }
+        }
+    );
+}
+
 export function updateProfilePoints(points) {
     if (!Number.isSafeInteger(points) || points < 0) return;
     const pointsElement = document.getElementById("profilePoints");
@@ -75,6 +318,8 @@ document.addEventListener("keydown", (event) => {
 });
 
 setProfileOpen(false);
+
+ensureCameraSensitivityControl();
 
 const welcomeScreen = document.getElementById("welcomeScreen");
 const welcomeChoices = document.getElementById("welcomeChoices");
@@ -235,6 +480,7 @@ tryGuestCodeAgainButton.addEventListener("click", () => {
 });
 
 export function renderProfilePanel(profile) {
+    ensureCameraSensitivityControl();
     const picture = document.getElementById("profilePicture");
     const guestCode = document.getElementById("profileGuestCode");
     const email = document.getElementById("profileEmail");

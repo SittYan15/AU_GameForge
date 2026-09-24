@@ -480,6 +480,188 @@ export function createCarRaceClient(
         hud
     );
 
+    // CAR_RACE_CENTER_SPECTATOR_UI_V1
+    const spectatorOverlay =
+        document.createElement(
+            "section"
+        );
+
+    spectatorOverlay.id =
+        "carRaceSpectatorOverlay";
+
+    spectatorOverlay.hidden =
+        true;
+
+    spectatorOverlay.innerHTML = `
+        <div id="carRaceSpectatorCard">
+            <div id="carRaceSpectatorIcon">👁</div>
+            <div id="carRaceSpectatorTitle">SPECTATING</div>
+            <div id="carRaceSpectatorText">Current race in progress</div>
+            <div id="carRaceSpectatorSubtext">
+                You will join when the next race starts
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(
+        spectatorOverlay
+    );
+
+    const hideSpectatorOverlay =
+        () => {
+            spectatorOverlay.hidden =
+                true;
+        };
+
+    const showSpectatorOverlay =
+        () => {
+            spectatorOverlay.hidden =
+                false;
+        };
+
+    // CAR_RACE_CENTER_COUNTDOWN_UI_V1
+    const countdownOverlay =
+        document.createElement(
+            "section"
+        );
+
+    countdownOverlay.id =
+        "carRaceCenterCountdown";
+
+    countdownOverlay.hidden =
+        true;
+
+    countdownOverlay.innerHTML = `
+        <div id="carRaceCountdownLabel">RACE STARTS IN</div>
+        <div id="carRaceCountdownNumber">12</div>
+    `;
+
+    document.body.appendChild(
+        countdownOverlay
+    );
+
+    const countdownLabel =
+        countdownOverlay.querySelector(
+            "#carRaceCountdownLabel"
+        );
+
+    const countdownNumber =
+        countdownOverlay.querySelector(
+            "#carRaceCountdownNumber"
+        );
+
+    let countdownHideTimer =
+        null;
+
+    const hideRaceCountdown =
+        () => {
+            if (
+                countdownHideTimer !==
+                null
+            ) {
+                window.clearTimeout(
+                    countdownHideTimer
+                );
+
+                countdownHideTimer =
+                    null;
+            }
+
+            countdownOverlay.hidden =
+                true;
+
+            countdownOverlay.classList.remove(
+                "urgent",
+                "go"
+            );
+        };
+
+    const showRaceCountdown =
+        (
+            value,
+            {
+                go =
+                    false
+            } = {}
+        ) => {
+            if (
+                countdownHideTimer !==
+                null
+            ) {
+                window.clearTimeout(
+                    countdownHideTimer
+                );
+
+                countdownHideTimer =
+                    null;
+            }
+
+            countdownOverlay.hidden =
+                false;
+
+            countdownOverlay.classList.toggle(
+                "go",
+                go
+            );
+
+            const numericValue =
+                Number(
+                    value
+                );
+
+            countdownOverlay.classList.toggle(
+                "urgent",
+                !go &&
+                Number.isFinite(
+                    numericValue
+                ) &&
+                numericValue <=
+                    3
+            );
+
+            countdownLabel.textContent =
+                go
+                    ? "START!"
+                    : "RACE STARTS IN";
+
+            countdownNumber.textContent =
+                go
+                    ? "GO!"
+                    : String(
+                        value
+                    );
+
+            // Restart the pulse animation every time the number changes.
+            countdownNumber.style.animation =
+                "none";
+
+            void countdownNumber.offsetWidth;
+
+            countdownNumber.style.animation =
+                go
+                    ? "carRaceGoPop .55s ease-out"
+                    : "carRaceCountPop .35s ease-out";
+
+            if (go) {
+                countdownHideTimer =
+                    window.setTimeout(
+                        () => {
+                            countdownOverlay.hidden =
+                                true;
+
+                            countdownOverlay.classList.remove(
+                                "go",
+                                "urgent"
+                            );
+
+                            countdownHideTimer =
+                                null;
+                        },
+                        900
+                    );
+            }
+        };
+
     const leaveButton =
         document.createElement(
             "button"
@@ -721,10 +903,293 @@ export function createCarRaceClient(
         body.au-car-race-active #topPlayersStatus {
             display: none !important;
         }
+
+        #carRaceCenterCountdown {
+            position: fixed;
+            inset: 0;
+            z-index: 1075;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            font-family: system-ui, sans-serif;
+        }
+
+        #carRaceCenterCountdown[hidden] {
+            display: none !important;
+        }
+
+        #carRaceCenterCountdown::before {
+            content: "";
+            position: absolute;
+            width: clamp(150px, 16vw, 230px);
+            aspect-ratio: 1;
+            border: 1px solid rgba(255,255,255,.13);
+            border-radius: 50%;
+            background: rgba(8,10,14,.42);
+            box-shadow:
+                0 16px 55px rgba(0,0,0,.30),
+                inset 0 0 45px rgba(255,147,71,.08);
+        }
+
+        #carRaceCountdownLabel {
+            position: absolute;
+            margin-top: clamp(-108px, -8vw, -72px);
+            color: rgba(255,255,255,.78);
+            font-size: clamp(10px, 1vw, 14px);
+            font-weight: 900;
+            letter-spacing: .16em;
+            text-shadow: 0 2px 6px rgba(0,0,0,.95);
+        }
+
+        #carRaceCountdownNumber {
+            position: relative;
+            color: #ff9347;
+            font-size: clamp(78px, 9vw, 138px);
+            font-weight: 1000;
+            line-height: .9;
+            font-variant-numeric: tabular-nums;
+            text-shadow:
+                0 4px 0 rgba(0,0,0,.48),
+                0 0 28px rgba(255,147,71,.34);
+        }
+
+        #carRaceCenterCountdown.urgent #carRaceCountdownNumber {
+            color: #ffd166;
+            text-shadow:
+                0 4px 0 rgba(0,0,0,.48),
+                0 0 34px rgba(255,209,102,.46);
+        }
+
+        #carRaceCenterCountdown.go::before {
+            border-color: rgba(91,240,170,.34);
+            box-shadow:
+                0 16px 55px rgba(0,0,0,.30),
+                inset 0 0 48px rgba(91,240,170,.13);
+        }
+
+        #carRaceCenterCountdown.go #carRaceCountdownNumber {
+            color: #67f0ad;
+            font-size: clamp(66px, 8vw, 116px);
+            text-shadow:
+                0 4px 0 rgba(0,0,0,.48),
+                0 0 36px rgba(91,240,170,.52);
+        }
+
+        #carRaceCenterCountdown.go #carRaceCountdownLabel {
+            color: #9df6c9;
+        }
+
+        @keyframes carRaceCountPop {
+            from {
+                opacity: 0;
+                transform: scale(.64);
+            }
+
+            60% {
+                opacity: 1;
+                transform: scale(1.10);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes carRaceGoPop {
+            from {
+                opacity: 0;
+                transform: scale(.52);
+            }
+
+            55% {
+                opacity: 1;
+                transform: scale(1.16);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 700px) {
+            #carRaceCenterCountdown::before {
+                width: 142px;
+            }
+
+            #carRaceCountdownLabel {
+                margin-top: -70px;
+                font-size: 9px;
+            }
+
+            #carRaceCountdownNumber {
+                font-size: 72px;
+            }
+
+            #carRaceCenterCountdown.go #carRaceCountdownNumber {
+                font-size: 62px;
+            }
+        }
     `;
 
     document.head.appendChild(
         raceFocusStyle
+    );
+
+    const spectatorStyle =
+        document.createElement(
+            "style"
+        );
+
+    spectatorStyle.id =
+        "carRaceSpectatorStyle";
+
+    spectatorStyle.textContent = `
+        /* CAR_RACE_CENTER_SPECTATOR_UI_V1 */
+        #carRaceSpectatorOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1078;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            box-sizing: border-box;
+            pointer-events: none;
+            font-family: system-ui, sans-serif;
+        }
+
+        #carRaceSpectatorOverlay[hidden] {
+            display: none !important;
+        }
+
+        #carRaceSpectatorCard {
+            width: min(410px, calc(100vw - 30px));
+            padding: 22px 24px 20px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 17px;
+            background: rgba(12,14,19,.82);
+            color: #fff;
+            text-align: center;
+            box-shadow:
+                0 18px 58px rgba(0,0,0,.42),
+                inset 0 1px 0 rgba(255,255,255,.05);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            animation:
+                carRaceSpectatorAppear .28s ease-out;
+        }
+
+        #carRaceSpectatorIcon {
+            font-size: 34px;
+            line-height: 1;
+        }
+
+        #carRaceSpectatorTitle {
+            margin-top: 6px;
+            color: #ffac70;
+            font-size: clamp(25px, 3.2vw, 34px);
+            font-weight: 1000;
+            letter-spacing: .075em;
+            line-height: 1.05;
+            text-shadow:
+                0 2px 7px rgba(0,0,0,.75),
+                0 0 18px rgba(255,147,71,.20);
+        }
+
+        #carRaceSpectatorText {
+            margin-top: 9px;
+            color: rgba(255,255,255,.91);
+            font-size: 14px;
+            font-weight: 850;
+            line-height: 1.25;
+        }
+
+        #carRaceSpectatorSubtext {
+            margin-top: 7px;
+            padding: 7px 10px;
+            border-radius: 9px;
+            background: rgba(255,255,255,.055);
+            color: rgba(255,255,255,.64);
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        @keyframes carRaceSpectatorAppear {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (max-width: 700px) {
+            #carRaceSpectatorOverlay {
+                padding: 12px;
+            }
+
+            #carRaceSpectatorCard {
+                width: min(315px, calc(100vw - 20px));
+                padding: 17px 15px 15px;
+                border-radius: 14px;
+            }
+
+            #carRaceSpectatorIcon {
+                font-size: 29px;
+            }
+
+            #carRaceSpectatorTitle {
+                margin-top: 4px;
+                font-size: 24px;
+            }
+
+            #carRaceSpectatorText {
+                margin-top: 7px;
+                font-size: 12px;
+            }
+
+            #carRaceSpectatorSubtext {
+                margin-top: 6px;
+                padding: 6px 8px;
+                font-size: 9px;
+            }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            #carRaceSpectatorCard {
+                width: min(370px, calc(100vw - 24px));
+                padding: 12px 18px;
+            }
+
+            #carRaceSpectatorIcon {
+                font-size: 25px;
+            }
+
+            #carRaceSpectatorTitle {
+                font-size: 22px;
+            }
+
+            #carRaceSpectatorText {
+                margin-top: 4px;
+            }
+
+            #carRaceSpectatorSubtext {
+                margin-top: 5px;
+                padding: 5px 8px;
+            }
+        }
+    `;
+
+    document.head.appendChild(
+        spectatorStyle
     );
 
     const portalEnabledState =
@@ -829,8 +1294,31 @@ export function createCarRaceClient(
                 hud.style.display =
                     "none";
 
+                hideSpectatorOverlay();
+
                 return;
             }
+
+            const spectatingActiveRace =
+                phase ===
+                    "ACTIVE" &&
+                role ===
+                    "spectator";
+
+            if (
+                spectatingActiveRace
+            ) {
+                // Spectators do not need the normal driving/checkpoint HUD.
+                // Use the large centered explanation instead.
+                hud.style.display =
+                    "none";
+
+                showSpectatorOverlay();
+
+                return;
+            }
+
+            hideSpectatorOverlay();
 
             const now =
                 performance.now();
@@ -1455,8 +1943,12 @@ export function createCarRaceClient(
             hud.style.display =
                 "none";
 
+            hideSpectatorOverlay();
+
             leaveButton.style.display =
                 "none";
+
+            hideRaceCountdown();
         };
 
     leaveButton.addEventListener(
@@ -1569,6 +2061,8 @@ export function createCarRaceClient(
             ) {
                 speed = 0;
 
+                hideRaceCountdown();
+
                 updateHud(
                     "Race finished"
                 );
@@ -1584,6 +2078,15 @@ export function createCarRaceClient(
             updateHud(
                 `Race starts in ${count}`
             );
+
+            if (
+                phase ===
+                "LOBBY"
+            ) {
+                showRaceCountdown(
+                    count
+                );
+            }
         };
 
     const onRoundStarted =
@@ -1620,6 +2123,16 @@ export function createCarRaceClient(
                 role === "player"
             ) {
                 carAudio.go();
+
+                showRaceCountdown(
+                    "GO!",
+                    {
+                        go:
+                            true
+                    }
+                );
+            } else {
+                hideRaceCountdown();
             }
 
             updateHud(
@@ -2155,6 +2668,15 @@ export function createCarRaceClient(
             checkpointMarker.dispose();
 
             carAudio.dispose();
+
+            hideRaceCountdown();
+
+            countdownOverlay.remove();
+
+            hideSpectatorOverlay();
+            spectatorOverlay.remove();
+            spectatorStyle.remove();
+
             raceFocusStyle.remove();
 
             document.body.classList.remove(

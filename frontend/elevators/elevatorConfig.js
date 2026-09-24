@@ -144,6 +144,127 @@ const createFourFloorElevator = (
     };
 };
 
+// ============================================================
+// CL_ELEVATORS_V1
+//
+// CL has two elevator banks with three separate shafts in each bank.
+// Some shafts only serve selected floors, so use explicit floor numbers/Ys.
+// ============================================================
+
+const createSelectedFloorElevator = (
+    elevatorId,
+    elevatorName,
+    x,
+    z,
+    floorStops,
+    {
+        // The shafts are only ~2.75 units apart, so keep the interaction
+        // zones smaller than the normal 2.8-wide elevator zones to avoid
+        // neighboring CL shafts overlapping.
+        zoneSize = {
+            x: 2.2,
+            y: 2.6,
+            z: 2.2
+        }
+    } = {}
+) => {
+    return {
+        id:
+            elevatorId,
+
+        name:
+            elevatorName,
+
+        enabled:
+            true,
+
+        floors:
+            floorStops.map(
+                (
+                    {
+                        floorNumber,
+                        y
+                    }
+                ) => {
+                    const title =
+                        floorNumber === 1
+                            ? "1st Floor"
+                            : floorNumber === 2
+                                ? "2nd Floor"
+                                : floorNumber === 3
+                                    ? "3rd Floor"
+                                    : `${floorNumber}th Floor`;
+
+                    return {
+                        id:
+                            `${elevatorId}_floor_${floorNumber}`,
+
+                        label:
+                            String(
+                                floorNumber
+                            ),
+
+                        title,
+
+                        zone: {
+                            center: {
+                                x,
+                                y,
+                                z
+                            },
+
+                            size: {
+                                ...zoneSize
+                            }
+                        },
+
+                        target: {
+                            x,
+                            y,
+                            z
+                        }
+                    };
+                }
+            )
+    };
+};
+
+const CL_ELEVATOR_1_FLOORS =
+    Object.freeze([
+        Object.freeze({
+            floorNumber: 1,
+            y: 1.73
+        }),
+
+        Object.freeze({
+            floorNumber: 2,
+            y: 7.43
+        }),
+
+        Object.freeze({
+            floorNumber: 4,
+            y: 19.33
+        }),
+
+        Object.freeze({
+            floorNumber: 5,
+            y: 23.35
+        })
+    ]);
+
+const CL_ELEVATOR_2_FLOORS =
+    Object.freeze([
+        Object.freeze({
+            floorNumber: 2,
+            y: 7.43
+        }),
+
+        Object.freeze({
+            floorNumber: 3,
+            y: 15.34
+        })
+    ]);
+
 export const ELEVATORS = Object.freeze([
     {
         id: "elevator_1",
@@ -244,6 +365,70 @@ export const ELEVATORS = Object.freeze([
             y: 2.39,
             z: 73.85
         }
+    ),
+
+    // ========================================================
+    // CL Building elevators
+    //
+    // Bank 1:
+    //   L1  y=1.73
+    //   L2  y=7.43
+    //   L4  y=19.33
+    //   L5  y=23.35
+    //
+    // Bank 2:
+    //   L2  y=7.43
+    //   L3  y=15.34
+    //
+    // Each supplied X coordinate is a separate physical shaft.
+    // ========================================================
+
+    createSelectedFloorElevator(
+        "cl_elevator_1_a",
+        "CL Elevator 1A",
+        -6.89,
+        -13.82,
+        CL_ELEVATOR_1_FLOORS
+    ),
+
+    createSelectedFloorElevator(
+        "cl_elevator_1_b",
+        "CL Elevator 1B",
+        -9.65,
+        -13.82,
+        CL_ELEVATOR_1_FLOORS
+    ),
+
+    createSelectedFloorElevator(
+        "cl_elevator_1_c",
+        "CL Elevator 1C",
+        -12.39,
+        -13.82,
+        CL_ELEVATOR_1_FLOORS
+    ),
+
+    createSelectedFloorElevator(
+        "cl_elevator_2_a",
+        "CL Elevator 2A",
+        -6.89,
+        -9.44,
+        CL_ELEVATOR_2_FLOORS
+    ),
+
+    createSelectedFloorElevator(
+        "cl_elevator_2_b",
+        "CL Elevator 2B",
+        -9.65,
+        -9.44,
+        CL_ELEVATOR_2_FLOORS
+    ),
+
+    createSelectedFloorElevator(
+        "cl_elevator_2_c",
+        "CL Elevator 2C",
+        -12.39,
+        -9.44,
+        CL_ELEVATOR_2_FLOORS
     ),
 
     // VMES Building elevator area.

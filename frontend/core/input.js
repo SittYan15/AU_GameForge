@@ -1,6 +1,64 @@
 // core/input.js
 import * as BABYLON from "@babylonjs/core";
 
+// CAMERA_SENSITIVITY_INPUT_V1
+const CAMERA_SENSITIVITY_STORAGE_KEY =
+    "au_camera_sensitivity";
+
+const CAMERA_SENSITIVITY_DEFAULT =
+    5;
+
+function clampCameraSensitivity(
+    value
+) {
+    return Math.max(
+        1,
+        Math.min(
+            10,
+            Math.round(
+                Number(value) ||
+                CAMERA_SENSITIVITY_DEFAULT
+            )
+        )
+    );
+}
+
+function readCameraSensitivity() {
+    try {
+        return clampCameraSensitivity(
+            window.localStorage.getItem(
+                CAMERA_SENSITIVITY_STORAGE_KEY
+            )
+        );
+    } catch {
+        return CAMERA_SENSITIVITY_DEFAULT;
+    }
+}
+
+function cameraSensitivityToAngularSensibility(
+    value
+) {
+    const level =
+        clampCameraSensitivity(
+            value
+        );
+
+    // Babylon uses an inverse scale:
+    // smaller angularSensibility = faster camera movement.
+    // Level 5 preserves the previous value of 1500.
+    return Math.round(
+        1500 *
+        Math.pow(
+            2,
+            (
+                CAMERA_SENSITIVITY_DEFAULT -
+                level
+            ) /
+            4
+        )
+    );
+}
+
 export class InputController {
     constructor(
         scene,
@@ -16,6 +74,24 @@ export class InputController {
         this.inputMap = sharedInputMap;
         this.iosFullscreenActive = false;
         this.iosFullscreenCleanup = null;
+
+        this.cameraSensitivity =
+            readCameraSensitivity();
+
+        this.cameraSensitivityChangeHandler =
+            (event) => {
+                this.cameraSensitivity =
+                    clampCameraSensitivity(
+                        event.detail?.value
+                    );
+
+                this.applyCameraSensitivity();
+            };
+
+        window.addEventListener(
+            "au:camera-sensitivity-changed",
+            this.cameraSensitivityChangeHandler
+        );
 
         // Campus Quiz can temporarily switch the same ArcRotateCamera
         // from FPS into a locked arena overview and then restore FPS.
@@ -78,8 +154,7 @@ export class InputController {
                 ?.pointers;
 
         if (pointerInput) {
-            pointerInput.angularSensibilityX = 1500;
-            pointerInput.angularSensibilityY = 1500;
+            this.applyCameraSensitivity();
 
             if (
                 "panningSensibility" in
@@ -97,6 +172,29 @@ export class InputController {
         }
     }
 
+
+
+    applyCameraSensitivity() {
+        const pointerInput =
+            this.camera.inputs
+                ?.attached
+                ?.pointers;
+
+        if (!pointerInput) {
+            return;
+        }
+
+        const angularSensibility =
+            cameraSensitivityToAngularSensibility(
+                this.cameraSensitivity
+            );
+
+        pointerInput.angularSensibilityX =
+            angularSensibility;
+
+        pointerInput.angularSensibilityY =
+            angularSensibility;
+    }
 
 
     enterCampusQuizFixedCamera() {

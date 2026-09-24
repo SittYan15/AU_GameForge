@@ -85,9 +85,15 @@ const RLGL_MOVEMENT_TOLERANCE = 0.75;
 const RLGL_MAX_MOVEMENT_ELAPSED_SECONDS = 0.25;
 const RLGL_RED_MOVEMENT_TOLERANCE = 0.12;
 
+// 0.1 second reaction window after RED is called.
+// During this window movement is allowed and the red anchor follows the
+// player's latest accepted position.
+const RLGL_RED_ELIMINATION_GRACE_MS = 100;
+
 const rlglState = {
     phase: "IDLE",
     isRedLight: false,
+    redStartedAt: null,
     roundId: 0,
     roundEndsAt: null
 };
@@ -292,6 +298,7 @@ function setRlglIdle() {
     clearRlglTimers();
     rlglState.phase = "IDLE";
     rlglState.isRedLight = false;
+    rlglState.redStartedAt = null;
     rlglState.roundEndsAt = null;
 }
 
@@ -349,6 +356,12 @@ function toggleRlglLight(io) {
     if (rlglState.phase !== "ACTIVE") return;
 
     rlglState.isRedLight = !rlglState.isRedLight;
+
+    rlglState.redStartedAt =
+        rlglState.isRedLight
+            ? Date.now()
+            : null;
+
     const sockets = getRlglSockets(io);
 
     sockets.forEach((socket) => {
@@ -378,6 +391,7 @@ function endRlglRound(io) {
     rlglRoundTimer = null;
     rlglState.phase = "FINISHED";
     rlglState.isRedLight = false;
+    rlglState.redStartedAt = null;
     rlglState.roundEndsAt = null;
 
     getRlglSockets(io).forEach((socket) => {
@@ -436,6 +450,7 @@ function startRlglGame(io) {
     rlglLobbyInterval = null;
     rlglState.phase = "ACTIVE";
     rlglState.isRedLight = false;
+    rlglState.redStartedAt = null;
     rlglState.roundId += 1;
     rlglState.roundEndsAt = Date.now() + RLGL_ROUND_DURATION_MS;
 
@@ -470,6 +485,7 @@ function startRlglLobby(io) {
     clearRlglTimers();
     rlglState.phase = "LOBBY";
     rlglState.isRedLight = false;
+    rlglState.redStartedAt = null;
     rlglState.roundEndsAt = null;
 
     sockets.forEach((socket, index) => {
@@ -888,13 +904,55 @@ export default function registerMultiplayerSocket(io) {
                         return;
                     }
 
-                    if (rlglState.isRedLight && socket.data.rlglRedAnchor) {
-                        const moveDist = horizontalDistance(socket.data.rlglRedAnchor, payload.position);
-                        if (moveDist > RLGL_RED_MOVEMENT_TOLERANCE) {
-                            eliminateRlglPlayer(io, socket, "moved_on_red");
-                            socket.data.lastMoveAt = now;
-                            socket.emit("rlgl:correction", player.position);
-                            return;
+                    if (
+                        rlglState.isRedLight &&
+                        socket.data.rlglRedAnchor
+                    ) {
+                        const redElapsedMs =
+                            Number.isFinite(
+                                rlglState.redStartedAt
+                            )
+                                ? now -
+                                    rlglState.redStartedAt
+                                : RLGL_RED_ELIMINATION_GRACE_MS;
+
+                        if (
+                            redElapsedMs <
+                            RLGL_RED_ELIMINATION_GRACE_MS
+                        ) {
+                            // 100 ms reaction grace. Movement during the
+                            // grace period becomes the new stopping anchor,
+                            // so it is not counted against the player later.
+                            socket.data.rlglRedAnchor = {
+                                ...payload.position
+                            };
+                        } else {
+                            const moveDist =
+                                horizontalDistance(
+                                    socket.data.rlglRedAnchor,
+                                    payload.position
+                                );
+
+                            if (
+                                moveDist >
+                                RLGL_RED_MOVEMENT_TOLERANCE
+                            ) {
+                                eliminateRlglPlayer(
+                                    io,
+                                    socket,
+                                    "moved_on_red"
+                                );
+
+                                socket.data.lastMoveAt =
+                                    now;
+
+                                socket.emit(
+                                    "rlgl:correction",
+                                    player.position
+                                );
+
+                                return;
+                            }
                         }
                     }
                 }

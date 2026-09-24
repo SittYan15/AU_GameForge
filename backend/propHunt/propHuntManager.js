@@ -281,6 +281,19 @@ function setSpectator(socket) {
     socket.data.propHuntElevatorRequest = null;
 }
 
+function clearPropHuntState(socket) {
+    socket.data.inPropHunt = false;
+    socket.data.propHuntRole = "NONE";
+    socket.data.propHuntCaught = false;
+    socket.data.propHuntPropId = null;
+    socket.data.propHuntPropYaw = 0;
+    socket.data.propHuntPropLocked = false;
+    socket.data.propHuntLastOrientationAt = 0;
+    socket.data.propHuntNextShotAt = 0;
+    socket.data.propHuntBulletsRemaining = 0;
+    socket.data.propHuntElevatorRequest = null;
+}
+
 function lobbySpawn(index) {
     const columns = 4;
     const col = index % columns;
@@ -763,7 +776,33 @@ export function registerPropHuntSocket(
     });
 
     socket.on("propHunt:join", async () => {
-        if (socket.data.inPropHunt) return;
+        // A stale inPropHunt flag can survive an interrupted leave flow.
+        // If the socket is no longer in the Prop Hunt room, repair it.
+        if (
+            socket.data.inPropHunt &&
+            !socket.rooms.has(PROP_HUNT_ROOM)
+        ) {
+            console.warn(
+                `[PropHunt] Repairing stale session state for ${socket.id}`
+            );
+
+            clearPropHuntState(
+                socket
+            );
+        }
+
+        // Never silently ignore a join request. The client must receive
+        // either propHunt:started or propHunt:error.
+        if (
+            socket.data.inPropHunt
+        ) {
+            socket.emit(
+                "propHunt:error",
+                "You are already inside Prop Hunt."
+            );
+
+            return;
+        }
 
         const player = getPlayer();
         if (!player) {
@@ -943,140 +982,226 @@ export function registerPropHuntSocket(
     });
 
     socket.on("propHunt:shoot", (payload = {}) => {
-        if (!socket.data.inPropHunt || state.phase !== "HUNT") return;
-        if (socket.data.propHuntRole !== "SEEKER" || socket.data.propHuntCaught) return;
-
-        const shooter = getPlayer();
-        if (!shooter) return;
-
-        const now = Date.now();
-        if (now < (socket.data.propHuntNextShotAt || 0)) return;
-
-        const bulletsRemaining =
-            Number(
-                socket.data
-                    .propHuntBulletsRemaining
-            ) ||
-            0;
-
         if (
-            bulletsRemaining <=
-            0
+            !socket.data.inPropHunt ||
+            state.phase !== "HUNT"
         ) {
-            socket.emit(
-                "propHunt:ammo",
-                {
-                    remaining:
-                        0,
-                    max:
-                        PROP_HUNT_MAX_BULLETS
-                }
-            );
-
             return;
         }
 
-        const origin = finiteVector(payload.origin)
-            ? payload.origin
-            : { x: shooter.position.x, y: shooter.position.y + 0.7, z: shooter.position.z };
-        const direction = normalizedDirection(payload.direction);
-        if (!direction || distance(origin, shooter.position) > 2.5) return;
+        if (
+            socket.data.propHuntRole !==
+                "SEEKER" ||
+            socket.data.propHuntCaught
+        ) {
+            return;
+        }
 
-        // One accepted trigger pull always consumes one bullet, whether the
-        // shot hits a Hider or hits scenery.
-        socket.data.propHuntBulletsRemaining =
-            Math.max(
-                0,
-                bulletsRemaining -
-                1
-            );
+        const shooter =
+            getPlayer();
 
-        socket.emit(
-            "propHunt:ammo",
-            {
-                remaining:
-                    socket.data
-                        .propHuntBulletsRemaining,
-                max:
-                    PROP_HUNT_MAX_BULLETS
-            }
-        );
+        if (!shooter) {
+            return;
+        }
 
-        const claimedTarget = typeof payload.targetSocketId === "string"
-            ? io.sockets.sockets.get(payload.targetSocketId)
-            : null;
-
-        let validTarget = null;
+        const now =
+            Date.now();
 
         if (
-            claimedTarget
-            && claimedTarget.data.inPropHunt
-            && claimedTarget.data.propHuntRole === "HIDER"
-            && !claimedTarget.data.propHuntCaught
+            now <
+            (
+                socket.data
+                    .propHuntNextShotAt ||
+                0
+            )
         ) {
-            const targetPlayer = playerFor(claimedTarget);
+            return;
+        }
+
+        const origin =
+            finiteVector(
+                payload.origin
+            )
+                ? payload.origin
+                : {
+                    x:
+                        shooter.position.x,
+                    y:
+                        shooter.position.y +
+                        0.7,
+                    z:
+                        shooter.position.z
+                };
+
+        const direction =
+            normalizedDirection(
+                payload.direction
+            );
+
+        if (
+            !direction ||
+            distance(
+                origin,
+                shooter.position
+            ) >
+                2.5
+        ) {
+            return;
+        }
+
+        const claimedTarget =
+            typeof payload.targetSocketId ===
+                "string"
+                ? io.sockets.sockets.get(
+                    payload.targetSocketId
+                )
+                : null;
+
+        let validTarget =
+            null;
+
+        if (
+            claimedTarget &&
+            claimedTarget.data.inPropHunt &&
+            claimedTarget.data.propHuntRole ===
+                "HIDER" &&
+            !claimedTarget.data.propHuntCaught
+        ) {
+            const targetPlayer =
+                playerFor(
+                    claimedTarget
+                );
+
             if (
-                targetPlayer
-                && shotCanHitTarget(
+                targetPlayer &&
+                shotCanHitTarget(
                     origin,
                     direction,
                     targetPlayer.position,
                     payload.hitPoint
                 )
             ) {
-                validTarget = claimedTarget;
+                validTarget =
+                    claimedTarget;
             }
         }
 
-        socket.data.propHuntNextShotAt = now + (
+        const shotCooldownMs =
             validTarget
                 ? PROP_HUNT_FIRE_COOLDOWN_MS
-                : PROP_HUNT_WRONG_SHOT_PENALTY_MS
-        );
+                : PROP_HUNT_WRONG_SHOT_PENALTY_MS;
+
+        socket.data.propHuntNextShotAt =
+            now +
+            shotCooldownMs;
 
         const fallbackHitPoint = {
-            x: origin.x + direction.x * PROP_HUNT_MAX_SHOT_RANGE,
-            y: origin.y + direction.y * PROP_HUNT_MAX_SHOT_RANGE,
-            z: origin.z + direction.z * PROP_HUNT_MAX_SHOT_RANGE
+            x:
+                origin.x +
+                direction.x *
+                PROP_HUNT_MAX_SHOT_RANGE,
+            y:
+                origin.y +
+                direction.y *
+                PROP_HUNT_MAX_SHOT_RANGE,
+            z:
+                origin.z +
+                direction.z *
+                PROP_HUNT_MAX_SHOT_RANGE
         };
 
-        let hitPoint = finiteVector(payload.hitPoint)
-            ? payload.hitPoint
-            : fallbackHitPoint;
+        let hitPoint =
+            finiteVector(
+                payload.hitPoint
+            )
+                ? payload.hitPoint
+                : fallbackHitPoint;
 
-        if (distance(origin, hitPoint) > PROP_HUNT_MAX_SHOT_RANGE + 2) {
-            hitPoint = fallbackHitPoint;
+        if (
+            distance(
+                origin,
+                hitPoint
+            ) >
+            PROP_HUNT_MAX_SHOT_RANGE +
+                2
+        ) {
+            hitPoint =
+                fallbackHitPoint;
         }
 
-        io.to(PROP_HUNT_ROOM).emit("propHunt:shot", {
-            shooterSocketId: socket.id,
-            targetSocketId: validTarget?.id || null,
-            origin,
-            hitPoint
-        });
+        io.to(
+            PROP_HUNT_ROOM
+        ).emit(
+            "propHunt:shot",
+            {
+                shooterSocketId:
+                    socket.id,
+                targetSocketId:
+                    validTarget?.id ||
+                    null,
+                origin,
+                hitPoint,
+                cooldownMs:
+                    shotCooldownMs
+            }
+        );
 
-        if (!validTarget) return;
+        if (!validTarget) {
+            return;
+        }
 
-        validTarget.data.propHuntCaught = true;
-        validTarget.data.propHuntElevatorRequest = null;
+        validTarget.data.propHuntCaught =
+            true;
 
-        io.to(PROP_HUNT_ROOM).emit("propHunt:playerCaught", {
-            socketId: validTarget.id,
-            bySocketId: socket.id,
-            hitPoint
-        });
+        validTarget.data.propHuntElevatorRequest =
+            null;
 
-        validTarget.emit("propHunt:caught", {
-            bySocketId: socket.id
-        });
+        io.to(
+            PROP_HUNT_ROOM
+        ).emit(
+            "propHunt:playerCaught",
+            {
+                socketId:
+                    validTarget.id,
+                bySocketId:
+                    socket.id,
+                hitPoint
+            }
+        );
 
-        emitParticipants(io);
+        validTarget.emit(
+            "propHunt:caught",
+            {
+                bySocketId:
+                    socket.id
+            }
+        );
 
-        setTimeout(() => {
-            if (!validTarget.connected || !validTarget.data.inPropHunt) return;
-            teleport(validTarget, PROP_HUNT_LOBBY_POSITION, "caught");
-            checkRoundStatus(io);
-        }, 250);
+        emitParticipants(
+            io
+        );
+
+        setTimeout(
+            () => {
+                if (
+                    !validTarget.connected ||
+                    !validTarget.data.inPropHunt
+                ) {
+                    return;
+                }
+
+                teleport(
+                    validTarget,
+                    PROP_HUNT_LOBBY_POSITION,
+                    "caught"
+                );
+
+                checkRoundStatus(
+                    io
+                );
+            },
+            250
+        );
     });
 
     socket.on("propHunt:leave", async () => {
@@ -1087,9 +1212,13 @@ export function registerPropHuntSocket(
         const wasLive = state.phase === "HIDING" || state.phase === "HUNT";
         const wasSeeker = role === "SEEKER";
 
-        socket.data.inPropHunt = false;
-        setSpectator(socket);
-        await socket.leave(PROP_HUNT_ROOM);
+        clearPropHuntState(
+            socket
+        );
+
+        await socket.leave(
+            PROP_HUNT_ROOM
+        );
 
         if (player) {
             teleport(socket, PROP_HUNT_RETURN_POSITION, "leave");

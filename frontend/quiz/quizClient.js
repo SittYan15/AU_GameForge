@@ -191,6 +191,95 @@ export function createCampusQuizClient(
                 transform: translateX(-50%);
             }
         }
+
+        /* SURVIVAL_QUIZ_ELIMINATED_UI_V1 */
+        #campusQuizEliminatedNotice {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            z-index: 1298;
+            width: min(390px, calc(100vw - 28px));
+            box-sizing: border-box;
+            padding: 20px 22px 18px;
+            transform: translate(-50%, -50%);
+            border: 1px solid rgba(255,95,95,.42);
+            border-radius: 16px;
+            background: rgba(12,14,20,.90);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            text-align: center;
+            box-shadow:
+                0 16px 54px rgba(0,0,0,.44),
+                0 0 30px rgba(255,70,70,.10);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            pointer-events: none;
+        }
+
+        #campusQuizEliminatedNotice[hidden] {
+            display: none !important;
+        }
+
+        #campusQuizEliminatedIcon {
+            font-size: 38px;
+            line-height: 1;
+        }
+
+        #campusQuizEliminatedTitle {
+            margin-top: 7px;
+            color: #ff7878;
+            font-size: clamp(23px, 3vw, 31px);
+            font-weight: 1000;
+            letter-spacing: .05em;
+            line-height: 1.05;
+        }
+
+        #campusQuizEliminatedHearts {
+            margin-top: 9px;
+            color: #ff4d4d;
+            font-size: 21px;
+            letter-spacing: .08em;
+        }
+
+        #campusQuizEliminatedText {
+            margin-top: 10px;
+            color: rgba(255,255,255,.82);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        #campusQuizEliminatedStatus {
+            margin-top: 11px;
+            padding: 7px 10px;
+            border-radius: 9px;
+            background: rgba(255,255,255,.055);
+            color: #ffd166;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .025em;
+        }
+
+        @media (max-width: 700px) {
+            #campusQuizEliminatedNotice {
+                width: min(320px, calc(100vw - 20px));
+                padding: 16px 15px 14px;
+                border-radius: 14px;
+            }
+
+            #campusQuizEliminatedIcon {
+                font-size: 32px;
+            }
+
+            #campusQuizEliminatedText {
+                font-size: 11px;
+            }
+
+            #campusQuizEliminatedStatus {
+                font-size: 10px;
+            }
+        }
+
     `;
     document.head.appendChild(style);
 
@@ -228,6 +317,52 @@ export function createCampusQuizClient(
     const message = document.createElement("div");
     message.id = "campusQuizSurvivalMessage";
     document.body.appendChild(message);
+
+    // SURVIVAL_QUIZ_ELIMINATED_UI_V1
+    const eliminatedNotice =
+        document.createElement(
+            "section"
+        );
+
+    eliminatedNotice.id =
+        "campusQuizEliminatedNotice";
+
+    eliminatedNotice.hidden =
+        true;
+
+    eliminatedNotice.setAttribute(
+        "aria-live",
+        "assertive"
+    );
+
+    eliminatedNotice.innerHTML = `
+        <div id="campusQuizEliminatedIcon">💀</div>
+        <div id="campusQuizEliminatedTitle">ELIMINATED</div>
+        <div id="campusQuizEliminatedHearts">♡ ♡ ♡</div>
+        <div id="campusQuizEliminatedText">
+            You used all 3 hearts.<br>
+            You cannot move because your quiz run is over.
+        </div>
+        <div id="campusQuizEliminatedStatus">
+            SPECTATING • WAIT FOR THE NEXT ROUND
+        </div>
+    `;
+
+    document.body.appendChild(
+        eliminatedNotice
+    );
+
+    const showEliminatedNotice =
+        () => {
+            eliminatedNotice.hidden =
+                false;
+        };
+
+    const hideEliminatedNotice =
+        () => {
+            eliminatedNotice.hidden =
+                true;
+        };
 
     const returnButton = document.createElement("button");
     returnButton.id = "campusQuizReturnButton";
@@ -296,6 +431,7 @@ export function createCampusQuizClient(
             window.clearTimeout(messageTimer);
             message.style.display = "none";
             resultPanel.style.display = "none";
+            hideEliminatedNotice();
         }
 
         hud.style.display =
@@ -311,6 +447,8 @@ export function createCampusQuizClient(
 
     const onStarted = (data = {}) => {
         if (active) return;
+
+        hideEliminatedNotice();
         resultPanel.style.display = "none";
         joinPending = false;
         active = true;
@@ -353,6 +491,8 @@ export function createCampusQuizClient(
         phase = nextPhase || "IDLE";
 
         if (phase === "LOBBY") {
+            hideEliminatedNotice();
+
             replayPending = false;
             playAgainButton.disabled = false;
             resultPanel.style.display = "none";
@@ -383,6 +523,8 @@ export function createCampusQuizClient(
 
     const onRoundStarted = (data = {}) => {
         if (currentRoundId !== null && data.roundId <= currentRoundId) return;
+
+        hideEliminatedNotice();
         currentRoundId = data.roundId;
         currentQuestionId = null;
         currentQuestionNumber = 0;
@@ -431,7 +573,9 @@ export function createCampusQuizClient(
         if (data.correct) {
             showMessage("✓ CORRECT — your floor survives!", "#7ee787", 2100);
         } else if (data.eliminated) {
-            showMessage("💀 GAME OVER — 3 wrong floors", "#ff6b6b", 3600);
+            showMessage("💀 OUT OF HEARTS", "#ff6b6b", 2200);
+
+            showEliminatedNotice();
         } else if (!data.selectedFloorId) {
             showMessage(`No answer floor selected — life lost (${lives} left)`, "#ff9b71", 2600);
         } else {
@@ -452,6 +596,13 @@ export function createCampusQuizClient(
 
         if (reason === "eliminated" || reason === "spectator") {
             localPlayer.isLocked = true;
+
+            if (
+                reason ===
+                "eliminated"
+            ) {
+                showEliminatedNotice();
+            }
         } else if (reason === "leave") {
             localPlayer.isLocked = false;
         } else {
@@ -461,6 +612,8 @@ export function createCampusQuizClient(
 
     const onFinished = (data = {}) => {
         if (data.roundId !== currentRoundId || finishedRoundId === data.roundId) return;
+
+        hideEliminatedNotice();
         finishedRoundId = data.roundId;
         score = Number(data.score) || 0;
         correctCount = Number(data.correctCount) || 0;
@@ -504,6 +657,8 @@ export function createCampusQuizClient(
     };
 
     const onLeft = () => {
+        hideEliminatedNotice();
+
         joinPending = false;
         active = false;
         role = "none";
@@ -597,6 +752,7 @@ export function createCampusQuizClient(
 
             hud.remove();
             message.remove();
+            eliminatedNotice.remove();
             resultPanel.remove();
             returnButton.remove();
             style.remove();

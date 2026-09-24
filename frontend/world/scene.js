@@ -795,26 +795,26 @@ export async function createMainScene(
     // ==========================================
     // DEBUG: COORDINATE HELPER (Shift + Click)
     // ==========================================
-    scene.onPointerObservable.add((pointerInfo) => {
-        if (
-            pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN
-            && pointerInfo.event.shiftKey
-            && pointerInfo.pickInfo.hit
-        ) {
-            const point = pointerInfo.pickInfo.pickedPoint;
-            console.log(`new BABYLON.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`);
+    // scene.onPointerObservable.add((pointerInfo) => {
+    //     if (
+    //         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN
+    //         && pointerInfo.event.shiftKey
+    //         && pointerInfo.pickInfo.hit
+    //     ) {
+    //         const point = pointerInfo.pickInfo.pickedPoint;
+    //         console.log(`new BABYLON.Vector3(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`);
 
-            const marker = BABYLON.MeshBuilder.CreateSphere("debugMarker", { diameter: 1 }, scene);
-            marker.position = point;
+    //         const marker = BABYLON.MeshBuilder.CreateSphere("debugMarker", { diameter: 1 }, scene);
+    //         marker.position = point;
 
-            const mat = new BABYLON.StandardMaterial("markerMat", scene);
-            mat.emissiveColor = new BABYLON.Color3(1, 0, 0);
-            mat.wireframe = true;
-            marker.material = mat;
-            marker.checkCollisions = false;
-            marker.isPickable = false;
-        }
-    });
+    //         const mat = new BABYLON.StandardMaterial("markerMat", scene);
+    //         mat.emissiveColor = new BABYLON.Color3(1, 0, 0);
+    //         mat.wireframe = true;
+    //         marker.material = mat;
+    //         marker.checkCollisions = false;
+    //         marker.isPickable = false;
+    //     }
+    // });
 
     window.exitRlgl = () => {
         insideRlgl = false;

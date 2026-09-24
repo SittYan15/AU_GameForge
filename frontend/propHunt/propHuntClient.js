@@ -153,6 +153,10 @@ function createStyles() {
     const style = document.createElement("style");
     style.id = "propHuntStyles";
     style.textContent = `
+        body.au-prop-hunt-active #topPlayersStatus {
+            display: none !important;
+        }
+
         #propHuntJoinPanel,
         #propHuntHud,
         #propHuntElevatorPanel,
@@ -524,8 +528,10 @@ function createStyles() {
 
         #propHuntPropHud {
             position: fixed;
-            right: 16px;
-            bottom: calc(78px + env(safe-area-inset-bottom));
+            top: 16px;
+            left: 16px;
+            right: auto;
+            bottom: auto;
             z-index: 1760;
             width: 220px;
             box-sizing: border-box;
@@ -650,8 +656,9 @@ function createStyles() {
             }
 
             #propHuntPropHud {
-                top: 92px;
-                right: max(8px, env(safe-area-inset-right));
+                top: max(8px, env(safe-area-inset-top));
+                left: max(8px, env(safe-area-inset-left));
+                right: auto;
                 bottom: auto;
                 width: min(210px, 52vw);
                 padding: 8px;
@@ -677,8 +684,9 @@ function createStyles() {
         /* Prop Hunt mobile compact facing HUD override. */
         @media (max-width: 700px) {
             #propHuntPropHud {
-                top: 86px;
-                right: max(6px, env(safe-area-inset-right));
+                top: max(8px, env(safe-area-inset-top));
+                left: max(6px, env(safe-area-inset-left));
+                right: auto;
                 bottom: auto;
                 width: 118px;
                 padding: 4px 5px;
@@ -725,6 +733,961 @@ function createStyles() {
                 grid-template-columns: repeat(4, minmax(0,1fr));
             }
         }
+
+        /* PROP_HUNT_RESPONSIVE_FIRE_FIX_V5 */
+
+        body.au-prop-hunt-active #topPlayersStatus {
+            display: none !important;
+        }
+
+        /* Bullet count is intentionally hidden. Existing ammo rules remain. */
+        #propHuntAmmoHud {
+            display: none !important;
+        }
+
+        #propHuntHud {
+            width: min(540px, calc(100vw - 28px));
+            min-width: 0;
+            max-width: none;
+            box-sizing: border-box;
+        }
+
+        #propHuntTeamStats {
+            max-width: 100%;
+            box-sizing: border-box;
+            white-space: normal;
+            line-height: 1.28;
+        }
+
+        /* Transparent PROP FACING at top-left. */
+        #propHuntPropHud {
+            top: max(14px, env(safe-area-inset-top));
+            left: max(14px, env(safe-area-inset-left));
+            right: auto;
+            bottom: auto;
+            width: clamp(145px, 16vw, 210px);
+            padding: 6px 8px;
+            border-color: transparent;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            pointer-events: none;
+        }
+
+        #propHuntPropPreviewCanvas {
+            width: clamp(62px, 7vw, 82px);
+            height: clamp(62px, 7vw, 82px);
+            background: transparent;
+        }
+
+        #propHuntPropLockState,
+        #propHuntPropLockState.locked {
+            background: transparent;
+            border-color: transparent;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        #propHuntPropHudTitle,
+        #propHuntPropFacingValue,
+        #propHuntPropPcHint {
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        /* Tablet */
+        @media (min-width: 701px) and (max-width: 1100px) {
+            #propHuntHud {
+                top: max(10px, env(safe-area-inset-top));
+                width: min(500px, 56vw);
+                padding: 8px 10px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 19px;
+            }
+
+            #propHuntPropHud {
+                top: max(10px, env(safe-area-inset-top));
+                left: max(10px, env(safe-area-inset-left));
+                width: 140px;
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 66px;
+                height: 66px;
+            }
+
+            #propHuntElevatorPanel {
+                right: max(10px, env(safe-area-inset-right));
+                width: 220px;
+                padding: 10px;
+            }
+
+            #propHuntFireButton {
+                right: max(14px, env(safe-area-inset-right));
+                bottom: calc(82px + env(safe-area-inset-bottom));
+                width: 70px;
+                height: 70px;
+            }
+        }
+
+        /* Phone */
+        @media (max-width: 700px) {
+            #propHuntJoinPanel {
+                width: min(360px, calc(100vw - 16px));
+                min-width: 0;
+                padding: 9px 10px;
+            }
+
+            #propHuntHud {
+                top: max(6px, env(safe-area-inset-top));
+                left: auto;
+                right: max(6px, env(safe-area-inset-right));
+                transform: none;
+                width: min(250px, calc(100vw - 122px));
+                min-width: 0;
+                max-width: none;
+                padding: 6px 8px;
+                border-radius: 10px;
+            }
+
+            #propHuntHudTitle {
+                font-size: 9px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 16px;
+            }
+
+            #propHuntHudRole {
+                font-size: 10px;
+            }
+
+            #propHuntHudStatus,
+            #propHuntTeamStats {
+                font-size: 9px;
+            }
+
+            #propHuntTeamStats {
+                min-height: 20px;
+                margin-top: 4px;
+                padding: 3px 7px;
+            }
+
+            #propHuntPropHud {
+                top: max(6px, env(safe-area-inset-top));
+                left: max(6px, env(safe-area-inset-left));
+                right: auto;
+                bottom: auto;
+                width: 104px;
+                padding: 3px 4px;
+            }
+
+            #propHuntPropHudTitle {
+                font-size: 8px;
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 48px;
+                height: 48px;
+                margin-top: 0;
+            }
+
+            #propHuntPropFacingValue {
+                font-size: 9px;
+            }
+
+            #propHuntPropLockState {
+                min-height: 18px;
+                margin-top: 2px;
+                padding: 0 4px;
+                font-size: 8px;
+            }
+
+            #propHuntPropPcHint,
+            #propHuntPropMobileControls {
+                display: none !important;
+            }
+
+            #propHuntElevatorPanel {
+                top: auto;
+                right: max(6px, env(safe-area-inset-right));
+                bottom: calc(62px + env(safe-area-inset-bottom));
+                width: min(330px, calc(100vw - 12px));
+                transform: none;
+                padding: 8px;
+            }
+
+            #propHuntElevatorFloors {
+                grid-template-columns: repeat(6, minmax(0,1fr));
+                gap: 4px;
+            }
+
+            .prop-hunt-floor-button {
+                min-height: 32px;
+                font-size: 10px;
+            }
+
+            #propHuntReturnButton {
+                bottom: calc(8px + env(safe-area-inset-bottom));
+                min-height: 36px;
+                padding: 0 13px;
+                font-size: 11px;
+            }
+
+            #propHuntFireButton {
+                right: max(10px, env(safe-area-inset-right));
+                bottom: calc(62px + env(safe-area-inset-bottom));
+                width: 64px;
+                height: 64px;
+                font-size: 12px;
+            }
+        }
+
+        /* Short landscape phone */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            #propHuntHud {
+                top: max(4px, env(safe-area-inset-top));
+                padding: 4px 7px;
+            }
+
+            #propHuntHudTitle {
+                display: none;
+            }
+
+            #propHuntPropHud {
+                top: max(4px, env(safe-area-inset-top));
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 44px;
+                height: 44px;
+            }
+
+            #propHuntFireButton {
+                bottom: calc(50px + env(safe-area-inset-bottom));
+                width: 56px;
+                height: 56px;
+            }
+        }
+
+        /* Touch / tablet: the WHOLE PROP FACING panel behaves like F. */
+        @media (hover: none), (pointer: coarse) {
+            #propHuntPropHud {
+                pointer-events: auto;
+                cursor: pointer;
+                touch-action: manipulation;
+                user-select: none;
+                -webkit-user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            #propHuntPropPreviewCanvas {
+                pointer-events: none;
+            }
+
+            #propHuntPropPcHint,
+            #propHuntPropMobileControls {
+                display: none !important;
+            }
+        }
+
+
+        /* PROP_HUNT_GAMEPLAY_UI_FIX_V7 */
+
+        body.au-prop-hunt-active #topPlayersStatus {
+            display: none !important;
+        }
+
+        #propHuntAmmoHud {
+            display: none !important;
+        }
+
+        #propHuntGhostVignette {
+            position: fixed;
+            inset: 0;
+            z-index: 1685;
+            pointer-events: none;
+            background:
+                radial-gradient(
+                    circle at center,
+                    rgba(90,170,255,0) 46%,
+                    rgba(90,170,255,.025) 64%,
+                    rgba(82,155,245,.075) 80%,
+                    rgba(65,120,220,.16) 100%
+                );
+            box-shadow:
+                inset 0 0 88px rgba(120,195,255,.09);
+        }
+
+        #propHuntGhostVignette[hidden] {
+            display: none !important;
+        }
+
+        #propHuntHud {
+            width: min(540px, calc(100vw - 28px));
+            min-width: 0;
+            max-width: none;
+            box-sizing: border-box;
+        }
+
+        #propHuntTeamStats {
+            max-width: 100%;
+            box-sizing: border-box;
+            white-space: normal;
+        }
+
+        /*
+         * 20% opacity background = 80% transparent.
+         */
+        #propHuntPropHud {
+            top: max(14px, env(safe-area-inset-top));
+            left: max(14px, env(safe-area-inset-left));
+            right: auto;
+            bottom: auto;
+            width: clamp(150px, 17vw, 220px);
+            padding: 7px 8px 8px;
+            border: 1px solid rgba(255,255,255,.10);
+            background: rgba(12,14,19,.20);
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        #propHuntPropPreviewCanvas {
+            width: clamp(62px, 7vw, 82px);
+            height: clamp(62px, 7vw, 82px);
+            background: transparent;
+        }
+
+        #propHuntFacingCompass {
+            position: relative;
+            width: 56px;
+            height: 56px;
+            margin: 2px auto 4px;
+            border: 1px solid rgba(255,255,255,.28);
+            border-radius: 50%;
+            background: rgba(0,0,0,.12);
+            box-sizing: border-box;
+        }
+
+        #propHuntFacingCompass::before,
+        #propHuntFacingCompass::after {
+            content: "";
+            position: absolute;
+            background: rgba(255,255,255,.18);
+        }
+
+        #propHuntFacingCompass::before {
+            top: 4px;
+            bottom: 4px;
+            left: 50%;
+            width: 1px;
+        }
+
+        #propHuntFacingCompass::after {
+            left: 4px;
+            right: 4px;
+            top: 50%;
+            height: 1px;
+        }
+
+        #propHuntFacingArrow {
+            position: absolute;
+            inset: 4px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            color: #ffd166;
+            font-size: 23px;
+            font-weight: 1000;
+            line-height: 1;
+            transform-origin: 50% 50%;
+            transition: transform 70ms linear;
+            text-shadow:
+                0 1px 3px rgba(0,0,0,.95),
+                0 0 7px rgba(255,209,102,.65);
+            z-index: 2;
+        }
+
+        #propHuntFacingFrontLabel {
+            position: absolute;
+            left: 50%;
+            bottom: 4px;
+            transform: translateX(-50%);
+            color: #ffd166;
+            font-size: 7px;
+            font-weight: 1000;
+            letter-spacing: .08em;
+            text-shadow: 0 1px 3px rgba(0,0,0,.95);
+            z-index: 3;
+        }
+
+        #propHuntPropHudTitle,
+        #propHuntPropFacingValue,
+        #propHuntPropPcHint,
+        #propHuntPropLockState {
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        /* Tablet */
+        @media (min-width: 701px) and (max-width: 1100px) {
+            #propHuntHud {
+                top: max(10px, env(safe-area-inset-top));
+                width: min(500px, 56vw);
+                padding: 8px 10px;
+            }
+
+            #propHuntPropHud {
+                top: max(10px, env(safe-area-inset-top));
+                left: max(10px, env(safe-area-inset-left));
+                width: 145px;
+            }
+
+            #propHuntFacingCompass {
+                width: 50px;
+                height: 50px;
+            }
+
+            #propHuntFireButton {
+                right: max(14px, env(safe-area-inset-right));
+                bottom: calc(82px + env(safe-area-inset-bottom));
+                width: 70px;
+                height: 70px;
+            }
+        }
+
+        /* Phone */
+        @media (max-width: 700px) {
+            #propHuntHud {
+                top: max(6px, env(safe-area-inset-top));
+                left: auto;
+                right: max(6px, env(safe-area-inset-right));
+                transform: none;
+                width: min(250px, calc(100vw - 126px));
+                min-width: 0;
+                padding: 6px 8px;
+            }
+
+            #propHuntHudTitle {
+                font-size: 9px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 16px;
+            }
+
+            #propHuntHudRole {
+                font-size: 10px;
+            }
+
+            #propHuntHudStatus,
+            #propHuntTeamStats {
+                font-size: 9px;
+            }
+
+            #propHuntPropHud {
+                top: max(6px, env(safe-area-inset-top));
+                left: max(6px, env(safe-area-inset-left));
+                width: 108px;
+                padding: 4px;
+                background: rgba(12,14,19,.20);
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 48px;
+                height: 48px;
+            }
+
+            #propHuntFacingCompass {
+                width: 44px;
+                height: 44px;
+            }
+
+            #propHuntFacingArrow {
+                font-size: 18px;
+            }
+
+            #propHuntFacingFrontLabel {
+                font-size: 6px;
+            }
+
+            #propHuntPropFacingValue {
+                font-size: 9px;
+            }
+
+            #propHuntPropPcHint,
+            #propHuntPropMobileControls {
+                display: none !important;
+            }
+
+            #propHuntElevatorPanel {
+                top: auto;
+                right: max(6px, env(safe-area-inset-right));
+                bottom: calc(62px + env(safe-area-inset-bottom));
+                width: min(330px, calc(100vw - 12px));
+                transform: none;
+            }
+
+            #propHuntFireButton {
+                right: max(10px, env(safe-area-inset-right));
+                bottom: calc(62px + env(safe-area-inset-bottom));
+                width: 64px;
+                height: 64px;
+            }
+        }
+
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            #propHuntHudTitle {
+                display: none;
+            }
+
+            #propHuntPropHud {
+                top: max(4px, env(safe-area-inset-top));
+            }
+
+            #propHuntPropPreviewCanvas {
+                width: 42px;
+                height: 42px;
+            }
+
+            #propHuntFacingCompass {
+                width: 40px;
+                height: 40px;
+            }
+
+            #propHuntFireButton {
+                bottom: calc(50px + env(safe-area-inset-bottom));
+                width: 56px;
+                height: 56px;
+            }
+        }
+
+        /* Whole PROP FACING = F on touch/tablet. */
+        @media (hover: none), (pointer: coarse) {
+            #propHuntPropHud {
+                pointer-events: auto;
+                cursor: pointer;
+                touch-action: manipulation;
+                user-select: none;
+                -webkit-user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            #propHuntPropPreviewCanvas {
+                pointer-events: none;
+            }
+
+            #propHuntPropPcHint,
+            #propHuntPropMobileControls {
+                display: none !important;
+            }
+        }
+
+
+        /* PROP_HUNT_ROUND_RESULT_UI_V1 */
+
+        #propHuntRoundResultOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1750;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            pointer-events: none;
+            box-sizing: border-box;
+            background: rgba(0,0,0,.14);
+        }
+
+        #propHuntRoundResultOverlay[hidden] {
+            display: none !important;
+        }
+
+        #propHuntRoundResultCard {
+            width: min(420px, calc(100vw - 28px));
+            padding: 24px 24px 22px;
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 18px;
+            background: rgba(12,15,22,.94);
+            box-shadow:
+                0 18px 60px rgba(0,0,0,.48),
+                inset 0 1px 0 rgba(255,255,255,.06);
+            text-align: center;
+            color: #fff;
+            transform: translateY(0) scale(1);
+            animation:
+                propHuntRoundResultPop .28s ease-out;
+        }
+
+        #propHuntRoundResultCard.win {
+            border-color: rgba(95,240,160,.50);
+            box-shadow:
+                0 18px 60px rgba(0,0,0,.48),
+                0 0 34px rgba(72,215,140,.16),
+                inset 0 1px 0 rgba(255,255,255,.06);
+        }
+
+        #propHuntRoundResultCard.lose {
+            border-color: rgba(255,105,105,.50);
+            box-shadow:
+                0 18px 60px rgba(0,0,0,.48),
+                0 0 34px rgba(255,85,85,.13),
+                inset 0 1px 0 rgba(255,255,255,.06);
+        }
+
+        #propHuntRoundResultIcon {
+            margin-bottom: 6px;
+            font-size: 42px;
+            line-height: 1;
+        }
+
+        #propHuntRoundResultTitle {
+            font-size: clamp(25px, 4vw, 36px);
+            font-weight: 1000;
+            letter-spacing: .045em;
+            line-height: 1.05;
+        }
+
+        #propHuntRoundResultCard.win #propHuntRoundResultTitle {
+            color: #71efad;
+        }
+
+        #propHuntRoundResultCard.lose #propHuntRoundResultTitle {
+            color: #ff8585;
+        }
+
+        #propHuntRoundResultReason {
+            margin-top: 10px;
+            color: rgba(255,255,255,.78);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        #propHuntRoundResultPoints {
+            margin-top: 18px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: rgba(255,205,80,.10);
+            color: #ffd766;
+            font-size: clamp(18px, 3vw, 24px);
+            font-weight: 1000;
+            line-height: 1.1;
+        }
+
+        #propHuntRoundResultTotal {
+            min-height: 16px;
+            margin-top: 8px;
+            color: rgba(255,255,255,.58);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        @keyframes propHuntRoundResultPop {
+            from {
+                opacity: 0;
+                transform: translateY(12px) scale(.94);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @media (max-width: 700px) {
+            #propHuntRoundResultOverlay {
+                padding: 12px;
+            }
+
+            #propHuntRoundResultCard {
+                width: min(330px, calc(100vw - 20px));
+                padding: 18px 16px 16px;
+                border-radius: 15px;
+            }
+
+            #propHuntRoundResultIcon {
+                font-size: 34px;
+            }
+
+            #propHuntRoundResultReason {
+                margin-top: 7px;
+                font-size: 11px;
+            }
+
+            #propHuntRoundResultPoints {
+                margin-top: 13px;
+                padding: 9px 10px;
+            }
+
+            #propHuntRoundResultTotal {
+                font-size: 10px;
+            }
+        }
+
+        @media (max-height: 500px) and (orientation: landscape) {
+            #propHuntRoundResultCard {
+                width: min(390px, calc(100vw - 24px));
+                padding: 12px 18px;
+            }
+
+            #propHuntRoundResultIcon {
+                font-size: 28px;
+                margin-bottom: 2px;
+            }
+
+            #propHuntRoundResultTitle {
+                font-size: 24px;
+            }
+
+            #propHuntRoundResultReason {
+                margin-top: 5px;
+            }
+
+            #propHuntRoundResultPoints {
+                margin-top: 8px;
+                padding: 7px 10px;
+                font-size: 18px;
+            }
+
+            #propHuntRoundResultTotal {
+                margin-top: 4px;
+            }
+        }
+
+
+        /* PROP_HUNT_COMPACT_STATUS_UI_V1 */
+
+        /*
+         * Top-middle round status:
+         * compact, useful, and 20% dark background like PROP FACING.
+         */
+        #propHuntHud {
+            top: max(10px, env(safe-area-inset-top));
+            width: auto;
+            min-width: 210px;
+            max-width: min(360px, calc(100vw - 28px));
+            padding: 6px 9px;
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 10px;
+            background: rgba(12,14,19,.20);
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        #propHuntHudTitle {
+            margin: 0;
+            font-size: 9px;
+            line-height: 1.15;
+            letter-spacing: .055em;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        #propHuntHudPhase {
+            margin-top: 0;
+            font-size: 18px;
+            line-height: 1.05;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        #propHuntHudRole {
+            margin-top: 2px;
+            font-size: 10px;
+            line-height: 1.15;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        #propHuntHudStatus {
+            margin-top: 2px;
+            font-size: 9px;
+            line-height: 1.15;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        #propHuntHudStatus[hidden] {
+            display: none !important;
+        }
+
+        #propHuntTeamStats {
+            min-height: 19px;
+            margin-top: 3px;
+            padding: 0 7px;
+            border-color: rgba(140,246,200,.16);
+            background: rgba(140,246,200,.07);
+            font-size: 9px;
+            line-height: 1;
+            letter-spacing: .015em;
+            text-shadow: 0 1px 4px rgba(0,0,0,.95);
+        }
+
+        /* Tablet */
+        @media (min-width: 701px) and (max-width: 1100px) {
+            #propHuntHud {
+                min-width: 195px;
+                max-width: min(330px, calc(100vw - 24px));
+                padding: 5px 8px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 17px;
+            }
+
+            #propHuntHudRole {
+                font-size: 9px;
+            }
+
+            #propHuntTeamStats {
+                min-height: 18px;
+                font-size: 8.5px;
+            }
+        }
+
+        /* Phone */
+        @media (max-width: 700px) {
+            #propHuntHud {
+                top: max(5px, env(safe-area-inset-top));
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: auto;
+                min-width: 170px;
+                max-width: min(230px, calc(100vw - 122px));
+                padding: 4px 6px;
+                border-radius: 8px;
+                background: rgba(12,14,19,.20);
+            }
+
+            #propHuntHudTitle {
+                display: none;
+            }
+
+            #propHuntHudPhase {
+                font-size: 15px;
+            }
+
+            #propHuntHudRole {
+                margin-top: 1px;
+                font-size: 8.5px;
+            }
+
+            #propHuntHudStatus {
+                font-size: 8px;
+            }
+
+            #propHuntTeamStats {
+                min-height: 17px;
+                margin-top: 2px;
+                padding: 0 5px;
+                font-size: 7.5px;
+                white-space: nowrap;
+            }
+        }
+
+        /* Short landscape phone */
+        @media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+            #propHuntHud {
+                top: max(3px, env(safe-area-inset-top));
+                min-width: 165px;
+                max-width: 220px;
+                padding: 3px 6px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 14px;
+            }
+
+            #propHuntHudRole {
+                font-size: 8px;
+            }
+
+            #propHuntTeamStats {
+                min-height: 16px;
+                font-size: 7px;
+            }
+        }
+
+
+        /* PROP_HUNT_STATUS_DESKTOP_SCALE_V1 */
+
+        /*
+         * Laptop / PC only.
+         * Mobile and tablet sizing stays exactly as it is now.
+         */
+        @media (min-width: 1101px) {
+            #propHuntHud {
+                top: max(14px, env(safe-area-inset-top));
+                min-width: 300px;
+                max-width: min(460px, calc(100vw - 40px));
+                padding: 10px 14px;
+                border-radius: 12px;
+            }
+
+            #propHuntHudTitle {
+                font-size: 11px;
+                line-height: 1.2;
+                letter-spacing: .06em;
+            }
+
+            #propHuntHudPhase {
+                margin-top: 2px;
+                font-size: 24px;
+                line-height: 1.08;
+            }
+
+            #propHuntHudRole {
+                margin-top: 4px;
+                font-size: 12px;
+                line-height: 1.2;
+            }
+
+            #propHuntHudStatus {
+                margin-top: 3px;
+                font-size: 10px;
+                line-height: 1.2;
+            }
+
+            #propHuntTeamStats {
+                min-height: 24px;
+                margin-top: 5px;
+                padding: 0 10px;
+                font-size: 11px;
+                line-height: 1.05;
+            }
+        }
+
+        /*
+         * Larger desktop monitors get a little more breathing room.
+         */
+        @media (min-width: 1600px) {
+            #propHuntHud {
+                min-width: 330px;
+                max-width: 500px;
+                padding: 11px 16px;
+            }
+
+            #propHuntHudPhase {
+                font-size: 26px;
+            }
+
+            #propHuntHudRole {
+                font-size: 13px;
+            }
+
+            #propHuntTeamStats {
+                min-height: 26px;
+                font-size: 12px;
+            }
+        }
+
+
+        /* PROP_HUNT_AUTO_JOIN_PORTAL_V1 */
+        #propHuntJoinPanel {
+            display: none !important;
+        }
+
     `;
     document.head.appendChild(style);
 }
@@ -787,8 +1750,6 @@ function createUi() {
     ammoHud.hidden =
         true;
 
-    ammoHud.textContent =
-        `AMMO ${PROP_HUNT_MAX_BULLETS} / ${PROP_HUNT_MAX_BULLETS}`;
 
     const propHud =
         document.createElement(
@@ -2198,6 +3159,102 @@ export function createPropHuntClient(
     } = {}
 ) {
     const ui = createUi();
+
+    const ghostVignette =
+        document.createElement(
+            "div"
+        );
+
+    ghostVignette.id =
+        "propHuntGhostVignette";
+
+    ghostVignette.hidden =
+        true;
+
+    document.body.appendChild(
+        ghostVignette
+    );
+
+    const facingCompass =
+        document.createElement(
+            "div"
+        );
+
+    facingCompass.id =
+        "propHuntFacingCompass";
+
+    facingCompass.innerHTML = `
+        <div id="propHuntFacingArrow">▲</div>
+        <div id="propHuntFacingFrontLabel">FRONT</div>
+    `;
+
+    ui.propFacingValue
+        ?.before(
+            facingCompass
+        );
+
+    const facingArrow =
+        facingCompass.querySelector(
+            "#propHuntFacingArrow"
+        );
+
+    /* PROP_HUNT_ROUND_RESULT_UI_V1 */
+    const roundResultOverlay =
+        document.createElement(
+            "section"
+        );
+
+    roundResultOverlay.id =
+        "propHuntRoundResultOverlay";
+
+    roundResultOverlay.hidden =
+        true;
+
+    roundResultOverlay.innerHTML = `
+        <div id="propHuntRoundResultCard">
+            <div id="propHuntRoundResultIcon">🏆</div>
+            <div id="propHuntRoundResultTitle">YOU WIN!</div>
+            <div id="propHuntRoundResultReason"></div>
+            <div id="propHuntRoundResultPoints">+0 Campus Points</div>
+            <div id="propHuntRoundResultTotal"></div>
+        </div>
+    `;
+
+    document.body.appendChild(
+        roundResultOverlay
+    );
+
+    const roundResultCard =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultCard"
+        );
+
+    const roundResultIcon =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultIcon"
+        );
+
+    const roundResultTitle =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultTitle"
+        );
+
+    const roundResultReason =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultReason"
+        );
+
+    const roundResultPoints =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultPoints"
+        );
+
+    const roundResultTotal =
+        roundResultOverlay.querySelector(
+            "#propHuntRoundResultTotal"
+        );
+
+
     const portal = createPortal(scene);
     const boundaryVisual = createPropHuntBoundaryVisual(scene);
     const propHudPreview =
@@ -2215,6 +3272,13 @@ export function createPropHuntClient(
 
     let assetsPromise = null;
     let active = false;
+
+    // Prevent duplicate joins and recover if the server never answers.
+    let joinPending = false;
+    let joinTimeout = null;
+    // PROP_HUNT_AUTO_JOIN_PORTAL_V1
+    // Entering the portal automatically joins once per portal entry.
+    let autoJoinPortalArmed = true;
     let role = "NONE";
     let localPropId = null;
     let phase = "IDLE";
@@ -2224,7 +3288,9 @@ export function createPropHuntClient(
     let currentElevator = null;
     let pendingElevator = null;
     let minigameBlockedByOther = false;
-    let lastShotAt = 0;
+    let shotRequestPending = false;
+    let shotRequestTimeout = null;
+    let nextShotAllowedAt = 0;
     let bulletsRemaining = 0;
     let roundResultMessage = "";
     let roundIntroEndsAt = 0;
@@ -2257,6 +3323,16 @@ export function createPropHuntClient(
         const participantIds = new Set(participants.keys());
         remotePlayers.forEach((remotePlayer, socketId) => {
             const participant = participants.get(socketId);
+
+            if (!active) {
+                remotePlayer.propHuntDisguised =
+                    false;
+
+                remotePlayer.hiddenByPropHuntIsolation =
+                    false;
+
+                return;
+            }
 
             const hiddenBecauseNotInRound = Boolean(
                 active && !participantIds.has(socketId)
@@ -2543,7 +3619,49 @@ export function createPropHuntClient(
     }
 
 
+    function clearShotRequestPending() {
+        shotRequestPending =
+            false;
+
+        if (
+            shotRequestTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                shotRequestTimeout
+            );
+
+            shotRequestTimeout =
+                null;
+        }
+    }
+
+    function clearShotRequestPending() {
+        shotRequestPending =
+            false;
+
+        if (
+            shotRequestTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                shotRequestTimeout
+            );
+
+            shotRequestTimeout =
+                null;
+        }
+    }
+
     function updateAmmoUi() {
+        // Infinite bullets.
+        // Keep the old ammo element hidden only for backward compatibility.
+        ui.ammoHud.hidden =
+            true;
+
+        ui.fireButton.textContent =
+            "FIRE";
+
         const seekerHunting =
             Boolean(
                 active &&
@@ -2552,51 +3670,17 @@ export function createPropHuntClient(
                 !caught
             );
 
-        ui.ammoHud.hidden =
-            !seekerHunting;
-
-        if (!seekerHunting) {
-            ui.fireButton.disabled =
-                false;
-
-            return;
-        }
-
-        const safeBullets =
-            Math.max(
-                0,
-                Math.min(
-                    PROP_HUNT_MAX_BULLETS,
-                    Number(
-                        bulletsRemaining
-                    ) ||
-                    0
-                )
-            );
-
-        ui.ammoHud.textContent =
-            safeBullets >
-                0
-                ? `AMMO ${safeBullets} / ${PROP_HUNT_MAX_BULLETS}`
-                : "OUT OF AMMO";
-
-        ui.ammoHud.classList.toggle(
-            "empty",
-            safeBullets <=
-            0
-        );
+        const coolingDown =
+            shotRequestPending ||
+            performance.now() <
+                nextShotAllowedAt;
 
         ui.fireButton.disabled =
-            safeBullets <=
-            0;
-
-        ui.fireButton.textContent =
-            safeBullets >
-                0
-                ? `FIRE • ${safeBullets}`
-                : "EMPTY";
+            Boolean(
+                seekerHunting &&
+                coolingDown
+            );
     }
-
 
     function hideCaughtOverlay() {
         if (caughtOverlayTimer) {
@@ -2625,6 +3709,176 @@ export function createPropHuntClient(
             },
             2600
         );
+    }
+
+    function hideRoundResultOverlay() {
+        roundResultOverlay.hidden =
+            true;
+
+        roundResultCard.classList.remove(
+            "win",
+            "lose",
+            "neutral"
+        );
+    }
+
+    function showRoundResultOverlay(
+        {
+            winner,
+            resultRole,
+            resultCaught,
+            pointsEarned,
+            totalPoints
+        } = {}
+    ) {
+        const normalizedWinner =
+            String(
+                winner ||
+                ""
+            ).toUpperCase();
+
+        const normalizedRole =
+            String(
+                resultRole ||
+                role ||
+                ""
+            ).toUpperCase();
+
+        const wasCaught =
+            Boolean(
+                resultCaught
+            );
+
+        let didWin =
+            null;
+
+        if (
+            normalizedRole ===
+            "SEEKER"
+        ) {
+            didWin =
+                normalizedWinner ===
+                "SEEKER";
+        } else if (
+            normalizedRole ===
+            "HIDER"
+        ) {
+            didWin =
+                normalizedWinner ===
+                    "HIDERS" &&
+                !wasCaught;
+        }
+
+        let title =
+            "ROUND OVER";
+
+        let icon =
+            "🎮";
+
+        let reason =
+            "The round has finished.";
+
+        let stateClass =
+            "neutral";
+
+        if (
+            didWin ===
+            true
+        ) {
+            title =
+                "YOU WIN!";
+
+            icon =
+                "🏆";
+
+            stateClass =
+                "win";
+
+            if (
+                normalizedRole ===
+                "SEEKER"
+            ) {
+                reason =
+                    "You found every Hider before time ran out.";
+            } else {
+                reason =
+                    "You survived the hunt without being found.";
+            }
+        } else if (
+            didWin ===
+            false
+        ) {
+            title =
+                "YOU LOSE";
+
+            icon =
+                "💀";
+
+            stateClass =
+                "lose";
+
+            if (
+                normalizedRole ===
+                "SEEKER"
+            ) {
+                reason =
+                    "At least one Hider survived until time ran out.";
+            } else if (
+                wasCaught
+            ) {
+                reason =
+                    "You were found during the round.";
+            } else {
+                reason =
+                    "The Finder won the round.";
+            }
+        }
+
+        const reward =
+            Math.max(
+                0,
+                Number(
+                    pointsEarned
+                ) ||
+                0
+            );
+
+        const total =
+            Number(
+                totalPoints
+            );
+
+        roundResultCard.classList.remove(
+            "win",
+            "lose",
+            "neutral"
+        );
+
+        roundResultCard.classList.add(
+            stateClass
+        );
+
+        roundResultIcon.textContent =
+            icon;
+
+        roundResultTitle.textContent =
+            title;
+
+        roundResultReason.textContent =
+            reason;
+
+        roundResultPoints.textContent =
+            `+${reward.toLocaleString()} Campus Points`;
+
+        roundResultTotal.textContent =
+            Number.isFinite(
+                total
+            )
+                ? `Total Campus Points: ${total.toLocaleString()}`
+                : "";
+
+        roundResultOverlay.hidden =
+            false;
     }
 
     function teamCounts() {
@@ -2767,6 +4021,13 @@ export function createPropHuntClient(
         ui.propFacingValue.textContent =
             `Facing ${degrees}°`;
 
+        if (
+            facingArrow
+        ) {
+            facingArrow.style.transform =
+                `rotate(${degrees}deg)`;
+        }
+
         void propHudPreview
             .setProp(
                 localPropId,
@@ -2796,7 +4057,6 @@ export function createPropHuntClient(
                 localPropLocked
             );
         }
-
     }
 
     function sendPropOrientation(
@@ -3027,6 +4287,17 @@ export function createPropHuntClient(
         updateOrientationHud();
         void syncPropViewHeight();
 
+        const ghostModeActive =
+            Boolean(
+                active &&
+                phase === "HUNT" &&
+                role === "HIDER" &&
+                caught
+            );
+
+        ghostVignette.hidden =
+            !ghostModeActive;
+
         let title = phase;
         let status = "";
 
@@ -3044,38 +4315,29 @@ export function createPropHuntClient(
             title = lobbyCountdown == null
                 ? "LOBBY"
                 : `LOBBY • ${lobbyCountdown}s`;
-            status = "Minimum 3 players. Round starts when enough players are ready.";
+            status = "Waiting for players";
         } else if (phase === "HIDING") {
             const time = phaseEndsAt ? formatClock(phaseEndsAt - Date.now()) : "1:00";
             title = `HIDING • ${time}`;
-            status = role === "SEEKER"
-                ? "Hiders are hiding. Your screen and movement are locked."
-                : role === "HIDER"
-                    ? "Hide anywhere in SLM/VMES. Your prop follows the FPS camera direction. Press F to freeze it."
-                    : "Live round in progress — spectating until the next lobby.";
+            status = "";
         } else if (phase === "HUNT") {
             const time = phaseEndsAt ? formatClock(phaseEndsAt - Date.now()) : "4:00";
             title = `HUNT • ${time}`;
-            status = role === "SEEKER"
-                ? `Find the props! ${counts.activeHiders} hider(s) still need to be found.`
-                : role === "HIDER"
-                    ? caught
-                        ? `Ghost mode. Hiders left: ${counts.activeHiders}/${counts.totalHiders}. You can move around invisibly.`
-                        : `${counts.activeHiders} hider(s) remaining. Look to rotate the prop; freeze it when your hiding angle is right.`
-                    : "Spectating this round.";
+            status = "";
         } else if (phase === "FINISHED") {
             title = "ROUND OVER";
-            status = roundResultMessage || "Results are being shown. The next lobby will start shortly.";
+            status = "";
         }
 
-        if (phase === "HIDING" || phase === "HUNT") {
-            status = caught && role === "HIDER"
-                ? `GHOST MODE • ${compactTeamStatus}`
-                : compactTeamStatus;
-        }
 
         ui.phase.textContent = title;
-        ui.status.textContent = status;
+
+        ui.status.textContent =
+            status;
+
+        ui.status.hidden =
+            !status;
+
         updateRoleUi();
 
         const seekerBlind = active && phase === "HIDING" && role === "SEEKER";
@@ -3113,48 +4375,116 @@ export function createPropHuntClient(
     }
 
     function setActive(next) {
-        active = Boolean(next);
-        boundaryVisual?.setEnabled?.(active);
-        ui.hud.hidden = !active;
-        ui.returnButton.hidden = !active;
-        ui.joinPanel.hidden = true;
-        setFullMinigameState(active, "propHunt");
-        boundaryVisual.setVisible(active);
-        boundaryVisuals.root.setEnabled(active);
+        active =
+            Boolean(
+                next
+            );
 
-        // v1.3 always uses the normal FPS camera. If this browser had
-        // Prop Hunt v1.1/v1.2 active before a hot reload, explicitly restore
-        // FPS once and never enter TPS again.
+        document.body.classList.toggle(
+            "au-prop-hunt-active",
+            active
+        );
+
+        boundaryVisual
+            ?.setEnabled?.(
+                active
+            );
+
+        ui.hud.hidden =
+            !active;
+
+        ui.returnButton.hidden =
+            !active;
+
+        ui.joinPanel.hidden =
+            true;
+
+        setFullMinigameState(
+            active,
+            "propHunt"
+        );
+
+        boundaryVisual.setVisible(
+            active
+        );
+
+
         scene.metadata
             ?.cameraModeController
             ?.exitPropHuntThirdPerson
             ?.();
 
         if (!active) {
-            restoreNormalFpsView();
+            hideRoundResultOverlay();
+            clearShotRequestPending();
 
-            role = "NONE";
-            localPropId = null;
-            phase = "IDLE";
-            phaseEndsAt = null;
-            lobbyCountdown = null;
-            caught = false;
-            bulletsRemaining = 0;
-            roundResultMessage = "";
+            nextShotAllowedAt =
+                0;
+
+            restoreNormalFpsView();
+            restorePlayersAfterPropHunt();
+
+            role =
+                "NONE";
+
+            localPropId =
+                null;
+
+            phase =
+                "IDLE";
+
+            phaseEndsAt =
+                null;
+
+            lobbyCountdown =
+                null;
+
+            caught =
+                false;
+
+            bulletsRemaining =
+                0;
+
+            roundResultMessage =
+                "";
+
             hideCaughtOverlay();
 
-            localPropYaw = 0;
-            localPropLocked = false;
-            lastSentPropYaw = null;
-            lastSentPropLocked = null;
-            lastOrientationHudKey = "";
+            ghostVignette.hidden =
+                true;
 
-            localPlayer.isLocked = false;
-            ui.seekerBlind.hidden = true;
-            ui.crosshair.hidden = true;
-            ui.fireButton.hidden = true;
-            ui.elevator.hidden = true;
-            ui.propHud.hidden = true;
+            localPropYaw =
+                0;
+
+            localPropLocked =
+                false;
+
+            lastSentPropYaw =
+                null;
+
+            lastSentPropLocked =
+                null;
+
+            lastOrientationHudKey =
+                "";
+
+            localPlayer.isLocked =
+                false;
+
+            ui.seekerBlind.hidden =
+                true;
+
+            ui.crosshair.hidden =
+                true;
+
+            ui.fireButton.hidden =
+                true;
+
+            ui.elevator.hidden =
+                true;
+
+            ui.propHud.hidden =
+                true;
 
             void propHudPreview
                 .setProp(
@@ -3162,8 +4492,11 @@ export function createPropHuntClient(
                     0
                 );
 
-            ui.ammoHud.hidden = true;
+            ui.ammoHud.hidden =
+                true;
+
             participants.clear();
+
             syncPropVisuals();
         }
     }
@@ -3340,68 +4673,296 @@ export function createPropHuntClient(
             role !== "SEEKER" ||
             phase !== "HUNT" ||
             caught ||
-            bulletsRemaining <= 0
+            shotRequestPending ||
+            performance.now() <
+                nextShotAllowedAt
         ) {
             return;
         }
 
-        const now = performance.now();
-        if (now - lastShotAt < 300) return;
-        lastShotAt = now;
+        const camera =
+            scene.activeCamera;
 
-        const camera = scene.activeCamera;
-        if (!camera) return;
+        if (!camera) {
+            return;
+        }
 
-        const ray = camera.getForwardRay(55);
-        const hit = scene.pickWithRay(ray, (mesh) => {
-            if (!mesh?.isEnabled?.() || !mesh.isVisible || !mesh.isPickable) return false;
-            if (mesh === localPlayer || mesh.isDescendantOf?.(localPlayer)) return false;
-            return true;
-        });
+        const ray =
+            camera.getForwardRay(
+                55
+            );
 
-        const origin = camera.globalPosition.clone();
-        const hitPoint = hit?.hit && hit.pickedPoint
-            ? hit.pickedPoint.clone()
-            : origin.add(ray.direction.scale(55));
-        const targetSocketId = hit?.pickedMesh?.metadata?.propHuntTargetSocketId || null;
+        const hit =
+            scene.pickWithRay(
+                ray,
+                (mesh) => {
+                    if (
+                        !mesh?.isEnabled?.() ||
+                        !mesh.isVisible ||
+                        !mesh.isPickable
+                    ) {
+                        return false;
+                    }
 
-        playGunFireSound();
-        showShot(origin, hitPoint, socket.id);
+                    if (
+                        mesh ===
+                            localPlayer ||
+                        mesh.isDescendantOf?.(
+                            localPlayer
+                        )
+                    ) {
+                        return false;
+                    }
 
-        socket.emit("propHunt:shoot", {
-            targetSocketId,
-            origin: { x: origin.x, y: origin.y, z: origin.z },
-            direction: { x: ray.direction.x, y: ray.direction.y, z: ray.direction.z },
-            hitPoint: { x: hitPoint.x, y: hitPoint.y, z: hitPoint.z }
-        });
+                    return true;
+                }
+            );
+
+        const origin =
+            camera.globalPosition
+                .clone();
+
+        const hitPoint =
+            hit?.hit &&
+            hit.pickedPoint
+                ? hit.pickedPoint
+                    .clone()
+                : origin.add(
+                    ray.direction
+                        .scale(
+                            55
+                        )
+                );
+
+        const targetSocketId =
+            hit?.pickedMesh
+                ?.metadata
+                ?.propHuntTargetSocketId ||
+            null;
+
+        // No client-side shot effects yet.
+        // The server first decides whether this shot is accepted.
+        shotRequestPending =
+            true;
+
+        updateAmmoUi();
+
+        if (
+            shotRequestTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                shotRequestTimeout
+            );
+        }
+
+        shotRequestTimeout =
+            window.setTimeout(
+                () => {
+                    shotRequestPending =
+                        false;
+
+                    shotRequestTimeout =
+                        null;
+
+                    updateAmmoUi();
+                },
+                1400
+            );
+
+        socket.emit(
+            "propHunt:shoot",
+            {
+                targetSocketId,
+                origin: {
+                    x: origin.x,
+                    y: origin.y,
+                    z: origin.z
+                },
+                direction: {
+                    x: ray.direction.x,
+                    y: ray.direction.y,
+                    z: ray.direction.z
+                },
+                hitPoint: {
+                    x: hitPoint.x,
+                    y: hitPoint.y,
+                    z: hitPoint.z
+                }
+            }
+        );
     }
 
     async function requestJoin() {
-        if (active || minigameBlockedByOther || !socket.connected) return false;
-        if (portalDistance() > PROP_HUNT_PORTAL_TRIGGER_RADIUS + 1.5) return false;
+        if (
+            active ||
+            joinPending ||
+            minigameBlockedByOther ||
+            !socket.connected
+        ) {
+            return false;
+        }
 
-        ui.joinButton.disabled = true;
-        ui.joinButton.textContent = "Loading assets...";
-        ui.joinText.textContent = "Preparing Prop Hunt props...";
+        if (
+            portalDistance() >
+            PROP_HUNT_PORTAL_TRIGGER_RADIUS + 1.5
+        ) {
+            return false;
+        }
+
+        joinPending =
+            true;
+
+        ui.joinButton.disabled =
+            true;
+
+        ui.joinButton.textContent =
+            "Loading assets...";
+
+        ui.joinText.textContent =
+            "Preparing Prop Hunt props...";
 
         try {
             await ensureAssetsLoaded();
-            ui.joinButton.textContent = "Entering...";
-            socket.emit("propHunt:join");
+
+            ui.joinButton.textContent =
+                "Entering...";
+
+            ui.joinText.textContent =
+                "Entering Prop Hunt...";
+
+            socket.emit(
+                "propHunt:join"
+            );
+
+            if (
+                joinTimeout !==
+                null
+            ) {
+                window.clearTimeout(
+                    joinTimeout
+                );
+            }
+
+            joinTimeout =
+                window.setTimeout(
+                    () => {
+                        joinTimeout =
+                            null;
+
+                        if (
+                            active
+                        ) {
+                            return;
+                        }
+
+                        joinPending =
+                            false;
+
+                        ui.joinButton.disabled =
+                            false;
+
+                        ui.joinButton.textContent =
+                            "Join Prop Hunt";
+
+                        ui.joinText.textContent =
+                            "Server did not respond. Please try again.";
+
+                        console.warn(
+                            "[PropHunt] Join request timed out."
+                        );
+                    },
+                    8000
+                );
+
             return true;
         } catch (error) {
-            console.error("Could not prepare Prop Hunt assets:", error);
-            ui.joinButton.disabled = false;
-            ui.joinButton.textContent = "Join Prop Hunt";
-            ui.joinText.textContent = "Could not load Prop Hunt assets. Please try again.";
+            console.error(
+                "Could not prepare Prop Hunt assets:",
+                error
+            );
+
+            joinPending =
+                false;
+
+            if (
+                joinTimeout !==
+                null
+            ) {
+                window.clearTimeout(
+                    joinTimeout
+                );
+
+                joinTimeout =
+                    null;
+            }
+
+            ui.joinButton.disabled =
+                false;
+
+            ui.joinButton.textContent =
+                "Join Prop Hunt";
+
+            ui.joinText.textContent =
+                "Could not load Prop Hunt assets. Please try again.";
+
             return false;
         }
     }
 
+    function restorePlayersAfterPropHunt() {
+        [
+            ...propVisuals.keys()
+        ].forEach(
+            destroyPropVisual
+        );
+
+        remotePlayers
+            ?.forEach(
+                (remotePlayer) => {
+                    remotePlayer.propHuntDisguised =
+                        false;
+
+                    remotePlayer.hiddenByPropHuntIsolation =
+                        false;
+
+                    if (
+                        !remotePlayer.inCarRace
+                    ) {
+                        remotePlayer.rootMesh
+                            ?.setEnabled?.(
+                                true
+                            );
+                    }
+                }
+            );
+    }
+
     function leave() {
-        if (!active || !socket.connected) return false;
-        socket.emit("propHunt:leave");
-        return true;
+        if (!active) {
+            return false;
+        }
+
+        const connected =
+            socket.connected;
+
+        // Restore local UI and visible player state immediately.
+        // Do not wait for the network round-trip.
+        setActive(
+            false
+        );
+
+        restorePlayersAfterPropHunt();
+
+        if (
+            connected
+        ) {
+            socket.emit(
+                "propHunt:leave"
+            );
+        }
+
+        return connected;
     }
 
     const minigameEventHandler = (event) => {
@@ -3487,6 +5048,39 @@ export function createPropHuntClient(
             togglePropLock();
         };
 
+    const propHudTouchHandler =
+        (event) => {
+            const touchInput =
+                mobile ||
+                event.pointerType ===
+                    "touch" ||
+                event.pointerType ===
+                    "pen";
+
+            if (
+                !touchInput ||
+                !orientationActive()
+            ) {
+                return;
+            }
+
+            // The old dedicated lock button handles itself if present.
+            if (
+                event.target
+                    ?.closest?.(
+                        "[data-prop-action]"
+                    )
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Same action as pressing F.
+            togglePropLock();
+        };
+
     const propMobileHandler =
         (event) => {
             const button =
@@ -3523,6 +5117,12 @@ export function createPropHuntClient(
             propMobileHandler
         );
 
+    ui.propHud
+        ?.addEventListener(
+            "pointerdown",
+            propHudTouchHandler
+        );
+
     ui.propPreviewCanvas
         ?.addEventListener(
             "pointerdown",
@@ -3543,10 +5143,38 @@ export function createPropHuntClient(
     canvas?.addEventListener("pointerdown", pointerHandler);
 
     on("propHunt:started", () => {
-        setActive(true);
-        ui.joinButton.disabled = false;
-        ui.joinButton.textContent = "Join Prop Hunt";
-        void ensureAssetsLoaded().catch((error) => console.error(error));
+        joinPending =
+            false;
+
+        if (
+            joinTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                joinTimeout
+            );
+
+            joinTimeout =
+                null;
+        }
+
+        setActive(
+            true
+        );
+
+        ui.joinButton.disabled =
+            false;
+
+        ui.joinButton.textContent =
+            "Join Prop Hunt";
+
+        void ensureAssetsLoaded()
+            .catch(
+                (error) =>
+                    console.error(
+                        error
+                    )
+            );
     });
 
     on(
@@ -3620,6 +5248,13 @@ export function createPropHuntClient(
     on("propHunt:phase", (payload = {}) => {
         const previousPhase = phase;
         phase = payload.phase || "IDLE";
+
+        if (
+            phase !==
+            "FINISHED"
+        ) {
+            hideRoundResultOverlay();
+        }
 
         if (phase === "HIDING" && previousPhase !== "HIDING") {
             roundIntroEndsAt = Date.now() + 5000;
@@ -3804,16 +5439,74 @@ export function createPropHuntClient(
         updatePhaseUi();
     });
 
-    on("propHunt:shot", ({ shooterSocketId, origin, hitPoint } = {}) => {
-        if (!isFiniteVector(origin) || !isFiniteVector(hitPoint)) return;
-        if (shooterSocketId === socket.id) return;
-        showShot(origin, hitPoint, shooterSocketId);
-    });
+    on(
+        "propHunt:shot",
+        (
+            {
+                shooterSocketId,
+                origin,
+                hitPoint,
+                cooldownMs
+            } = {}
+        ) => {
+            if (
+                !isFiniteVector(
+                    origin
+                ) ||
+                !isFiniteVector(
+                    hitPoint
+                )
+            ) {
+                return;
+            }
+
+            if (
+                shooterSocketId ===
+                socket.id
+            ) {
+                clearShotRequestPending();
+
+                const acceptedCooldown =
+                    Number(
+                        cooldownMs
+                    );
+
+                nextShotAllowedAt =
+                    performance.now() +
+                    (
+                        Number.isFinite(
+                            acceptedCooldown
+                        )
+                            ? Math.max(
+                                0,
+                                acceptedCooldown
+                            )
+                            : 350
+                    );
+
+                // Only a server-accepted trigger pull gets effects.
+                playGunFireSound();
+
+                showShot(
+                    origin,
+                    hitPoint,
+                    shooterSocketId
+                );
+
+                updateAmmoUi();
+
+                return;
+            }
+
+            showShot(
+                origin,
+                hitPoint,
+                shooterSocketId
+            );
+        }
+    );
 
     on("propHunt:playerCaught", ({ socketId, bySocketId, hitPoint } = {}) => {
-        if (bySocketId !== socket.id && isFiniteVector(hitPoint)) {
-            createImpactEffect(scene, hitPoint);
-        }
         const participant = participants.get(socketId);
         if (participant) {
             participant.caught = true;
@@ -3840,37 +5533,176 @@ export function createPropHuntClient(
         updatePhaseUi();
     });
 
-    on("propHunt:personalResult", ({ pointsEarned = 0 } = {}) => {
-        const reward = Number(pointsEarned) || 0;
-        roundResultMessage = `${roundResultMessage ? `${roundResultMessage} ` : ""}Reward: +${reward} Campus Points.`;
-        updatePhaseUi();
-    });
+    on(
+        "propHunt:personalResult",
+        (
+            {
+                winner,
+                role:
+                    resultRole,
+                caught:
+                    resultCaught,
+                pointsEarned = 0,
+                totalPoints = null
+            } = {}
+        ) => {
+            const reward =
+                Math.max(
+                    0,
+                    Number(
+                        pointsEarned
+                    ) ||
+                    0
+                );
+
+            roundResultMessage =
+                `${roundResultMessage ? `${roundResultMessage} ` : ""}Reward: +${reward} Campus Points.`;
+
+            showRoundResultOverlay(
+                {
+                    winner,
+                    resultRole,
+                    resultCaught,
+                    pointsEarned:
+                        reward,
+                    totalPoints
+                }
+            );
+
+            updatePhaseUi();
+        }
+    );
 
     on("propHunt:error", (message) => {
-        ui.joinButton.disabled = false;
-        ui.joinButton.textContent = "Join Prop Hunt";
-        ui.joinText.textContent = message || "Could not join Prop Hunt.";
-        if (!active) ui.joinPanel.hidden = false;
+        joinPending =
+            false;
+
+        if (
+            joinTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                joinTimeout
+            );
+
+            joinTimeout =
+                null;
+        }
+
+        ui.joinButton.disabled =
+            false;
+
+        ui.joinButton.textContent =
+            "Join Prop Hunt";
+
+        ui.joinText.textContent =
+            message ||
+            "Could not join Prop Hunt.";
+
+        if (
+            !active
+        ) {
+            ui.joinPanel.hidden =
+                false;
+        }
     });
 
     on("propHunt:left", () => {
-        setActive(false);
+        joinPending =
+            false;
+
+        if (
+            joinTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                joinTimeout
+            );
+
+            joinTimeout =
+                null;
+        }
+
+        ui.joinButton.disabled =
+            false;
+
+        ui.joinButton.textContent =
+            "Join Prop Hunt";
+
+        ui.joinText.textContent =
+            "SLM + VMES • 11 floors • 5 minute rounds";
+
+        setActive(
+            false
+        );
     });
 
     on("disconnect", () => {
-        if (active) setActive(false);
+        joinPending =
+            false;
+
+        if (
+            joinTimeout !==
+            null
+        ) {
+            window.clearTimeout(
+                joinTimeout
+            );
+
+            joinTimeout =
+                null;
+        }
+
+        ui.joinButton.disabled =
+            false;
+
+        ui.joinButton.textContent =
+            "Join Prop Hunt";
+
+        if (
+            active
+        ) {
+            setActive(
+                false
+            );
+        }
     });
 
     const observer = scene.onBeforeRenderObservable.add(() => {
         if (disposed) return;
 
         if (!active) {
-            const nearPortal = !minigameBlockedByOther
-                && socket.connected
-                && portalDistance() <= PROP_HUNT_PORTAL_TRIGGER_RADIUS;
-            ui.joinPanel.hidden = !nearPortal;
+            const insidePortal =
+                !minigameBlockedByOther &&
+                socket.connected &&
+                portalDistance() <=
+                    PROP_HUNT_PORTAL_TRIGGER_RADIUS;
+
+            // No confirmation card/button. Walking into the portal joins.
+            ui.joinPanel.hidden =
+                true;
+
+            // Re-arm only after the player has physically left the portal.
+            // This prevents an immediate rejoin while Return to Campus is
+            // still waiting for the server teleport.
+            if (!insidePortal) {
+                autoJoinPortalArmed =
+                    true;
+            } else if (
+                autoJoinPortalArmed &&
+                !joinPending
+            ) {
+                autoJoinPortalArmed =
+                    false;
+
+                void requestJoin();
+            }
         } else {
-            ui.joinPanel.hidden = true;
+            ui.joinPanel.hidden =
+                true;
+
+            autoJoinPortalArmed =
+                false;
         }
 
         if (active) {
@@ -4004,6 +5836,25 @@ export function createPropHuntClient(
         },
         dispose() {
             disposed = true;
+
+            document.body.classList.remove(
+                "au-prop-hunt-active"
+            );
+
+            joinPending =
+                false;
+
+            if (
+                joinTimeout !==
+                null
+            ) {
+                window.clearTimeout(
+                    joinTimeout
+                );
+
+                joinTimeout =
+                    null;
+            }
             scene.onBeforeRenderObservable.remove(observer);
             window.removeEventListener("au:minigame-state", minigameEventHandler);
             window.removeEventListener(
@@ -4014,6 +5865,11 @@ export function createPropHuntClient(
             ui.propMobileControls?.removeEventListener(
                 "pointerdown",
                 propMobileHandler
+            );
+
+            ui.propHud?.removeEventListener(
+                "pointerdown",
+                propHudTouchHandler
             );
             ui.propPreviewCanvas?.removeEventListener(
                 "pointerdown",
@@ -4040,6 +5896,10 @@ export function createPropHuntClient(
                 null;
 
             propHudPreview.dispose();
+
+            ghostVignette.remove();
+            facingCompass.remove();
+            roundResultOverlay.remove();
 
             propContainers.forEach((container) => container.dispose());
             propContainers.clear();

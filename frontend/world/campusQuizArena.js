@@ -418,7 +418,7 @@ export function createCampusQuizArena(scene) {
             context.fillText(`NEXT ROUND IN ${extra.count ?? "..."}`, 1024, 265);
             context.font = "bold 46px Arial";
             context.fillStyle = "#d6dded";
-            context.fillText("15 questions • 100 points total • Stand on A, B, C or D", 1024, 390);
+            context.fillText("10 questions • 100 points total • Stand on A, B, C or D", 1024, 390);
         } else if (mode === "question" && currentQuestion) {
             const remainingMs =
                 Math.max(

@@ -27,12 +27,12 @@ style.textContent = `
                 env(safe-area-inset-right)
             ) !important;
 
-            /*
-            * Keep FPS above the mobile action buttons.
-            * Action button container is about 150px high.
-            */
-            bottom: calc(
-                165px +
+            /* MOBILE_FPS_BOTTOM_RIGHT_V1
+             * Keep the FPS counter in the real bottom-right corner on
+             * smaller screens, matching the desktop placement.
+             */
+            bottom: max(
+                10px,
                 env(safe-area-inset-bottom)
             ) !important;
 

@@ -3279,6 +3279,12 @@ export function createPropHuntClient(
     // PROP_HUNT_AUTO_JOIN_PORTAL_V1
     // Entering the portal automatically joins once per portal entry.
     let autoJoinPortalArmed = true;
+
+    // PROP_HUNT_REJOIN_LATEST_FIX_V1
+    // If the server rejects one auto-join because its last networked player
+    // position is slightly behind the client, retry after a short delay
+    // instead of permanently disarming the portal.
+    let autoJoinRetryAt = 0;
     let role = "NONE";
     let localPropId = null;
     let phase = "IDLE";
@@ -4859,6 +4865,13 @@ export function createPropHuntClient(
                         joinPending =
                             false;
 
+                        autoJoinPortalArmed =
+                            true;
+
+                        autoJoinRetryAt =
+                            performance.now() +
+                            800;
+
                         ui.joinButton.disabled =
                             false;
 
@@ -4866,10 +4879,10 @@ export function createPropHuntClient(
                             "Join Prop Hunt";
 
                         ui.joinText.textContent =
-                            "Server did not respond. Please try again.";
+                            "Server did not respond. Retrying...";
 
                         console.warn(
-                            "[PropHunt] Join request timed out."
+                            "[PropHunt] Join request timed out; portal retry re-armed."
                         );
                     },
                     8000
@@ -5146,6 +5159,12 @@ export function createPropHuntClient(
         joinPending =
             false;
 
+        autoJoinPortalArmed =
+            false;
+
+        autoJoinRetryAt =
+            0;
+
         if (
             joinTimeout !==
             null
@@ -5388,6 +5407,18 @@ export function createPropHuntClient(
         } else {
             localPlayer.position.copyFromFloats(position.x, position.y, position.z);
         }
+
+        if (
+            reason ===
+            "leave"
+        ) {
+            autoJoinPortalArmed =
+                true;
+
+            autoJoinRetryAt =
+                performance.now() +
+                250;
+        }
     });
 
     on("propHunt:correction", (payload) => {
@@ -5589,6 +5620,20 @@ export function createPropHuntClient(
                 null;
         }
 
+        // The old Join button is intentionally hidden. Without this re-arm,
+        // one rejected automatic join leaves the player unable to try again
+        // until they fully exit/re-enter the portal.
+        if (
+            !active
+        ) {
+            autoJoinPortalArmed =
+                true;
+
+            autoJoinRetryAt =
+                performance.now() +
+                650;
+        }
+
         ui.joinButton.disabled =
             false;
 
@@ -5599,17 +5644,30 @@ export function createPropHuntClient(
             message ||
             "Could not join Prop Hunt.";
 
-        if (
-            !active
-        ) {
-            ui.joinPanel.hidden =
-                false;
-        }
+        // The join card is disabled by CSS; keep it hidden and retry through
+        // the portal instead of exposing an obsolete button.
+        ui.joinPanel.hidden =
+            true;
+
+        console.warn(
+            "[PropHunt] Join rejected:",
+            message ||
+                "unknown error"
+        );
     });
 
     on("propHunt:left", () => {
         joinPending =
             false;
+
+        // Wait until the player is outside/re-enters the portal before the
+        // next automatic join. The render observer will re-arm immediately
+        // once the leave teleport is outside the portal.
+        autoJoinPortalArmed =
+            false;
+
+        autoJoinRetryAt =
+            0;
 
         if (
             joinTimeout !==
@@ -5688,9 +5746,14 @@ export function createPropHuntClient(
             if (!insidePortal) {
                 autoJoinPortalArmed =
                     true;
+
+                autoJoinRetryAt =
+                    0;
             } else if (
                 autoJoinPortalArmed &&
-                !joinPending
+                !joinPending &&
+                performance.now() >=
+                    autoJoinRetryAt
             ) {
                 autoJoinPortalArmed =
                     false;

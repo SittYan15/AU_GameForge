@@ -791,15 +791,76 @@ export function registerPropHuntSocket(
             );
         }
 
-        // Never silently ignore a join request. The client must receive
-        // either propHunt:started or propHunt:error.
+        // PROP_HUNT_REJOIN_LATEST_FIX_V1
+        //
+        // Treat a duplicate join as a state-resync request. The frontend only
+        // sends propHunt:join while it believes it is inactive, so reaching
+        // this branch means client/server state drifted after a leave or
+        // interrupted handshake. Do not trap the client behind an
+        // "already inside" error.
         if (
             socket.data.inPropHunt
         ) {
-            socket.emit(
-                "propHunt:error",
-                "You are already inside Prop Hunt."
+            console.warn(
+                `[PropHunt] Resyncing active membership for ${socket.id}`
             );
+
+            socket.emit(
+                "propHunt:started",
+                {
+                    phase:
+                        state.phase,
+                    roundId:
+                        state.roundId,
+                    minPlayers:
+                        PROP_HUNT_MIN_PLAYERS,
+                    hidingMs:
+                        PROP_HUNT_HIDING_MS,
+                    huntMs:
+                        PROP_HUNT_HUNT_MS,
+                    propIds:
+                        PROP_HUNT_PROP_IDS,
+                    resynced:
+                        true
+                }
+            );
+
+            socket.emit(
+                "propHunt:role",
+                {
+                    role:
+                        socket.data.propHuntRole ||
+                        "SPECTATOR",
+                    propId:
+                        socket.data.propHuntPropId ||
+                        null,
+                    propYaw:
+                        normalizePropYaw(
+                            socket.data.propHuntPropYaw
+                        ),
+                    propLocked:
+                        Boolean(
+                            socket.data.propHuntPropLocked
+                        )
+                }
+            );
+
+            emitParticipants(
+                io
+            );
+
+            emitPhase(
+                io
+            );
+
+            if (
+                state.phase ===
+                "LOBBY"
+            ) {
+                emitLobbyState(
+                    io
+                );
+            }
 
             return;
         }
@@ -815,8 +876,21 @@ export function registerPropHuntSocket(
             return;
         }
 
-        if (distanceToPortal(player.position) > PROP_HUNT_PORTAL.radius) {
-            socket.emit("propHunt:error", "Move into the Prop Hunt portal to join.");
+        // Match the frontend's +1.5 portal tolerance. Player movement is
+        // networked, so the server can legitimately be one update behind when
+        // the client crosses the portal boundary.
+        if (
+            distanceToPortal(
+                player.position
+            ) >
+            PROP_HUNT_PORTAL.radius +
+                1.5
+        ) {
+            socket.emit(
+                "propHunt:error",
+                "Move into the Prop Hunt portal to join."
+            );
+
             return;
         }
 
@@ -1205,7 +1279,21 @@ export function registerPropHuntSocket(
     });
 
     socket.on("propHunt:leave", async () => {
-        if (!socket.data.inPropHunt) return;
+        if (
+            !socket.data.inPropHunt
+        ) {
+            // A duplicate/delayed leave should still clean room membership
+            // and acknowledge the client instead of disappearing silently.
+            await socket.leave(
+                PROP_HUNT_ROOM
+            );
+
+            socket.emit(
+                "propHunt:left"
+            );
+
+            return;
+        }
 
         const role = socket.data.propHuntRole;
         const player = getPlayer();

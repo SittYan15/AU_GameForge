@@ -15,10 +15,12 @@ style.textContent = `
        MOBILE / TABLET HUD
        --------------------------------------------------------- */
     @media (max-width: 900px) {
-        /* VMES_COMPACT_WATERMARK_V2
-         * Small bottom-right watermark.
-         * On phones the action buttons occupy the real bottom-right,
-         * so lift this stack above them.
+        /* VMES_MOBILE_MATCH_PC_V1
+         * Match the desktop watermark:
+         *   [ VMES image ] [ Developers ]
+         *
+         * Keep FPS above the watermark and lift the whole group
+         * above the bottom-right mobile action buttons.
          */
         #bottomRightHud {
             display: flex !important;
@@ -30,19 +32,40 @@ style.textContent = `
             ) !important;
 
             bottom: calc(
-                94px +
+                8px +
                 env(safe-area-inset-bottom)
             ) !important;
 
             top: auto !important;
             left: auto !important;
 
-            width: 105px !important;
+            width: auto !important;
+            max-width: 48vw !important;
+
+            flex-direction: column !important;
+            align-items: flex-end !important;
             gap: 3px !important;
 
             z-index: 1099 !important;
 
             pointer-events: none !important;
+        }
+
+        #btn-jump {
+            position: fixed !important;
+
+            right: max(
+                18px,
+                env(safe-area-inset-right)
+            ) !important;
+
+            bottom: calc(
+                78px +
+                env(safe-area-inset-bottom)
+            ) !important;
+
+            top: auto !important;
+            left: auto !important;
         }
 
         #fpsCounter {
@@ -69,54 +92,102 @@ style.textContent = `
         }
 
         #gameWatermark {
-            width: 105px !important;
-            opacity: 0.52 !important;
+            display: flex !important;
+            position: static !important;
+
+            flex-direction: row !important;
+            align-items: center !important;
+
+            width: auto !important;
+            max-width: 100% !important;
+
+            gap: 4px !important;
+
+            opacity: 0.58 !important;
+
+            pointer-events: none !important;
+            user-select: none !important;
         }
 
         #gameWatermark img {
-            width: 105px !important;
-            height: auto !important;
+            display: block !important;
+
+            width: auto !important;
+            height: 32px !important;
+
+            max-width: 30vw !important;
+
+            flex: 0 0 auto !important;
+
+            border-radius: 3px !important;
+
+            box-shadow:
+                0 1px 5px
+                rgba(
+                    0,
+                    0,
+                    0,
+                    0.24
+                ) !important;
+        }
+
+        #gameWatermark > div {
+
+            height: 32px !important;
+            box-sizing: border-box !important;
+
+            flex: 0 0 auto !important;
+
+            padding: 2px 4px !important;
+
+            border-radius: 4px !important;
+
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+
+            background:
+                rgba(
+                    255,
+                    255,
+                    255,
+                    0.9
+                ) !important;
+
+            color:
+                rgba(
+                    17,
+                    17,
+                    17,
+                    0.9
+                ) !important;
+
+            text-align: center !important;
         }
 
         #gameWatermark .watermark-title {
-            font-size: 5.5px !important;
+            font-size: 5px !important;
+            line-height: 1.1 !important;
+
+            font-weight: 800 !important;
+
+            letter-spacing:
+                0.08em !important;
+
+            white-space: nowrap !important;
         }
 
         #gameWatermark .watermark-names {
-            font-size: 6.3px !important;
-            line-height: 1.14 !important;
-        }
+            margin-top: 1px !important;
 
-        /* Compact connection/player-count badge. */        /* MOBILE_GAME_WATERMARK_V1
-         * Keep the watermark in the real bottom-right corner.
-         */
-        #gameWatermark {
-            display: block !important;
-            position: fixed !important;
+            font-size: 6px !important;
+            line-height: 1.12 !important;
 
-            right: max(
-                10px,
-                env(safe-area-inset-right)
-            ) !important;
+            font-weight: 650 !important;
 
-            bottom: max(
-                10px,
-                env(safe-area-inset-bottom)
-            ) !important;
-
-            top: auto !important;
-            left: auto !important;
-
-            font-size: 9px !important;
-            line-height: 1 !important;
-
-            opacity: 0.72 !important;
-
-            z-index: 1099 !important;
-
-            pointer-events: none !important;
             white-space: nowrap !important;
         }
+
         /* Compact connection/player-count badge. */
         #playerCountStatus {
             top: auto !important;
@@ -182,7 +253,7 @@ style.textContent = `
 
         /* Campus Explorer: compact button at the left-middle. */
         #campusExplorerDock {
-            top: 50% !important;
+            top: 35% !important;
             right: max(10px, env(safe-area-inset-right)) !important;
             left: auto !important;
             transform: translateY(-50%) !important;
@@ -342,7 +413,7 @@ style.textContent = `
 
         /* Keep the touch controls above the 3D canvas. */
         #mobileController {
-            z-index: 1050 !important;
+            z-index: 1200 !important;
         }
 
         #joystick-zone {

@@ -202,7 +202,10 @@ async function startGame(session) {
         const fpsElement = document.getElementById("fpsCounter");
         engine.runRenderLoop(() => {
             scene.render();
-            if (fpsElement) fpsElement.innerHTML = engine.getFps().toFixed(0) + " FPS";
+            if (fpsElement) {
+                fpsElement.innerHTML =
+                    "FPS " + engine.getFps().toFixed(0);
+            }
         });
 
         // Only accounts created after the tutorial feature is installed have

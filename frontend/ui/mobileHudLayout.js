@@ -15,11 +15,83 @@ style.textContent = `
        MOBILE / TABLET HUD
        --------------------------------------------------------- */
     @media (max-width: 900px) {
-        /* The FPS number competes with Full Screen / Return buttons. */
-        /* Mobile FPS counter */
+        /* VMES_COMPACT_WATERMARK_V2
+         * Small bottom-right watermark.
+         * On phones the action buttons occupy the real bottom-right,
+         * so lift this stack above them.
+         */
+        #bottomRightHud {
+            display: flex !important;
+            position: fixed !important;
+
+            right: max(
+                8px,
+                env(safe-area-inset-right)
+            ) !important;
+
+            bottom: calc(
+                94px +
+                env(safe-area-inset-bottom)
+            ) !important;
+
+            top: auto !important;
+            left: auto !important;
+
+            width: 105px !important;
+            gap: 3px !important;
+
+            z-index: 1099 !important;
+
+            pointer-events: none !important;
+        }
+
         #fpsCounter {
             display: block !important;
+            position: static !important;
 
+            padding: 3px 5px !important;
+
+            font-size: 10px !important;
+            line-height: 1 !important;
+
+            border-radius: 4px !important;
+
+            background: rgba(
+                0,
+                0,
+                0,
+                0.64
+            ) !important;
+
+            color: #7cff7c !important;
+
+            white-space: nowrap !important;
+        }
+
+        #gameWatermark {
+            width: 105px !important;
+            opacity: 0.52 !important;
+        }
+
+        #gameWatermark img {
+            width: 105px !important;
+            height: auto !important;
+        }
+
+        #gameWatermark .watermark-title {
+            font-size: 5.5px !important;
+        }
+
+        #gameWatermark .watermark-names {
+            font-size: 6.3px !important;
+            line-height: 1.14 !important;
+        }
+
+        /* Compact connection/player-count badge. */        /* MOBILE_GAME_WATERMARK_V1
+         * Keep the watermark in the real bottom-right corner.
+         */
+        #gameWatermark {
+            display: block !important;
             position: fixed !important;
 
             right: max(
@@ -27,10 +99,6 @@ style.textContent = `
                 env(safe-area-inset-right)
             ) !important;
 
-            /* MOBILE_FPS_BOTTOM_RIGHT_V1
-             * Keep the FPS counter in the real bottom-right corner on
-             * smaller screens, matching the desktop placement.
-             */
             bottom: max(
                 10px,
                 env(safe-area-inset-bottom)
@@ -39,29 +107,16 @@ style.textContent = `
             top: auto !important;
             left: auto !important;
 
-            padding: 4px 7px !important;
-
-            font-size: 12px !important;
+            font-size: 9px !important;
             line-height: 1 !important;
 
-            border-radius: 5px !important;
+            opacity: 0.72 !important;
 
-            background: rgba(
-                0,
-                0,
-                0,
-                0.68
-            ) !important;
-
-            color: #7cff7c !important;
-
-            z-index: 1100 !important;
+            z-index: 1099 !important;
 
             pointer-events: none !important;
-
             white-space: nowrap !important;
         }
-
         /* Compact connection/player-count badge. */
         #playerCountStatus {
             top: auto !important;

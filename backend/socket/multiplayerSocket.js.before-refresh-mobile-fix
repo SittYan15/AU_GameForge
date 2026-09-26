@@ -730,106 +730,33 @@ export default function registerMultiplayerSocket(io) {
             const accountKey = accountType === "user"
                 ? `user:${account.id}`
                 : `guest:${account.id}`;
-            const gameTabId =
-                typeof socket.handshake.auth?.gameTabId ===
-                "string"
-                    ? socket.handshake.auth.gameTabId.slice(
-                        0,
-                        100
-                    )
-                    : null;
-
-            let existingSocketId =
-                activePlayerSockets.get(
-                    accountKey
-                );
-
-            if (
-                existingSocketId &&
-                existingSocketId !== socket.id
-            ) {
-                const existingSocket =
-                    io.sockets.sockets.get(
-                        existingSocketId
-                    );
-
-                const isSameTabRefresh =
-                    Boolean(
-                        gameTabId &&
-                        existingSocket?.data.gameTabId ===
-                            gameTabId
-                    );
-
-                if (isSameTabRefresh) {
-                    // A normal refresh keeps the same sessionStorage
-                    // gameTabId. The old Socket.IO transport can still
-                    // exist briefly, so hand ownership to the new socket
-                    // instead of treating it as another browser tab.
-                    console.log(
-                        "[Multiplayer] Refresh handoff:",
-                        accountKey,
-                        existingSocketId,
-                        "->",
-                        socket.id
-                    );
-
-                    if (
-                        players.delete(
-                            existingSocketId
-                        )
-                    ) {
-                        io.emit(
-                            "player:left",
-                            existingSocketId
-                        );
-                    }
-
-                    if (
-                        activePlayerSockets.get(
-                            accountKey
-                        ) === existingSocketId
-                    ) {
-                        activePlayerSockets.delete(
-                            accountKey
-                        );
-                    }
-
-                    // Because the account slot was removed above,
-                    // the old socket's disconnect handler cannot
-                    // shorten the active user session lease.
-                    existingSocket.disconnect(
-                        true
-                    );
-                } else if (
-                    existingSocket?.connected
-                ) {
-                    socket.emit(
-                        "game:duplicateTab",
-                        {
-                            message:
-                                "This game is already open in another tab. Please use the existing tab."
-                        }
-                    );
-
+            const gameTabId = typeof socket.handshake.auth?.gameTabId === "string"
+                ? socket.handshake.auth.gameTabId.slice(0, 100)
+                : null;
+            let existingSocketId = activePlayerSockets.get(accountKey);
+            if (existingSocketId && existingSocketId !== socket.id) {
+                let existingSocket = io.sockets.sockets.get(existingSocketId);
+                if (gameTabId && existingSocket?.data.gameTabId === gameTabId) {
+                    // During refresh, the new transport can reach player:join
+                    // just before the old transport's disconnect is processed.
+                    await new Promise((resolve) => setTimeout(resolve, 400));
+                    existingSocketId = activePlayerSockets.get(accountKey);
+                    existingSocket = existingSocketId
+                        ? io.sockets.sockets.get(existingSocketId)
+                        : null;
+                }
+                if (existingSocket?.connected) {
+                    socket.emit("game:duplicateTab", {
+                        message: "This game is already open in another tab. Please use the existing tab."
+                    });
                     socket.disconnect(true);
                     return;
-                } else {
-                    activePlayerSockets.delete(
-                        accountKey
-                    );
                 }
+                activePlayerSockets.delete(accountKey);
             }
-
-            activePlayerSockets.set(
-                accountKey,
-                socket.id
-            );
-
-            socket.data.accountKey =
-                accountKey;
-
-            socket.data.gameTabId =
-                gameTabId;
+            activePlayerSockets.set(accountKey, socket.id);
+            socket.data.accountKey = accountKey;
+            socket.data.gameTabId = gameTabId;
 
             const requestedPosition = isVector3(payload.position) ? payload.position : { x: -100, y: 10, z: 0 };
             const position = findAvailableSpawn(requestedPosition);

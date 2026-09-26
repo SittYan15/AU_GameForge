@@ -73,14 +73,16 @@
 
         body.ios-fullscreen-mode #orientation-overlay {
             box-sizing: border-box;
-            padding: env(safe-area-inset-top)
-                env(safe-area-inset-right)
-                env(safe-area-inset-bottom)
-                env(safe-area-inset-left);
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
 
-        [hidden] { display: none !important; }
-        .hidden { display: none !important; }
+        [hidden] {
+            display: none !important;
+        }
+
+        .hidden {
+            display: none !important;
+        }
 
         #gameAlreadyOpenScreen {
             position: fixed;
@@ -95,16 +97,25 @@
             font-family: sans-serif;
             text-align: center;
         }
-        #gameAlreadyOpenScreen > div {
+
+        #gameAlreadyOpenScreen>div {
             width: min(480px, 100%);
             padding: 32px;
             box-sizing: border-box;
-            border: 1px solid rgba(255,255,255,.16);
+            border: 1px solid rgba(255, 255, 255, .16);
             border-radius: 18px;
-            background: rgba(12,12,12,.9);
+            background: rgba(12, 12, 12, .9);
         }
-        #gameAlreadyOpenScreen h1 { margin: 0 0 12px; }
-        #gameAlreadyOpenScreen p { margin: 0; color: #ddd; line-height: 1.5; }
+
+        #gameAlreadyOpenScreen h1 {
+            margin: 0 0 12px;
+        }
+
+        #gameAlreadyOpenScreen p {
+            margin: 0;
+            color: #ddd;
+            line-height: 1.5;
+        }
 
         #welcomeScreen {
             position: fixed;
@@ -120,9 +131,17 @@
             font-family: sans-serif;
         }
 
-        #welcomeScreen[hidden], #loginForm[hidden], #signupForm[hidden], #welcomeChoices[hidden],
-        #createAccountButton[hidden], #guestChoicePanel[hidden], #guestChoiceQuestion[hidden],
-        #guestRestoreForm[hidden], #invalidCodeActions[hidden] { display: none; }
+        #welcomeScreen[hidden],
+        #loginForm[hidden],
+        #signupForm[hidden],
+        #welcomeChoices[hidden],
+        #createAccountButton[hidden],
+        #guestChoicePanel[hidden],
+        #guestChoiceQuestion[hidden],
+        #guestRestoreForm[hidden],
+        #invalidCodeActions[hidden] {
+            display: none;
+        }
 
         .welcome-card {
             width: min(420px, 100%);
@@ -135,20 +154,77 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
         }
 
-        .welcome-card h1 { margin: 0 0 8px; font-size: 34px; }
-        .welcome-card p { margin: 0 0 24px; color: #d5d5d5; }
-        #welcomeChoices { display: grid; gap: 12px; }
-        .auth-button { border: 0; border-radius: 9px; padding: 12px 16px; font-size: 16px; cursor: pointer; }
-        .auth-button.primary { background: #e53935; color: white; }
-        .auth-button.secondary { background: #eeeeee; color: #222; }
-        .auth-button:disabled { opacity: 0.55; cursor: wait; }
-        #loginForm, #signupForm { display: grid; gap: 12px; text-align: left; }
-        #loginForm input, #signupForm input { border: 1px solid #555; border-radius: 8px; padding: 11px; font-size: 16px; }
-        #authMessage { min-height: 20px; margin-top: 14px; color: #ffcc80; }
-        #guestChoicePanel, #guestChoiceQuestion, #guestRestoreForm, #invalidCodeActions {
-            display: grid; gap: 12px;
+        .welcome-card h1 {
+            margin: 0 0 8px;
+            font-size: 34px;
         }
-        #guestChoicePanel h2 { margin: 0; }
+
+        .welcome-card p {
+            margin: 0 0 24px;
+            color: #d5d5d5;
+        }
+
+        #welcomeChoices {
+            display: grid;
+            gap: 12px;
+        }
+
+        .auth-button {
+            border: 0;
+            border-radius: 9px;
+            padding: 12px 16px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .auth-button.primary {
+            background: #e53935;
+            color: white;
+        }
+
+        .auth-button.secondary {
+            background: #eeeeee;
+            color: #222;
+        }
+
+        .auth-button:disabled {
+            opacity: 0.55;
+            cursor: wait;
+        }
+
+        #loginForm,
+        #signupForm {
+            display: grid;
+            gap: 12px;
+            text-align: left;
+        }
+
+        #loginForm input,
+        #signupForm input {
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 11px;
+            font-size: 16px;
+        }
+
+        #authMessage {
+            min-height: 20px;
+            margin-top: 14px;
+            color: #ffcc80;
+        }
+
+        #guestChoicePanel,
+        #guestChoiceQuestion,
+        #guestRestoreForm,
+        #invalidCodeActions {
+            display: grid;
+            gap: 12px;
+        }
+
+        #guestChoicePanel h2 {
+            margin: 0;
+        }
+
         #guestRestoreForm {
             padding: 18px;
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -156,11 +232,13 @@
             background: rgba(255, 255, 255, 0.045);
             text-align: left;
         }
+
         #guestRestoreForm label {
             font-size: 14px;
             font-weight: 700;
             color: #f3f3f3;
         }
+
         #guestRestoreForm input {
             width: 100%;
             box-sizing: border-box;
@@ -174,11 +252,15 @@
             text-transform: uppercase;
             outline: none;
         }
+
         #guestRestoreForm input:focus {
             border-color: #ef3935;
             box-shadow: 0 0 0 3px rgba(239, 57, 53, 0.2);
         }
-        #guestRestoreForm .auth-button { width: 100%; }
+
+        #guestRestoreForm .auth-button {
+            width: 100%;
+        }
 
         /* MOBILE CONTROLLER STYLES */
         #mobileController {
@@ -479,15 +561,15 @@
             font: 800 17px/1 sans-serif;
             box-shadow: none;
             backdrop-filter: none;
-            text-shadow: -1px -1px 0 rgba(0,0,0,.98), 1px -1px 0 rgba(0,0,0,.98), -1px 1px 0 rgba(0,0,0,.98), 1px 1px 0 rgba(0,0,0,.98), 0 2px 4px rgba(0,0,0,.9);
-            -webkit-text-stroke: .35px rgba(0,0,0,.92);
+            text-shadow: -1px -1px 0 rgba(0, 0, 0, .98), 1px -1px 0 rgba(0, 0, 0, .98), -1px 1px 0 rgba(0, 0, 0, .98), 1px 1px 0 rgba(0, 0, 0, .98), 0 2px 4px rgba(0, 0, 0, .9);
+            -webkit-text-stroke: .35px rgba(0, 0, 0, .92);
             pointer-events: none;
         }
 
         #topPlayersStatus,
         #topPlayersStatus * {
-            text-shadow: -1px -1px 0 rgba(0,0,0,.98), 1px -1px 0 rgba(0,0,0,.98), -1px 1px 0 rgba(0,0,0,.98), 1px 1px 0 rgba(0,0,0,.98), 0 2px 4px rgba(0,0,0,.9);
-            -webkit-text-stroke: .28px rgba(0,0,0,.90);
+            text-shadow: -1px -1px 0 rgba(0, 0, 0, .98), 1px -1px 0 rgba(0, 0, 0, .98), -1px 1px 0 rgba(0, 0, 0, .98), 1px 1px 0 rgba(0, 0, 0, .98), 0 2px 4px rgba(0, 0, 0, .9);
+            -webkit-text-stroke: .28px rgba(0, 0, 0, .90);
         }
 
         #playerCountStatus .online-dot {
@@ -516,11 +598,30 @@
             cursor: pointer;
         }
 
-        #closeProfileButton:hover { background: rgba(255, 255, 255, 0.2); }
+        #closeProfileButton:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
 
-        .profile-heading { padding: 2px 42px 13px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
-        #guestInfo { font-size: 20px; font-weight: 800; line-height: 1.15; }
-        #profilePicture { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: none; margin-bottom: 8px; }
+        .profile-heading {
+            padding: 2px 42px 13px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .1);
+        }
+
+        #guestInfo {
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        #profilePicture {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: none;
+            margin-bottom: 8px;
+        }
+
         #profileAccountType {
             display: inline-flex;
             margin-top: 7px;
@@ -531,43 +632,177 @@
             font-size: 11px;
             font-weight: 700;
         }
-        .profile-stats { display: grid; grid-template-columns: 1fr .65fr; gap: 8px; margin-top: 12px; }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr .65fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
         .profile-row {
             min-width: 0;
             padding: 9px 10px;
-            border: 1px solid rgba(255,255,255,.1);
+            border: 1px solid rgba(255, 255, 255, .1);
             border-radius: 10px;
-            background: rgba(255,255,255,.045);
+            background: rgba(255, 255, 255, .045);
             color: #f3f4f6;
             font-weight: 700;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .profile-row::before { content: attr(data-label); display: block; margin-bottom: 2px; color: #8f96a3; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-        #guestUpgrade { margin-top: 10px; padding: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.035); }
-        #guestUpgrade p { margin: 0 0 8px; color: #cfd3da; font-size: 12px; }
-        .google-button { min-height: 44px; display: flex; justify-content: center; }
-        .auth-divider { text-align: center; color: #aaa; margin: 2px 0; }
-        #sessionExitButton { width: 100%; margin-top: 8px; border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 8px; color: #cfd3da; background: transparent; cursor: pointer; }
-        #profileMessage { min-height: 16px; color: #ffd180; margin-top: 5px; font-size: 12px; }
-        #profileEditForm { display: grid; gap: 6px; margin-top: 12px; }
-        #profileEditForm label { color: #d7d9de; font-size: 12px; font-weight: 700; }
-        #profileEditForm input, #profileEditForm select, #profileEditForm textarea {
-            width: 100%; box-sizing: border-box; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 8px 10px;
+
+        .profile-row::before {
+            content: attr(data-label);
+            display: block;
+            margin-bottom: 2px;
+            color: #8f96a3;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        #guestUpgrade {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .035);
+        }
+
+        #guestUpgrade p {
+            margin: 0 0 8px;
+            color: #cfd3da;
+            font-size: 12px;
+        }
+
+        .google-button {
+            min-height: 44px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .auth-divider {
+            text-align: center;
+            color: #aaa;
+            margin: 2px 0;
+        }
+
+        #sessionExitButton {
+            width: 100%;
+            margin-top: 8px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 10px;
+            padding: 8px;
+            color: #cfd3da;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #profileMessage {
+            min-height: 16px;
+            color: #ffd180;
+            margin-top: 5px;
+            font-size: 12px;
+        }
+
+        #profileEditForm {
+            display: grid;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        #profileEditForm label {
+            color: #d7d9de;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        #profileEditForm input,
+        #profileEditForm select,
+        #profileEditForm textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 9px;
+            padding: 8px 10px;
             font: inherit;
         }
-        #profileEditForm textarea { min-height: 52px; resize: vertical; }
-        #saveProfileButton { border: 0; border-radius: 9px; padding: 9px; background: linear-gradient(135deg, #f0443f, #d92f2b); color: white; font-weight: 700; cursor: pointer; }
-        #profilePanel.registered-profile .profile-stats { grid-template-columns: 1fr; }
-        #guestCreateAccountButton { width: 100%; border: 1px solid rgba(239,57,53,.55); border-radius: 9px; padding: 9px; background: rgba(239,57,53,.12); color: #ff7773; font-weight: 800; cursor: pointer; }
-        #guestPasswordSignupForm { display: grid; gap: 8px; margin-top: 10px; }
-        #guestPasswordSignupForm[hidden] { display: none; }
-        #guestPasswordSignupForm input { box-sizing: border-box; width: 100%; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; padding: 10px; font: inherit; }
-        .signup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .signup-actions button { border: 0; border-radius: 9px; padding: 9px; cursor: pointer; }
-        #submitGuestSignupButton { background: #ef3935; color: white; font-weight: 700; }
-        #guestMessage { min-height: 18px; color: #ffd180; }
+
+        #profileEditForm textarea {
+            min-height: 52px;
+            resize: vertical;
+        }
+
+        #saveProfileButton {
+            border: 0;
+            border-radius: 9px;
+            padding: 9px;
+            background: linear-gradient(135deg, #f0443f, #d92f2b);
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #profilePanel.registered-profile .profile-stats {
+            grid-template-columns: 1fr;
+        }
+
+        #guestCreateAccountButton {
+            width: 100%;
+            border: 1px solid rgba(239, 57, 53, .55);
+            border-radius: 9px;
+            padding: 9px;
+            background: rgba(239, 57, 53, .12);
+            color: #ff7773;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        #guestPasswordSignupForm {
+            display: grid;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        #guestPasswordSignupForm[hidden] {
+            display: none;
+        }
+
+        #guestPasswordSignupForm input {
+            box-sizing: border-box;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, .16);
+            border-radius: 9px;
+            padding: 10px;
+            font: inherit;
+        }
+
+        .signup-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .signup-actions button {
+            border: 0;
+            border-radius: 9px;
+            padding: 9px;
+            cursor: pointer;
+        }
+
+        #submitGuestSignupButton {
+            background: #ef3935;
+            color: white;
+            font-weight: 700;
+        }
+
+        #guestMessage {
+            min-height: 18px;
+            color: #ffd180;
+        }
 
         .rotate-icon {
             width: 60px;
@@ -603,7 +838,11 @@
         }
 
         @media (max-width: 900px) {
-            #profileButton { top: 58px; right: 10px; }
+            #profileButton {
+                top: 58px;
+                right: 10px;
+            }
+
             #playerCountStatus {
                 top: auto;
                 left: 94px;
@@ -613,6 +852,7 @@
                 padding: 8px 10px;
                 font-size: 13px;
             }
+
             #profilePanel {
                 bottom: auto;
                 right: 10px;
@@ -659,12 +899,12 @@
             min-height: 38px !important;
             min-width: 0 !important;
             padding: 0 12px !important;
-            border: 1px solid rgba(255,255,255,.16) !important;
+            border: 1px solid rgba(255, 255, 255, .16) !important;
             border-radius: 999px !important;
-            background: rgba(20,20,20,.88) !important;
+            background: rgba(20, 20, 20, .88) !important;
             color: #ffffff !important;
             font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,.28) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .28) !important;
             backdrop-filter: blur(10px) !important;
             -webkit-backdrop-filter: blur(10px) !important;
             cursor: pointer !important;
@@ -683,9 +923,9 @@
         #profileButton[aria-expanded="true"],
         #chatToggle[aria-expanded="true"],
         #campusExplorerToggle[aria-expanded="true"] {
-            background: rgba(38,38,38,.96) !important;
-            border-color: rgba(255,255,255,.30) !important;
-            box-shadow: 0 5px 16px rgba(0,0,0,.34) !important;
+            background: rgba(38, 38, 38, .96) !important;
+            border-color: rgba(255, 255, 255, .30) !important;
+            box-shadow: 0 5px 16px rgba(0, 0, 0, .34) !important;
         }
 
         #profileButton:active,
@@ -705,16 +945,14 @@
         #chatPanel,
         #campusExplorerPanel {
             box-sizing: border-box !important;
-            border: 1px solid rgba(255,255,255,.14) !important;
+            border: 1px solid rgba(255, 255, 255, .14) !important;
             border-radius: 16px !important;
             background:
-                linear-gradient(
-                    160deg,
-                    rgba(24,27,32,.96),
-                    rgba(13,15,18,.96)
-                ) !important;
+                linear-gradient(160deg,
+                    rgba(24, 27, 32, .96),
+                    rgba(13, 15, 18, .96)) !important;
             color: #ffffff !important;
-            box-shadow: 0 18px 45px rgba(0,0,0,.40) !important;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, .40) !important;
             backdrop-filter: blur(14px) !important;
             -webkit-backdrop-filter: blur(14px) !important;
         }
@@ -728,34 +966,34 @@
         }
 
         .chatMessage {
-            border: 1px solid rgba(255,255,255,.08) !important;
-            background: rgba(255,255,255,.055) !important;
+            border: 1px solid rgba(255, 255, 255, .08) !important;
+            background: rgba(255, 255, 255, .055) !important;
             border-radius: 9px !important;
         }
 
         #chatForm {
-            background: rgba(255,255,255,.025) !important;
-            border-top: 1px solid rgba(255,255,255,.10) !important;
+            background: rgba(255, 255, 255, .025) !important;
+            border-top: 1px solid rgba(255, 255, 255, .10) !important;
         }
 
         #chatInput {
-            border: 1px solid rgba(255,255,255,.12) !important;
-            background: rgba(255,255,255,.08) !important;
+            border: 1px solid rgba(255, 255, 255, .12) !important;
+            background: rgba(255, 255, 255, .08) !important;
             color: #ffffff !important;
         }
 
         #chatInput::placeholder {
-            color: rgba(255,255,255,.55) !important;
+            color: rgba(255, 255, 255, .55) !important;
         }
 
         #chatInput:focus {
-            border-color: rgba(105,240,192,.65) !important;
-            box-shadow: 0 0 0 2px rgba(105,240,192,.13) !important;
+            border-color: rgba(105, 240, 192, .65) !important;
+            box-shadow: 0 0 0 2px rgba(105, 240, 192, .13) !important;
         }
 
         #chatSend {
             border-radius: 9px !important;
-            background: rgba(239,57,53,.92) !important;
+            background: rgba(239, 57, 53, .92) !important;
             font-weight: 800 !important;
         }
 
@@ -791,7 +1029,7 @@
         .campusExplorerReward {
             margin-top: 7px;
             padding-top: 7px;
-            border-top: 1px solid rgba(255,255,255,.10);
+            border-top: 1px solid rgba(255, 255, 255, .10);
             color: #ffd166;
             font-size: 11px;
             font-weight: 800;
@@ -799,6 +1037,7 @@
         }
 
         @media (max-width: 900px) {
+
             #profileButton,
             #chatToggle,
             #campusExplorerToggle {
@@ -841,21 +1080,21 @@
             justify-content: center;
             min-height: 38px;
             padding: 0 13px;
-            border: 1px solid rgba(255,255,255,.18);
+            border: 1px solid rgba(255, 255, 255, .18);
             border-radius: 10px;
-            background: rgba(20,20,20,.90);
+            background: rgba(20, 20, 20, .90);
             color: #fff;
             font: 700 12px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(0,0,0,.30);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .30);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             pointer-events: auto;
         }
 
         #desktopFullscreenButton:hover {
-            background: rgba(38,38,38,.96);
-            border-color: rgba(255,255,255,.30);
+            background: rgba(38, 38, 38, .96);
+            border-color: rgba(255, 255, 255, .30);
         }
 
         @media (max-width: 900px) {
@@ -892,6 +1131,7 @@
         }
 
         @media (max-width: 900px) {
+
             #campusQuizReturnButton,
             #rlglQuitBtn,
             #carRaceReturnButton {
@@ -921,7 +1161,8 @@
                 <label for="loginUsername">Username</label>
                 <input id="loginUsername" name="username" type="text" maxlength="50" autocomplete="username" required />
                 <label for="loginPassword">Password</label>
-                <input id="loginPassword" name="password" type="password" maxlength="200" autocomplete="current-password" required />
+                <input id="loginPassword" name="password" type="password" maxlength="200"
+                    autocomplete="current-password" required />
                 <button class="auth-button primary" type="submit">Enter Campus</button>
                 <div class="auth-divider">or</div>
                 <div id="googleLoginButton" class="google-button"></div>
@@ -929,11 +1170,14 @@
             </form>
             <form id="signupForm" hidden>
                 <label for="signupUsername">Username</label>
-                <input id="signupUsername" name="username" type="text" minlength="3" maxlength="50" autocomplete="username" required />
+                <input id="signupUsername" name="username" type="text" minlength="3" maxlength="50"
+                    autocomplete="username" required />
                 <label for="signupPassword">Password</label>
-                <input id="signupPassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required />
+                <input id="signupPassword" name="password" type="password" minlength="8" maxlength="72"
+                    autocomplete="new-password" required />
                 <label for="signupConfirmPassword">Confirm Password</label>
-                <input id="signupConfirmPassword" name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" required />
+                <input id="signupConfirmPassword" name="confirmPassword" type="password" minlength="8" maxlength="72"
+                    autocomplete="new-password" required />
                 <button class="auth-button primary" type="submit">Create Account</button>
                 <div class="auth-divider">or</div>
                 <div id="googleSignupButton" class="google-button"></div>
@@ -943,17 +1187,21 @@
             <section id="guestChoicePanel" hidden aria-label="Guest account choice">
                 <div id="guestChoiceQuestion">
                     <h2>Do you already have a Guest Code?</h2>
-                    <button id="hasGuestCodeButton" class="auth-button primary" type="button">Yes, I have a Guest Code</button>
-                    <button id="newGuestButton" class="auth-button secondary" type="button">No, Create a New Guest</button>
+                    <button id="hasGuestCodeButton" class="auth-button primary" type="button">Yes, I have a Guest
+                        Code</button>
+                    <button id="newGuestButton" class="auth-button secondary" type="button">No, Create a New
+                        Guest</button>
                 </div>
                 <form id="guestRestoreForm" hidden>
                     <label for="guestCodeInput">Guest Code</label>
-                    <input id="guestCodeInput" type="text" maxlength="20" placeholder="AU-XXXXXX" autocomplete="off" required />
+                    <input id="guestCodeInput" type="text" maxlength="20" placeholder="AU-XXXXXX" autocomplete="off"
+                        required />
                     <button class="auth-button primary" type="submit">Restore Guest</button>
                 </form>
                 <div id="invalidCodeActions" hidden>
                     <button id="tryGuestCodeAgainButton" class="auth-button secondary" type="button">Try Again</button>
-                    <button id="createGuestAfterFailureButton" class="auth-button primary" type="button">Create New Guest</button>
+                    <button id="createGuestAfterFailureButton" class="auth-button primary" type="button">Create New
+                        Guest</button>
                 </div>
                 <button id="guestFlowBackButton" class="auth-button secondary" type="button">Back</button>
             </section>
@@ -962,93 +1210,125 @@
     </div>
 
     <div id="gameViewport" class="game-ui" hidden>
-    <!-- ORIENTATION OVERLAY -->
-    <div id="orientation-overlay" class="game-ui" hidden>
-        <!-- A simple SVG icon of a phone rotating -->
-        <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-            <line x1="12" y1="18" x2="12.01" y2="18"></line>
-        </svg>
-        <h2>Rotate your device</h2>
-        <p>This experience is best played in landscape mode.</p>
-    </div>
-
-    <button id="chatToggle" class="game-ui" hidden type="button" aria-label="Toggle chat">💬 Chat</button>
-
-    <button id="desktopFullscreenButton" class="game-ui" hidden type="button" aria-label="Toggle full screen">
-        ⛶ Full Screen
-    </button>
-
-    <button id="profileButton" class="game-ui" hidden type="button" aria-expanded="false" aria-controls="profilePanel">
-        <span class="profile-icon" aria-hidden="true">👤</span>
-        <span>Profile</span>
-    </button>
-
-    <div id="playerCountStatus" class="game-ui" hidden aria-live="polite">
-        <span class="online-dot" aria-hidden="true"></span>
-        <span id="playerCountText">Active - 0</span>
-    </div>
-
-    <section id="profilePanel" class="game-ui hidden" hidden aria-label="Player session">
-        <button id="closeProfileButton" type="button" aria-label="Close profile">✕</button>
-        <div class="profile-heading">
-            <img id="profilePicture" alt="Player profile" referrerpolicy="no-referrer" />
-            <div id="guestInfo">Loading player profile...</div>
-            <div id="profileAccountType"></div>
+        <!-- ORIENTATION OVERLAY -->
+        <div id="orientation-overlay" class="game-ui" hidden>
+            <!-- A simple SVG icon of a phone rotating -->
+            <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            <h2>Rotate your device</h2>
+            <p>This experience is best played in landscape mode.</p>
         </div>
-        <div class="profile-stats">
-            <div id="profileGuestCode" class="profile-row" data-label="Guest Code"></div>
-            <div id="profileEmail" class="profile-row" data-label="Email"></div>
-            <div id="profilePoints" class="profile-row" data-label="Points"></div>
+
+        <button id="chatToggle" class="game-ui" hidden type="button" aria-label="Toggle chat">💬 Chat</button>
+
+        <button id="desktopFullscreenButton" class="game-ui" hidden type="button" aria-label="Toggle full screen">
+            ⛶ Full Screen
+        </button>
+
+        <button id="profileButton" class="game-ui" hidden type="button" aria-expanded="false"
+            aria-controls="profilePanel">
+            <span class="profile-icon" aria-hidden="true">👤</span>
+            <span>Profile</span>
+        </button>
+
+        <div id="playerCountStatus" class="game-ui" hidden aria-live="polite">
+            <span class="online-dot" aria-hidden="true"></span>
+            <span id="playerCountText">Active - 0</span>
         </div>
-        <form id="profileEditForm">
-            <label for="profilePlayerName">Player Name</label>
-            <input id="profilePlayerName" type="text" minlength="3" maxlength="24" required />
-            <label for="profileAvatarKey">Avatar</label>
-            <select id="profileAvatarKey">
-                <option value="default_avatar">Default Avatar</option>
-                <option value="student_blue">Student Blue</option>
-                <option value="student_red">Student Red</option>
-                <option value="student_green">Student Green</option>
-            </select>
-            <label for="profileBio">Bio</label>
-            <textarea id="profileBio" maxlength="160" placeholder="Tell other players about yourself"></textarea>
-            <button id="saveProfileButton" type="submit">Save Profile</button>
-        </form>
-        <div>Multiplayer: <span id="multiplayerStatus">Connecting...</span></div>
-        <div id="guestUpgrade" hidden>
-            <p>Keep your profile and points with a permanent account.</p>
-            <button id="guestCreateAccountButton" type="button">Sign Up</button>
-            <form id="guestPasswordSignupForm" hidden>
-                <input id="guestSignupUsername" type="text" minlength="3" maxlength="50" autocomplete="username" placeholder="Username" required />
-                <input id="guestSignupPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="Password" required />
-                <input id="guestSignupConfirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="Confirm password" required />
-                <div class="signup-actions">
-                    <button id="cancelGuestSignupButton" type="button">Cancel</button>
-                    <button id="submitGuestSignupButton" type="submit">Create</button>
-                </div>
+
+        <section id="profilePanel" class="game-ui hidden" hidden aria-label="Player session">
+            <button id="closeProfileButton" type="button" aria-label="Close profile">✕</button>
+            <div class="profile-heading">
+                <img id="profilePicture" alt="Player profile" referrerpolicy="no-referrer" />
+                <div id="guestInfo">Loading player profile...</div>
+                <div id="profileAccountType"></div>
+            </div>
+            <div class="profile-stats">
+                <div id="profileGuestCode" class="profile-row" data-label="Guest Code"></div>
+                <div id="profileEmail" class="profile-row" data-label="Email"></div>
+                <div id="profilePoints" class="profile-row" data-label="Points"></div>
+            </div>
+            <form id="profileEditForm">
+                <label for="profilePlayerName">Player Name</label>
+                <input id="profilePlayerName" type="text" minlength="3" maxlength="24" required />
+                <label for="profileBio">Bio</label>
+                <textarea id="profileBio" maxlength="160" placeholder="Tell other players about yourself"></textarea>
+                <button id="saveProfileButton" type="submit">Save Profile</button>
             </form>
-            <div id="googleUpgradeDivider" class="auth-divider">or continue with Google</div>
-            <div id="googleUpgradeButton" class="google-button"></div>
+            <div>Multiplayer: <span id="multiplayerStatus">Connecting...</span></div>
+            <div id="guestUpgrade" hidden>
+                <p>Keep your profile and points with a permanent account.</p>
+                <button id="guestCreateAccountButton" type="button">Sign Up</button>
+                <form id="guestPasswordSignupForm" hidden>
+                    <input id="guestSignupUsername" type="text" minlength="3" maxlength="50" autocomplete="username"
+                        placeholder="Username" required />
+                    <input id="guestSignupPassword" type="password" minlength="8" maxlength="72"
+                        autocomplete="new-password" placeholder="Password" required />
+                    <input id="guestSignupConfirmPassword" type="password" minlength="8" maxlength="72"
+                        autocomplete="new-password" placeholder="Confirm password" required />
+                    <div class="signup-actions">
+                        <button id="cancelGuestSignupButton" type="button">Cancel</button>
+                        <button id="submitGuestSignupButton" type="submit">Create</button>
+                    </div>
+                </form>
+                <div id="googleUpgradeDivider" class="auth-divider">or continue with Google</div>
+                <div id="googleUpgradeButton" class="google-button"></div>
+            </div>
+            <button id="sessionExitButton" type="button">Leave Guest Session</button>
+            <div id="profileMessage" role="status"></div>
+        </section>
+
+        <div id="chatPanel" class="game-ui" hidden>
+            <div id="chatMessages" aria-live="polite"></div>
+            <form id="chatForm">
+                <input id="chatInput" type="text" maxlength="160" placeholder="Type a message..." />
+                <button id="chatSend" type="submit">Send</button>
+            </form>
         </div>
-        <button id="sessionExitButton" type="button">Leave Guest Session</button>
-        <div id="profileMessage" role="status"></div>
-    </section>
 
-    <div id="chatPanel" class="game-ui" hidden>
-        <div id="chatMessages" aria-live="polite"></div>
-        <form id="chatForm">
-            <input id="chatInput" type="text" maxlength="160" placeholder="Type a message..." />
-            <button id="chatSend" type="submit">Send</button>
-        </form>
-    </div>
+        <canvas id="renderCanvas" class="game-ui" hidden></canvas>
 
-    <canvas id="renderCanvas" class="game-ui" hidden></canvas>
+        <!-- <div id="gameWatermark" class="game-ui" hidden
+        style="position: fixed; right: 15px; bottom: 12px; z-index: 10; color: rgba(255,255,255,0.52); font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-shadow: 0 1px 3px rgba(0,0,0,0.85); pointer-events: none; user-select: none; white-space: nowrap;">
+        AU VMES Faculty Developed by Sitt Yan Htun, Eaint Myat Thu, Shune Lae Wai
+    </div> -->
 
-    <div id="fpsCounter" class="game-ui" hidden
-        style="position: absolute;   background: rgba(0,0,0,0.7); color: lime; padding: 5px 10px; font-family: monospace; font-size: 16px; border-radius: 4px; z-index: 10; bottom: 15px; right: 15px; top: auto; left: auto;">
-        0 FPS
+        <div id="bottomRightHud" class="game-ui" hidden
+            style="position: fixed; right: 10px; bottom: 8px; z-index: 1099; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; width: 140px; pointer-events: none;">
+
+            <div id="fpsCounter"
+                style="background: rgba(0,0,0,0.68); color: #7cff7c; padding: 3px 6px; font-family: monospace; font-size: 11px; line-height: 1; border-radius: 4px; white-space: nowrap;">
+                0 FPS
+            </div>
+
+            <div id="gameWatermark" aria-label="AU GameForge development credits"
+                style="display: flex; flex-direction: row; align-items: center; gap: 5px; opacity: 0.58; user-select: none;">
+
+                <img src="/assets/vmes-watermark.jpg"
+                    alt="Assumption University Vincent Mary School of Engineering, Science and Technology"
+                    draggable="false"
+                    style="display: block; width: 195px; height: auto; border-radius: 3px; box-shadow: 0 1px 5px rgba(0,0,0,0.24);" />
+
+                <div
+                    style="padding: 3px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.9); color: rgba(17, 17, 17, 0.9); font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; text-align: center;">
+
+                    <div class="watermark-title"
+                        style="font-size: 6px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase; opacity: 0.72;">
+                        Developers
+                    </div>
+
+                    <div class="watermark-names"
+                        style="margin-top: 1px; font-size: 7px; font-weight: 650; line-height: 1.18; white-space: nowrap;">
+                        <div>Sitt Yan Htun</div>
+                        <div>Eaint Myat Thu</div>
+                        <div>Shune Lae Wai</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MOBILE CONTROLLER UI -->

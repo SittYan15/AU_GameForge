@@ -41,12 +41,23 @@ const BACKEND_URL_BY_FRONTEND_HOST = Object.freeze({
     "auverse.sittyan.com": "https://auverseapi.sittyan.com"
 });
 
+// Explicit VITE_SERVER_URL wins over automatic LAN routing.
+// This lets a phone using the PC's LAN frontend join the same
+// cloud multiplayer backend when VITE_SERVER_URL is configured.
+const CONFIGURED_SERVER_URL =
+    String(
+        import.meta.env.VITE_SERVER_URL ||
+        ""
+    ).trim();
+
 const SERVER_URL = (
-    isLocalNetwork
-        ? `${window.location.protocol}//${hostname}:3001`
-        : BACKEND_URL_BY_FRONTEND_HOST[hostname] ||
-            import.meta.env.VITE_SERVER_URL ||
-            "https://au-gameforge-backend.onrender.com"
+    CONFIGURED_SERVER_URL ||
+    (
+        isLocalNetwork
+            ? `${window.location.protocol}//${hostname}:3001`
+            : BACKEND_URL_BY_FRONTEND_HOST[hostname] ||
+                "https://au-gameforge-backend.onrender.com"
+    )
 ).replace(/\/$/, "");
 
 console.log("Frontend Host:", hostname);
@@ -1173,10 +1184,18 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
     };
 
     const socket = io(SERVER_URL, {
-        transports: ["websocket", "polling"],
+        // Guests authenticate through the HTTP session cookie.
+        // Start with polling so the initial HTTP handshake carries
+        // credentials, then Socket.IO may upgrade to WebSocket.
+        transports: ["polling", "websocket"],
+        withCredentials: true,
         auth: {
-            token: session.accountType === "user" ? session.token : undefined,
-            gameTabId: session.gameTabId
+            token:
+                session.accountType === "user"
+                    ? session.token
+                    : undefined,
+            gameTabId:
+                session.gameTabId
         }
     });
 

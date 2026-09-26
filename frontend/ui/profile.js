@@ -505,7 +505,6 @@ export function renderProfilePanel(profile) {
     passwordSignupForm.hidden = true;
     profileForm.hidden = false;
     document.getElementById("profilePlayerName").value = profile.playerName;
-    document.getElementById("profileAvatarKey").value = profile.avatarKey || "default_avatar";
     document.getElementById("profileBio").value = profile.bio || "";
     exitButton.textContent = isGuest ? "Leave Guest Session" : "Logout";
 }
@@ -574,7 +573,7 @@ export async function setupProfile(session, multiplayerInstance) {
         try {
             const values = {
                 playerName: document.getElementById("profilePlayerName").value,
-                avatarKey: document.getElementById("profileAvatarKey").value,
+                avatarKey: currentSession.avatarKey || "default_avatar",
                 bio: document.getElementById("profileBio").value
             };
             const updated = currentSession.accountType === "guest"

@@ -52,20 +52,15 @@ style.textContent = `
         }
 
         #btn-jump {
-            position: fixed !important;
+            position: absolute !important;
 
-            right: max(
-                18px,
-                env(safe-area-inset-right)
-            ) !important;
-
-            bottom: calc(
-                78px +
-                env(safe-area-inset-bottom)
-            ) !important;
+            right: 10px !important;
+            bottom: 52px !important;
 
             top: auto !important;
             left: auto !important;
+
+            z-index: 20 !important;
         }
 
         #fpsCounter {

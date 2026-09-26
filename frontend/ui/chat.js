@@ -36,6 +36,9 @@ let outsideClickBound =
 let escapeBound =
     false;
 
+let tabShortcutBound =
+    false;
+
 const chatPreviewTimers =
     new Map();
 
@@ -366,6 +369,13 @@ export function setChatOpen(
             50
         );
     }
+
+    if (
+        !nextOpen &&
+        chatInputEl === document.activeElement
+    ) {
+        chatInputEl.blur();
+    }
 }
 
 function handleOutsideChatClick(
@@ -410,6 +420,35 @@ function handleChatEscape(
     }
 }
 
+function handleChatTabShortcut(event) {
+    if (
+        event.key !== "Tab" ||
+        event.shiftKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey
+    ) {
+        return;
+    }
+
+    // Only use Tab shortcut for normal PC/mouse devices.
+    const isDesktop =
+        window.matchMedia(
+            "(hover: hover) and (pointer: fine)"
+        ).matches;
+
+    if (!isDesktop) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setChatOpen(
+        !chatState.isOpen
+    );
+}
+
 export function setupChat(
     multiplayerInstance
 ) {
@@ -451,6 +490,17 @@ export function setupChat(
         );
 
         escapeBound =
+            true;
+    }
+
+    if (!tabShortcutBound) {
+        document.addEventListener(
+            "keydown",
+            handleChatTabShortcut,
+            true
+        );
+
+        tabShortcutBound =
             true;
     }
 

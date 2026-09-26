@@ -13,6 +13,9 @@ import { InputController } from "./core/input.js";
 import { ELEVATORS, ELEVATOR_DEBUG } from "./elevators/elevatorConfig.js";
 import { createElevatorSystem } from "./elevators/elevatorSystem.js";
 
+// Caching
+import { prepareGlbBrowserCache } from "./assetCache.js";
+
 // World Systems
 import { createMainScene } from "./world/scene.js";
 import { initChunkManager } from "./world/chunkManager.js";
@@ -95,6 +98,17 @@ async function startGame(session) {
     session = { ...session, gameTabId: tabClaim.tabId };
     gameStarted = true;
     currentSession = session;
+
+    setStartupStage("Preparing browser asset cache");
+
+    try {
+        await prepareGlbBrowserCache();
+    } catch (error) {
+        console.warn(
+            "[GLB Cache] Setup failed; continuing with normal network loading:",
+            error
+        );
+    }
 
     window.multiplayerInstance = multiplayer;
 

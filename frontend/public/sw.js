@@ -1,5 +1,5 @@
-const GLB_CACHE_NAME = "au-gameforge-glb-v2";
-const SETTINGS_CACHE_NAME = "au-gameforge-glb-cache-settings-v1";
+const GLB_CACHE_NAME = "au-gameforge-glb";
+const SETTINGS_CACHE_NAME = "au-gameforge-glb-cache-settings";
 const PREF_URL = new URL(
     "/__au-gameforge-glb-cache-enabled__",
     self.location.origin
@@ -88,81 +88,117 @@ self.addEventListener("message", (event) => {
     }
 });
 
-self.addEventListener("fetch", (event) => {
-    const request = event.request;
+async function prepareGlbResponse(request) {
+    const enabled =
+        await isGlbCacheEnabled();
 
-    if (!isCacheableGlbRequest(request)) {
-        return;
+    if (!enabled) {
+        return {
+            response:
+                await fetch(request),
+            cacheWrite:
+                null
+        };
     }
 
-    // Avoid returning a full cached object to an HTTP Range request.
-    // Babylon normally requests these GLBs as full files, but this keeps
-    // the worker safe if browser behavior changes.
-    if (request.headers.has("range")) {
-        return;
+    const assetCache =
+        await caches.open(
+            GLB_CACHE_NAME
+        );
+
+    const cached =
+        await assetCache.match(
+            request
+        );
+
+    if (cached) {
+        console.log(
+            "[GLB Cache] Local hit:",
+            request.url
+        );
+
+        return {
+            response:
+                cached,
+            cacheWrite:
+                null
+        };
     }
 
-    event.respondWith(
-        (async () => {
-            const enabled =
-                await isGlbCacheEnabled();
+    console.log(
+        "[GLB Cache] Downloading and caching:",
+        request.url
+    );
 
-            if (!enabled) {
-                return fetch(request);
-            }
+    const response =
+        await fetch(request);
 
-            const assetCache =
-                await caches.open(GLB_CACHE_NAME);
+    let cacheWrite =
+        null;
 
-            const cached =
-                await assetCache.match(request);
-
-            if (cached) {
-                console.log(
-                    "[GLB Cache] Local hit:",
-                    request.url
-                );
-
-                return cached;
-            }
-
-            console.log(
-                "[GLB Cache] Downloading once:",
-                request.url
-            );
-
-            const response =
-                await fetch(request);
-
-            // A CORS response is normally response.ok.
-            // Opaque is accepted too so the cache remains usable if
-            // the R2 CORS configuration changes.
-            if (
-                response.ok ||
-                response.type === "opaque"
-            ) {
-                try {
-                    await assetCache.put(
-                        request,
-                        response.clone()
-                    );
-
+    if (
+        response.ok ||
+        response.type === "opaque"
+    ) {
+        cacheWrite =
+            assetCache
+                .put(
+                    request,
+                    response.clone()
+                )
+                .then(() => {
                     console.log(
                         "[GLB Cache] Saved locally:",
                         request.url
                     );
-                } catch (error) {
-                    // Quota/storage failure must never prevent the game
-                    // from receiving the successfully downloaded GLB.
+                })
+                .catch((error) => {
                     console.warn(
                         "[GLB Cache] Could not save:",
                         request.url,
                         error
                     );
-                }
-            }
+                });
+    }
 
-            return response;
-        })()
-    );
-});
+    return {
+        response,
+        cacheWrite
+    };
+}
+
+self.addEventListener(
+    "fetch",
+    (event) => {
+        const request =
+            event.request;
+
+        if (!isCacheableGlbRequest(request)) {
+            return;
+        }
+
+        if (request.headers.has("range")) {
+            return;
+        }
+
+        const prepared =
+            prepareGlbResponse(
+                request
+            );
+
+        event.respondWith(
+            prepared.then(
+                ({ response }) =>
+                    response
+            )
+        );
+
+        event.waitUntil(
+            prepared.then(
+                ({ cacheWrite }) =>
+                    cacheWrite ||
+                    Promise.resolve()
+            )
+        );
+    }
+);

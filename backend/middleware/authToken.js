@@ -17,6 +17,50 @@ export function createAccessToken(userId, sessionId) {
     });
 }
 
+export function createGuestAccessToken(guestId) {
+    return jwt.sign(
+        {
+            accountType: "guest"
+        },
+        jwtSecret(),
+        {
+            subject: String(guestId),
+            expiresIn: "8h"
+        }
+    );
+}
+
+export function verifyGuestAccessToken(token) {
+    if (typeof token !== "string" || !token) {
+        return null;
+    }
+
+    try {
+        const payload = jwt.verify(
+            token,
+            jwtSecret()
+        );
+
+        const guestId =
+            Number(payload.sub);
+
+        if (
+            payload.accountType !== "guest" ||
+            !Number.isSafeInteger(guestId) ||
+            guestId <= 0
+        ) {
+            return null;
+        }
+
+        return {
+            guestId
+        };
+
+    } catch {
+        return null;
+    }
+}
+
 export function verifyAccessToken(token) {
     if (typeof token !== "string" || !token) return null;
     try {

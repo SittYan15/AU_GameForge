@@ -56,7 +56,7 @@ const SERVER_URL = (
         isLocalNetwork
             ? `${window.location.protocol}//${hostname}:3001`
             : BACKEND_URL_BY_FRONTEND_HOST[hostname] ||
-                "https://au-gameforge-backend.onrender.com"
+            "https://au-gameforge-backend.onrender.com"
     )
 ).replace(/\/$/, "");
 
@@ -754,20 +754,77 @@ export async function getProfile(options = {}) {
 }
 
 export async function restoreSession() {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    const controller =
+        new AbortController();
+
+    const timeout =
+        window.setTimeout(
+            () => controller.abort(),
+            10000
+        );
+
     try {
-        const profile = await getProfile({ signal: controller.signal });
-        return {
-            ...profile,
-            token: profile.accountType === "user" ? profile.token : undefined
-        };
-    } catch (error) {
-        if (error.name === "AbortError") {
-            throw new Error("Session restoration timed out. Please check your connection and try again.");
+
+        try {
+
+            const profile =
+                await getProfile({
+                    signal:
+                        controller.signal
+                });
+
+            return {
+                ...profile,
+                token:
+                    profile.token
+            };
+
+        } catch (error) {
+
+            // Safari may block the
+            // cross-site session cookie.
+            //
+            // If this browser already has
+            // a guest code, recreate the
+            // guest authentication using it.
+
+            const guestCode =
+                localStorage.getItem(
+                    STORAGE_KEY
+                );
+
+            if (
+                error.status === 401 &&
+                guestCode
+            ) {
+
+                console.info(
+                    "HTTP session unavailable. Restoring guest using guest code."
+                );
+
+                return await restoreGuest(
+                    guestCode
+                );
+            }
+
+            throw error;
         }
+
+    } catch (error) {
+
+        if (
+            error.name ===
+            "AbortError"
+        ) {
+            throw new Error(
+                "Session restoration timed out. Please check your connection and try again."
+            );
+        }
+
         throw error;
+
     } finally {
+
         clearTimeout(timeout);
     }
 }
@@ -833,7 +890,8 @@ function toGuestSession(guest) {
         points: guest.points,
         avatarKey: guest.avatarKey || "default_avatar",
         bio: guest.bio || "",
-        tutorialCompleted: guest.tutorialCompleted !== false
+        tutorialCompleted: guest.tutorialCompleted !== false,
+        token: guest.token
     };
 }
 
@@ -1191,9 +1249,7 @@ export async function createMultiplayer(scene, localPlayer, session, handlers = 
         withCredentials: true,
         auth: {
             token:
-                session.accountType === "user"
-                    ? session.token
-                    : undefined,
+                session.token,
             gameTabId:
                 session.gameTabId
         }

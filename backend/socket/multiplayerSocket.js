@@ -1,4 +1,7 @@
-import { verifyAccessToken } from "../middleware/authToken.js";
+import {
+    verifyAccessToken,
+    verifyGuestAccessToken
+} from "../middleware/authToken.js";
 import { getConvertedUserForGuest } from "../models/googleAccountModel.js";
 import { findGuestById, addGuestPoints } from "../models/guestModel.js";
 import { findUserById, addUserPoints, setActiveSessionExpiration } from "../models/userModel.js";
@@ -160,7 +163,7 @@ function emitRlglPlayerStatus(io) {
                         "OUT";
                 } else if (
                     rlglState.phase ===
-                        "ACTIVE" &&
+                    "ACTIVE" &&
                     socket.data
                         .isPlaying
                 ) {
@@ -503,7 +506,7 @@ function startRlglLobby(io) {
         count -= 1;
         if (count > 0) {
             io.to(RLGL_ROOM).emit("rlgl:lobby_countdown", count);
-    emitRlglPlayerStatus(io);
+            emitRlglPlayerStatus(io);
             return;
         }
         clearInterval(rlglLobbyInterval);
@@ -654,16 +657,35 @@ export default function registerMultiplayerSocket(io) {
         socket.on("player:join", async (payload = {}) => {
             if (players.has(socket.id) || socket.data.joining) return;
 
-            const accountType = payload.accountType;
-            const guestSession = socket.request.session;
-            const tokenIdentity = accountType === "user" ? verifyAccessToken(socket.handshake.auth?.token) : null;
+            const accountType =
+                payload.accountType;
+
+            const token =
+                socket.handshake.auth?.token;
+
+            const userIdentity =
+                accountType === "user"
+                    ? verifyAccessToken(token)
+                    : null;
+
+            const guestIdentity =
+                accountType === "guest"
+                    ? verifyGuestAccessToken(token)
+                    : null;
+
             if (accountType !== "guest" && accountType !== "user") return;
-            if (accountType === "guest"
-                && (guestSession?.accountType !== "guest" || !Number.isSafeInteger(guestSession.guestId))) {
-                socket.emit("player:joinError", "An authenticated guest session is required.");
+            if (
+                accountType === "guest" &&
+                !guestIdentity
+            ) {
+                socket.emit(
+                    "player:joinError",
+                    "Guest authentication required."
+                );
+
                 return;
             }
-            if (accountType === "user" && !tokenIdentity) {
+            if (accountType === "user" && !userIdentity) {
                 socket.emit("player:joinError", "Authentication required.");
                 return;
             }
@@ -671,9 +693,14 @@ export default function registerMultiplayerSocket(io) {
             socket.data.joining = true;
             let account;
             try {
-                account = accountType === "guest"
-                    ? await findGuestById(guestSession.guestId)
-                    : await findUserById(tokenIdentity.userId);
+                account =
+                    accountType === "guest"
+                        ? await findGuestById(
+                            guestIdentity.guestId
+                        )
+                        : await findUserById(
+                            userIdentity.userId
+                        );
             } catch (error) {
                 console.error("Could not verify multiplayer account:", error.message);
                 socket.emit("player:joinError", "Account verification is temporarily unavailable.");
@@ -686,7 +713,7 @@ export default function registerMultiplayerSocket(io) {
                 return;
             }
             if (accountType === "user"
-                && (!account.activeSessionId || account.activeSessionId !== tokenIdentity.sessionId
+                && (!account.activeSessionId || account.activeSessionId !== userIdentity.sessionId
                     || !account.activeSessionExpiresAt
                     || new Date(account.activeSessionExpiresAt) <= new Date())) {
                 socket.emit("auth:sessionReplaced", {
@@ -697,12 +724,12 @@ export default function registerMultiplayerSocket(io) {
             }
 
             if (accountType === "user") {
-                socket.data.authUserId = tokenIdentity.userId;
-                socket.data.authSessionId = tokenIdentity.sessionId;
+                socket.data.authUserId = userIdentity.userId;
+                socket.data.authSessionId = userIdentity.sessionId;
                 try {
                     await setActiveSessionExpiration(
-                        tokenIdentity.userId,
-                        tokenIdentity.sessionId,
+                        userIdentity.userId,
+                        userIdentity.sessionId,
                         new Date(Date.now() + 8 * 60 * 60 * 1000)
                     );
                 } catch (error) {
@@ -713,8 +740,8 @@ export default function registerMultiplayerSocket(io) {
                 }
                 socket.data.sessionValidationTimer = setInterval(async () => {
                     try {
-                        const currentUser = await findUserById(tokenIdentity.userId);
-                        if (currentUser?.activeSessionId === tokenIdentity.sessionId
+                        const currentUser = await findUserById(userIdentity.userId);
+                        if (currentUser?.activeSessionId === userIdentity.sessionId
                             && currentUser.activeSessionExpiresAt
                             && new Date(currentUser.activeSessionExpiresAt) > new Date()) return;
                         socket.emit("auth:sessionReplaced", {
@@ -732,7 +759,7 @@ export default function registerMultiplayerSocket(io) {
                 : `guest:${account.id}`;
             const gameTabId =
                 typeof socket.handshake.auth?.gameTabId ===
-                "string"
+                    "string"
                     ? socket.handshake.auth.gameTabId.slice(
                         0,
                         100
@@ -757,7 +784,7 @@ export default function registerMultiplayerSocket(io) {
                     Boolean(
                         gameTabId &&
                         existingSocket?.data.gameTabId ===
-                            gameTabId
+                        gameTabId
                     );
 
                 if (isSameTabRefresh) {
@@ -986,7 +1013,7 @@ export default function registerMultiplayerSocket(io) {
                                 rlglState.redStartedAt
                             )
                                 ? now -
-                                    rlglState.redStartedAt
+                                rlglState.redStartedAt
                                 : RLGL_RED_ELIMINATION_GRACE_MS;
 
                         if (
